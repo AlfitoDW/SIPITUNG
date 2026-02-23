@@ -1,0 +1,15 @@
+{
+  "name": "Sistem Informasi LLDIKTI 3",
+  "short_name": "LLDIKTI3",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}
