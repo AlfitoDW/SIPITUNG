@@ -19,15 +19,15 @@ Route::get('/perencanaan', function () {
 })->middleware(['auth', 'verified'])->name('perencanaan.index');
 
 Route::get('/perencanaan/perjanjian-kinerja/awal/persiapan', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Awal/Persiapan'))->middleware(['auth', 'verified'])->name('perencanaan.pk.awal.persiapan');
-Route::get('/perencanaan/perjanjian-kinerja/awal/progress', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Awal/Progres'))->middleware(['auth', 'verified'])->name('perencanaan.pk.awal.progres');
+Route::get('/perencanaan/perjanjian-kinerja/awal/progress', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Awal/Progress'))->middleware(['auth', 'verified'])->name('perencanaan.pk.awal.progres');
 Route::get('/perencanaan/perjanjian-kinerja/revisi/persiapan', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Revisi/Persiapan'))->middleware(['auth', 'verified'])->name('perencanaan.pk.revisi.persiapan');
-Route::get('/perencanaan/perjanjian-kinerja/revisi/progress', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Revisi/Progres'))->middleware(['auth', 'verified'])->name('perencanaan.pk.revisi.progres');
+Route::get('/perencanaan/perjanjian-kinerja/revisi/progress', fn() => Inertia::render('Perencanaan/PerjanjianKinerja/Revisi/Progress'))->middleware(['auth', 'verified'])->name('perencanaan.pk.revisi.progres');
 
 
 Route::get('/perencanaan/rencana-aksi/awal/persiapan', fn() => Inertia::render('Perencanaan/RencanaAksi/Awal/Persiapan'))->middleware(['auth', 'verified'])->name('perencanaan.ra.awal.persiapan');
-Route::get('/perencanaan/rencana-aksi/awal/progress', fn() => Inertia::render('Perencanaan/RencanaAksi/Awal/Progres'))->middleware(['auth', 'verified'])->name('perencanaan.ra.awal.progres');
+Route::get('/perencanaan/rencana-aksi/awal/progress', fn() => Inertia::render('Perencanaan/RencanaAksi/Awal/Progress'))->middleware(['auth', 'verified'])->name('perencanaan.ra.awal.progres');
 Route::get('/perencanaan/rencana-aksi/revisi/persiapan', fn() => Inertia::render('Perencanaan/RencanaAksi/Revisi/Persiapan'))->middleware(['auth', 'verified'])->name('perencanaan.ra.revisi.persiapan');
-Route::get('/perencanaan/rencana-aksi/revisi/progress', fn() => Inertia::render('Perencanaan/RencanaAksi/Revisi/Progres'))->middleware(['auth', 'verified'])->name('perencanaan.ra.revisi.progres');
+Route::get('/perencanaan/rencana-aksi/revisi/progress', fn() => Inertia::render('Perencanaan/RencanaAksi/Revisi/Progress'))->middleware(['auth', 'verified'])->name('perencanaan.ra.revisi.progres');
 
 Route::get('/keuangan', function () {
     return Inertia::render('Keuangan');
@@ -66,5 +66,7 @@ Route::get('/data-master', function () {
 Route::get('/backup-data', function () {
     return Inertia::render('BackupData');
 })->middleware(['auth', 'verified'])->name('backup-data.index');
+
+
 
 require __DIR__.'/settings.php';

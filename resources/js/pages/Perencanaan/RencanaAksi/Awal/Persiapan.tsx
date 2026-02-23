@@ -3,9 +3,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Perencanaan', href: '/perencanaan' },
-    { title: 'Perjanjian Kinerja', href: '#' },
-    { title: 'Awal', href: '#' },
+    { title: 'Perjanjian Kinerja', href: '/#' },
+    { title: 'Awal', href: '/#' },
     { title: 'Persiapan', href: '/perencanaan/perjanjian-kinerja/awal/persiapan' },
 ];
 

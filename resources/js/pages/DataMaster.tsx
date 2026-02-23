@@ -64,7 +64,7 @@ import {
     Building2,
     Tag,
     DollarSign,
-    FileText,
+    Users,
     Calendar,
     File,
 } from 'lucide-react';
@@ -82,7 +82,7 @@ interface DataMasterProps {
     unitKerja: UnitKerja[];
     kategoriKegiatan: KategoriKegiatan[];
     jenisAnggaran: JenisAnggaran[];
-    mak: MAK[];
+    managementAccount: ManagementAccount[];
     tahunAnggaran: TahunAnggaran[];
     templateDokumen: TemplateDokumen[];
 }
@@ -109,10 +109,11 @@ interface JenisAnggaran {
     status: 'active' | 'inactive';
 }
 
-interface MAK {
+interface ManagementAccount {
     id: number;
-    kode: string;
-    nama: string;
+    username: string;
+    email: string;
+    role: string;
     status: 'active' | 'inactive';
 }
 
@@ -135,7 +136,7 @@ export default function DataMaster({
     unitKerja,
     kategoriKegiatan,
     jenisAnggaran,
-    mak,
+    managementAccount,
     tahunAnggaran,
     templateDokumen,
 }: DataMasterProps) {
@@ -146,13 +147,13 @@ export default function DataMaster({
     const [searchUnit, setSearchUnit] = useState('');
     const [searchKategori, setSearchKategori] = useState('');
     const [searchJenis, setSearchJenis] = useState('');
-    const [searchMAK, setSearchMAK] = useState('');
+    const [searchAccount, setSearchAccount] = useState('');
     const [searchTahun, setSearchTahun] = useState('');
     const [searchTemplate, setSearchTemplate] = useState('');
 
     // State untuk dialog
     const [showDialog, setShowDialog] = useState(false);
-    const [dialogType, setDialogType] = useState<'unit' | 'kategori' | 'jenis' | 'mak' | 'tahun' | 'template'>('unit');
+    const [dialogType, setDialogType] = useState<'unit' | 'kategori' | 'jenis' | 'account' | 'tahun' | 'template'>('unit');
     const [editingItem, setEditingItem] = useState<any>(null);
 
     // State untuk delete
@@ -221,8 +222,8 @@ export default function DataMaster({
                 return { nama: '', deskripsi: '', status: true };
             case 'jenis':
                 return { nama: '', kode: '', sumberDana: '', status: true };
-            case 'mak':
-                return { kode: '', nama: '', status: true };
+            case 'account':
+                return { username: '', email: '', role: '', status: true };
             case 'tahun':
                 return { tahun: '', isActive: false, status: true };
             case 'template':
@@ -263,7 +264,7 @@ export default function DataMaster({
     const filteredUnitKerja = filterData(unitKerja, searchUnit, ['nama', 'kode']);
     const filteredKategori = filterData(kategoriKegiatan, searchKategori, ['nama', 'deskripsi']);
     const filteredJenis = filterData(jenisAnggaran, searchJenis, ['nama', 'kode', 'sumberDana']);
-    const filteredMAK = filterData(mak, searchMAK, ['kode', 'nama']);
+    const filteredAccount = filterData(managementAccount, searchAccount, ['username', 'email', 'role']);
     const filteredTahun = filterData(tahunAnggaran, searchTahun, ['tahun']);
     const filteredTemplate = filterData(templateDokumen, searchTemplate, ['nama', 'fileName']);
 
@@ -295,9 +296,9 @@ export default function DataMaster({
                             <DollarSign className="mr-2 h-4 w-4" />
                             Jenis Anggaran
                         </TabsTrigger>
-                        <TabsTrigger value="mak">
-                            <FileText className="mr-2 h-4 w-4" />
-                            MAK
+                        <TabsTrigger value="account">
+                            <Users className="mr-2 h-4 w-4" />
+                            Akun
                         </TabsTrigger>
                         <TabsTrigger value="tahun">
                             <Calendar className="mr-2 h-4 w-4" />
@@ -607,25 +608,25 @@ export default function DataMaster({
                         </Card>
                     </TabsContent>
 
-                    {/* Tab MAK */}
-                    <TabsContent value="mak" className="space-y-4">
+                    {/* Tab Management Account */}
+                    <TabsContent value="account" className="space-y-4">
                         <Card>
                             <CardHeader>
                                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                     <div>
-                                        <CardTitle>MAK - Mata Anggaran Keluaran</CardTitle>
-                                        <CardDescription>Kelola kode MAK 6 digit</CardDescription>
+                                        <CardTitle>Management Account</CardTitle>
+                                        <CardDescription>Kelola akun pengguna sistem</CardDescription>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => handleImport('mak')}>
+                                        <Button variant="outline" size="sm" onClick={() => handleImport('account')}>
                                             <Upload className="mr-2 h-4 w-4" />
                                             Import
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={() => handleExport('mak')}>
+                                        <Button variant="outline" size="sm" onClick={() => handleExport('account')}>
                                             <Download className="mr-2 h-4 w-4" />
                                             Export
                                         </Button>
-                                        <Button size="sm" onClick={() => handleAdd('mak')}>
+                                        <Button size="sm" onClick={() => handleAdd('account')}>
                                             <Plus className="mr-2 h-4 w-4" />
                                             Tambah
                                         </Button>
@@ -636,9 +637,9 @@ export default function DataMaster({
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Cari kode atau nama MAK..."
-                                        value={searchMAK}
-                                        onChange={(e) => setSearchMAK(e.target.value)}
+                                        placeholder="Cari username atau email..."
+                                        value={searchAccount}
+                                        onChange={(e) => setSearchAccount(e.target.value)}
                                         className="pl-8"
                                     />
                                 </div>
@@ -647,18 +648,22 @@ export default function DataMaster({
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Kode MAK</TableHead>
-                                                <TableHead>Nama MAK</TableHead>
+                                                <TableHead>Username</TableHead>
+                                                <TableHead>Email</TableHead>
+                                                <TableHead>Role</TableHead>
                                                 <TableHead>Status</TableHead>
                                                 <TableHead className="text-center">Aksi</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredMAK.length > 0 ? (
-                                                filteredMAK.map((item) => (
+                                            {filteredAccount.length > 0 ? (
+                                                filteredAccount.map((item: ManagementAccount) => (
                                                     <TableRow key={item.id}>
-                                                        <TableCell className="font-mono text-lg font-semibold">{item.kode}</TableCell>
-                                                        <TableCell className="font-medium">{item.nama}</TableCell>
+                                                        <TableCell className="font-medium">{item.username}</TableCell>
+                                                        <TableCell>{item.email}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">{item.role}</Badge>
+                                                        </TableCell>
                                                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                                                         <TableCell className="text-center">
                                                             <DropdownMenu>
@@ -668,11 +673,11 @@ export default function DataMaster({
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent align="end">
-                                                                    <DropdownMenuItem onClick={() => handleEdit('mak', item)}>
+                                                                    <DropdownMenuItem onClick={() => handleEdit('account', item)}>
                                                                         <Edit className="mr-2 h-4 w-4" />
                                                                         Edit
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => handleToggleStatus('mak', item)}>
+                                                                    <DropdownMenuItem onClick={() => handleToggleStatus('account', item)}>
                                                                         {item.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuSeparator />
@@ -693,8 +698,8 @@ export default function DataMaster({
                                                 ))
                                             ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                                                        Tidak ada data MAK
+                                                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                                                        Tidak ada data akun
                                                     </TableCell>
                                                 </TableRow>
                                             )}
@@ -896,7 +901,7 @@ export default function DataMaster({
                             {editingItem ? 'Edit' : 'Tambah'} {dialogType === 'unit' ? 'Unit Kerja' : 
                             dialogType === 'kategori' ? 'Kategori' :
                             dialogType === 'jenis' ? 'Jenis Anggaran' :
-                            dialogType === 'mak' ? 'MAK' :
+                            dialogType === 'account' ? 'Management Account' :
                             dialogType === 'tahun' ? 'Tahun Anggaran' : 'Template'}
                         </DialogTitle>
                     </DialogHeader>
@@ -948,17 +953,31 @@ export default function DataMaster({
                                 </div>
                             </>
                         )}
-                        {dialogType === 'mak' && (
+                        {dialogType === 'account' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label>Kode MAK (6 digit) <span className="text-red-500">*</span></Label>
-                                    <Input placeholder="521111" maxLength={6} value={formData.kode || ''}
-                                        onChange={(e) => setFormData({...formData, kode: e.target.value})} />
+                                    <Label>Username <span className="text-red-500">*</span></Label>
+                                    <Input placeholder="Misal: admin" value={formData.username || ''}
+                                        onChange={(e) => setFormData({...formData, username: e.target.value})} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Nama MAK <span className="text-red-500">*</span></Label>
-                                    <Input placeholder="Belanja Pegawai" value={formData.nama || ''}
-                                        onChange={(e) => setFormData({...formData, nama: e.target.value})} />
+                                    <Label>Email <span className="text-red-500">*</span></Label>
+                                    <Input type="email" placeholder="Misal: admin@lldikti3.id" value={formData.email || ''}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Role <span className="text-red-500">*</span></Label>
+                                    <Select value={formData.role || ''} onValueChange={(val) => setFormData({...formData, role: val})}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih role..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Super Admin">Super Admin</SelectItem>
+                                            <SelectItem value="Admin">Admin</SelectItem>
+                                            <SelectItem value="Operator">Operator</SelectItem>
+                                            <SelectItem value="Viewer">Viewer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </>
                         )}
@@ -1043,11 +1062,11 @@ DataMaster.defaultProps = {
         { id: 2, nama: 'DIPA Tambahan', kode: 'DIPA-TAM', sumberDana: 'APBN', status: 'active' },
         { id: 3, nama: 'PNBP', kode: 'PNBP', sumberDana: 'Non-APBN', status: 'active' },
     ],
-    mak: [
-        { id: 1, kode: '521111', nama: 'Belanja Pegawai', status: 'active' },
-        { id: 2, kode: '521211', nama: 'Belanja Barang', status: 'active' },
-        { id: 3, kode: '524111', nama: 'Belanja Modal Peralatan', status: 'active' },
-        { id: 4, kode: '524119', nama: 'Belanja Modal Gedung', status: 'inactive' },
+    managementAccount: [
+        { id: 1, username: 'superadmin', email: 'superadmin@lldikti3.id', role: 'Super Admin', status: 'active' },
+        { id: 2, username: 'admin1', email: 'admin1@lldikti3.id', role: 'Admin', status: 'active' },
+        { id: 3, username: 'operator1', email: 'operator1@lldikti3.id', role: 'Operator', status: 'active' },
+        { id: 4, username: 'viewer1', email: 'viewer1@lldikti3.id', role: 'Viewer', status: 'inactive' },
     ],
     tahunAnggaran: [
         { id: 1, tahun: '2024', isActive: true, status: 'active' },

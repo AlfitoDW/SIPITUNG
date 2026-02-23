@@ -114,7 +114,7 @@ const navGroups: NavGroup[] = [
          items: [
             {
                 title: 'Data Master',
-                href: dashboard(),
+                href: '/data-master',
                 icon: Database,
             },
         ],
