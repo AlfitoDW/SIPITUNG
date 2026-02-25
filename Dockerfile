@@ -39,9 +39,6 @@ RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
     && chmod -R 755 /var/www/bootstrap/cache
 
-# HAPUS bagian SQLite
-# (tidak perlu lagi karena pakai MySQL eksternal)
-
 EXPOSE 8000
 
 # Production CMD (tambah db:seed kalau perlu)
@@ -49,4 +46,5 @@ CMD php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
     php artisan migrate --force && \
+    (php artisan db:seed --force || true) && \
     php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
