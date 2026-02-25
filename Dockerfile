@@ -1,6 +1,6 @@
 FROM php:8.4-cli
 
-# Install system dependencies
+# Install system dependencies (GANTI sqlite ke mysql-client)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -9,12 +9,11 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    sqlite3 \
-    libsqlite3-dev \
+    default-mysql-client \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd
+# Install PHP extensions (GANTI pdo_sqlite ke pdo_mysql)
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -40,13 +39,12 @@ RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
     && chmod -R 755 /var/www/bootstrap/cache
 
-# Create SQLite database
-RUN touch /var/www/database/database.sqlite \
-    && chown www-data:www-data /var/www/database/database.sqlite
+# HAPUS bagian SQLite
+# (tidak perlu lagi karena pakai MySQL eksternal)
 
 EXPOSE 8000
 
-# Production CMD - tanpa npm run dev, tanpa pail
+# Production CMD (tambah db:seed kalau perlu)
 CMD php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
