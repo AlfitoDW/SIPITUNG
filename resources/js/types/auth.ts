@@ -1,3 +1,6 @@
+export type UserRole = 'super_admin' | 'ketua_tim_kerja' | 'pimpinan' | 'bendahara';
+export type PimpinanType = 'kabag_umum' | 'ppk';
+
 export type User = {
     id: number;
     name: string;
@@ -7,6 +10,9 @@ export type User = {
     two_factor_enabled?: boolean;
     created_at: string;
     updated_at: string;
+    role: UserRole;
+    pimpinan_type?: PimpinanType;
+    tim_kerja_id?: number;
     [key: string]: unknown;
 };
 

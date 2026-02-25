@@ -605,7 +605,7 @@ export default function KelolaPengguna({
                                                 colSpan={7}
                                                 className="text-center text-muted-foreground h-24"
                                             >
-                                                Tidak ada data user
+                                                Tidak ada data user.
                                             </TableCell>
                                         </TableRow>
                                     )}
