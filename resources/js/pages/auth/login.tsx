@@ -51,7 +51,7 @@ export default function Login({ status }: Props) {
                     {/* Nama lembaga */}
                     <div className="text-center mb-10">
                         <p className="text-sm font-medium tracking-widest text-blue-200 uppercase mb-2">
-                            Kementerian Pendidikan, Kebudayaan, Riset dan Teknologi
+                            Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                         </p>
                         <h1 className="text-3xl font-bold leading-tight mb-1">
                             LLDIKTI Wilayah III
