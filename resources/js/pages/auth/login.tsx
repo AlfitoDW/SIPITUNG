@@ -79,7 +79,7 @@ export default function Login({ status }: Props) {
                 {/* Footer kiri */}
                 <div className="relative z-10 px-12 pb-8 text-center">
                     <p className="text-blue-300 text-xs">
-                        © {new Date().getFullYear()} LLDIKTI Wilayah III · Kementerian Pendidikan, Kebudayaan, Riset dan Teknologi
+                        © {new Date().getFullYear()} LLDIKTI Wilayah III · Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                     </p>
                 </div>
             </div>
