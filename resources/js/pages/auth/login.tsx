@@ -1,21 +1,18 @@
 import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
-import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/login';
-import { request } from '@/routes/password';
 
 type Props = {
     status?: string;
-    canResetPassword: boolean;
     canRegister: boolean;
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+export default function Login({ status }: Props) {
     return (
         <div className="min-h-screen flex">
             <Head title="Login" />
@@ -163,15 +160,6 @@ export default function Login({ status, canResetPassword }: Props) {
                                                 <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
                                                     Kata Sandi
                                                 </Label>
-                                                {canResetPassword && (
-                                                    <TextLink
-                                                        href={request()}
-                                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                                        tabIndex={5}
-                                                    >
-                                                        Lupa kata sandi?
-                                                    </TextLink>
-                                                )}
                                             </div>
                                             <Input
                                                 id="password"

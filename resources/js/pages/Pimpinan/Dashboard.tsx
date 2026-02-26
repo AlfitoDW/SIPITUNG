@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DashboardProps {
     user: {
-        name: string;
+        nama_lengkap: string;
         email: string;
     };
     pimpinanType: 'kabag_umum' | 'ppk';
@@ -23,7 +23,7 @@ export default function Dashboard({ user, pimpinanType }: DashboardProps) {
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold tracking-tight">Dashboard Pimpinan</h1>
                     <p className="text-muted-foreground">
-                        Selamat datang, {user.name}
+                        Selamat datang, {user.nama_lengkap}
                     </p>
                 </div>
 

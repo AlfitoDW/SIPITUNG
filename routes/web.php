@@ -5,6 +5,10 @@ use Illuminate\Foundation\Application;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
+use App\Models\User;
+use App\Models\TimKerja;
+use App\Http\Controllers\SuperAdmin\UserController;
+
 // ========================================
 // PUBLIC ROUTES
 // ========================================
@@ -86,9 +90,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // Data Master
         Route::get('/data-master', function () {
-            return Inertia::render('SuperAdmin/DataMaster');
+            return Inertia::render('SuperAdmin/DataMaster', [
+                'managementAccount' => User::select('id', 'nama_lengkap', 'nip', 'username', 'email', 'role', 'pimpinan_type', 'tim_kerja_id', 'is_active')
+                    ->orderBy('nama_lengkap')
+                    ->get(),
+                'timKerja' => TimKerja::select('id', 'nama', 'kode')
+                    ->where('is_active', true)
+                    ->orderBy('nama')
+                    ->get(),
+            ]);
         })->name('data-master');
-        
+        // User CRUD (untuk tab Management Account di DataMaster)
+        Route::post('/data-master/users', [UserController::class, 'store'])->name('data-master.users.store');
+        Route::put('/data-master/users/{user}', [UserController::class, 'update'])->name('data-master.users.update');
+        Route::delete('/data-master/users/{user}', [UserController::class, 'destroy'])->name('data-master.users.destroy');
+        Route::patch('/data-master/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('data-master.users.toggle-status');
+        Route::patch('/data-master/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('data-master.users.reset-password');
+
         // Backup Data
         Route::get('/backup-data', function () {
             return Inertia::render('SuperAdmin/BackupData');

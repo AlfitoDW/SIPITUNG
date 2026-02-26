@@ -3,7 +3,8 @@ export type PimpinanType = 'kabag_umum' | 'ppk';
 
 export type User = {
     id: number;
-    name: string;
+    nama_lengkap: string;
+    nip: string | null;
     email: string;
     avatar?: string;
     email_verified_at: string | null;
