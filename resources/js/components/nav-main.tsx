@@ -15,6 +15,17 @@ import {
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { NavGroup, NavItem, NavSubItem } from '@/types';
 
+function hasActiveDescendant(item: NavItem | NavSubItem, currentUrl: string): boolean {
+    if ('href' in item && item.href && item.href !== '#' && item.href === currentUrl) {
+        return true;
+    }
+    if (item.children) {
+        return item.children.some((child) => hasActiveDescendant(child, currentUrl));
+    }
+    return false;
+}
+
+
 function NavSubTree({ items }: { items: NavSubItem[] }) {
     return (
         <>
@@ -36,7 +47,8 @@ function NavSubTree({ items }: { items: NavSubItem[] }) {
 }
 
 function NestedCollapsible({ item }: { item: NavSubItem }) {
-    const [open, setOpen] = useState(false);
+    const { currentUrl } = useCurrentUrl();
+    const [open, setOpen] = useState(() => hasActiveDescendant(item, currentUrl));
 
     return (
         <SidebarMenuSubItem>
@@ -61,8 +73,16 @@ function NestedCollapsible({ item }: { item: NavSubItem }) {
 }
 
 function NavItems({ items }: { items: NavItem[] }) {
-    const { isCurrentUrl } = useCurrentUrl();
-    const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+    const { isCurrentUrl, currentUrl } = useCurrentUrl();
+    const [openItems, setOpenItems] = useState<Record<string, boolean>>(() => {
+        const initial: Record<string, boolean> = {};
+        items.forEach((item) => {
+            if (item.children && hasActiveDescendant(item, currentUrl)) {
+                initial[item.title] = true;
+            }
+        });
+        return initial;
+    });
 
     const toggleItem = (title: string) => {
         setOpenItems((prev) => ({ ...prev, [title]: !prev[title] }));

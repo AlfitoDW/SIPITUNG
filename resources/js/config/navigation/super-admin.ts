@@ -30,15 +30,15 @@ const superAdminNav: NavGroup[] = [
                     {
                         title: 'Awal',
                         children: [
-                            { title: 'Persiapan', href: '/perencanaan/perjanjian-kinerja/awal/persiapan' },
-                            { title: 'Progress',   href: '/perencanaan/perjanjian-kinerja/awal/progress'   },
+                            { title: 'Persiapan', href: '/super-admin/perencanaan/perjanjian-kinerja/awal/persiapan' },
+                            { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/awal/progress'   },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
-                            { title: 'Persiapan', href: '/perencanaan/perjanjian-kinerja/revisi/persiapan' },
-                            { title: 'Progress',   href: '/perencanaan/perjanjian-kinerja/revisi/progress'   },
+                            { title: 'Persiapan', href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/persiapan' },
+                            { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/progress'   },
                         ],
                     },
                 ],
@@ -50,15 +50,15 @@ const superAdminNav: NavGroup[] = [
                     {
                         title: 'Awal',
                         children: [
-                            { title: 'Persiapan', href: '/perencanaan/rencana-aksi/awal/persiapan' },
-                            { title: 'Progress',   href: '/perencanaan/rencana-aksi/awal/progress'   },
+                            { title: 'Persiapan', href: '/super-admin/perencanaan/rencana-aksi/awal/persiapan' },
+                            { title: 'Progress',   href: '/super-admin/perencanaan/rencana-aksi/awal/progress'   },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
-                            { title: 'Persiapan', href: '/perencanaan/rencana-aksi/revisi/persiapan' },
-                            { title: 'Progress',   href: '/perencanaan/rencana-aksi/revisi/progress'   },
+                            { title: 'Persiapan', href: '/super-admin/perencanaan/rencana-aksi/revisi/persiapan' },
+                            { title: 'Progress',   href: '/super-admin/perencanaan/rencana-aksi/revisi/progress'   },
                         ],
                     },
                 ],

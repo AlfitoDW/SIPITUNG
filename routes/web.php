@@ -57,6 +57,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/perencanaan', function () {
             return Inertia::render('SuperAdmin/Perencanaan');
         })->name('perencanaan');
+
+        Route::prefix('perencanaan/perjanjian-kinerja')->name('perencanaan.pk.')->group(function () {
+            Route::get('awal/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Persiapan'))->name('awal.persiapan');
+            Route::get('awal/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Progress'))->name('awal.progress');
+            Route::get('revisi/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Persiapan'))->name('revisi.persiapan');
+            Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Progress'))->name('revisi.progress');
+        });
+
+        Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
+            Route::get('awal/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Awal/Persiapan'))->name('awal.persiapan');
+            Route::get('awal/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Awal/Progress'))->name('awal.progress');
+            Route::get('revisi/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Revisi/Persiapan'))->name('revisi.persiapan');
+            Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Revisi/Progress'))->name('revisi.progress');
+        });
         
         // Pertanggungjawaban (LPJ)
         Route::get('/pertanggungjawaban', function () {
