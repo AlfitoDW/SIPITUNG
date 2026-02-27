@@ -3,20 +3,17 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Tag, DollarSign, Users, Calendar, File } from 'lucide-react';
+import { Tag, Users, Calendar, File } from 'lucide-react';
 
 import type {
-    UnitKerja,
     KategoriKegiatan,
-    JenisAnggaran,
     ManagementAccount,
     TimKerja,
     TahunAnggaran,
     TemplateDokumen,
 } from './types';
-import { UnitKerjaTab } from './tabs/UnitKerjaTab';
+
 import { KategoriTab } from './tabs/KategoriTab';
-import { JenisAnggaranTab } from './tabs/JenisAnggaranTab';
 import { ManagementAccountTab } from './tabs/ManagementAccountTab';
 import { TahunAnggaranTab } from './tabs/TahunAnggaranTab';
 import { TemplateDokumenTab } from './tabs/TemplateDokumenTab';
@@ -24,9 +21,7 @@ import { TemplateDokumenTab } from './tabs/TemplateDokumenTab';
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Data Master', href: '#' }];
 
 interface DataMasterProps {
-    unitKerja: UnitKerja[];
     kategoriKegiatan: KategoriKegiatan[];
-    jenisAnggaran: JenisAnggaran[];
     managementAccount: ManagementAccount[];
     timKerja: TimKerja[];
     tahunAnggaran: TahunAnggaran[];
@@ -34,15 +29,13 @@ interface DataMasterProps {
 }
 
 export default function DataMaster({
-    unitKerja = [],
     kategoriKegiatan = [],
-    jenisAnggaran = [],
     managementAccount = [],
     timKerja = [],
     tahunAnggaran = [],
     templateDokumen = [],
 }: DataMasterProps) {
-    const [activeTab, setActiveTab] = useState('unit-kerja');
+    const [activeTab, setActiveTab] = useState('kategori');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -55,15 +48,9 @@ export default function DataMaster({
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
-                        <TabsTrigger value="unit-kerja">
-                            <Building2 className="mr-2 h-4 w-4" />Unit Kerja
-                        </TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">   
                         <TabsTrigger value="kategori">
                             <Tag className="mr-2 h-4 w-4" />Kategori
-                        </TabsTrigger>
-                        <TabsTrigger value="jenis-anggaran">
-                            <DollarSign className="mr-2 h-4 w-4" />Jenis Anggaran
                         </TabsTrigger>
                         <TabsTrigger value="account">
                             <Users className="mr-2 h-4 w-4" />Akun
@@ -76,14 +63,9 @@ export default function DataMaster({
                         </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="unit-kerja" className="space-y-4">
-                        <UnitKerjaTab data={unitKerja} />
-                    </TabsContent>
+                   
                     <TabsContent value="kategori" className="space-y-4">
                         <KategoriTab data={kategoriKegiatan} />
-                    </TabsContent>
-                    <TabsContent value="jenis-anggaran" className="space-y-4">
-                        <JenisAnggaranTab data={jenisAnggaran} />
                     </TabsContent>
                     <TabsContent value="account" className="space-y-4">
                         <ManagementAccountTab accounts={managementAccount} timKerja={timKerja} />

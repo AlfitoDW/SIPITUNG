@@ -20,6 +20,12 @@ export interface JenisAnggaran {
     status: 'active' | 'inactive';
 }
 
+export interface TimKerja {
+    id: number;
+    nama: string;
+    kode: string;
+}
+
 export interface ManagementAccount {
     id: number;
     nama_lengkap: string;
@@ -32,11 +38,6 @@ export interface ManagementAccount {
     is_active: boolean;
 }
 
-export interface TimKerja {
-    id: number;
-    nama: string;
-    kode: string;
-}
 
 export interface TahunAnggaran {
     id: number;
