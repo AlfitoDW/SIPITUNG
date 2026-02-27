@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,6 +45,8 @@ const roleLabel = (item: ManagementAccount): string => {
 
 export function ManagementAccountTab({ accounts, timKerja }: Props) {
     const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
     const [showDialog, setShowDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<ManagementAccount | null>(null);
     const [form, setForm] = useState<AccountForm>(defaultForm);
@@ -58,6 +61,11 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
             v?.toLowerCase().includes(search.toLowerCase())
         )
     );
+
+const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+const safePage   = Math.min(currentPage, totalPages);
+const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
+
 
     const openAdd = () => {
         setEditingItem(null);
@@ -136,8 +144,6 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                             <CardDescription>Kelola akun pengguna sistem</CardDescription>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm"><Upload className="mr-2 h-4 w-4" />Import</Button>
-                            <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
                             <Button size="sm" onClick={openAdd}><Plus className="mr-2 h-4 w-4" />Tambah</Button>
                         </div>
                     </div>
@@ -148,11 +154,35 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                         <Input
                             placeholder="Cari nama, username, atau email..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => {setSearch(e.target.value); setCurrentPage(1);}}
                             className="pl-8"
                         />
                     </div>
-                    <div className="rounded-md border">
+                                        <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Tampilkan</span>
+                            <Select
+                                value={String(perPage)}
+                                onValueChange={(val) => { setPerPage(Number(val)); setCurrentPage(1); }}
+                            >
+                                <SelectTrigger className="h-8 w-17.5">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span>entri</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                            Total {filtered.length} akun
+                        </span>
+                    </div>
+
+                    <div className="rounded-md border"> 
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -165,7 +195,7 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filtered.length > 0 ? filtered.map((item) => (
+                                {paginated.length > 0 ? paginated.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.nama_lengkap}</TableCell>
                                         <TableCell className="text-muted-foreground">{item.username}</TableCell>
@@ -214,6 +244,40 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                             </TableBody>
                         </Table>
                     </div>
+                        {totalPages > 1 && (
+                        <div className="flex justify-end">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                            aria-disabled={safePage === 1}
+                                            className={safePage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                        <PaginationItem key={page}>
+                                            <PaginationLink
+                                                onClick={() => setCurrentPage(page)}
+                                                isActive={page === safePage}
+                                                className="cursor-pointer"
+                                            >
+                                                {page}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    ))}
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                            aria-disabled={safePage === totalPages}
+                                            className={safePage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        </div>
+                    )}
+
                 </CardContent>
             </Card>
 

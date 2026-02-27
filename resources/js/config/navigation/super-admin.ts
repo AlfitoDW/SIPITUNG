@@ -5,6 +5,7 @@ import {
     ChartNoAxesColumn,
     HandCoins,
     Database,
+    BellRingIcon,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import type { NavGroup } from '@/types';
@@ -105,6 +106,11 @@ const superAdminNav: NavGroup[] = [
                 href: '/super-admin/data-master',
                 icon: Database,
             },
+            {
+                title: 'Notifikasi',
+                href: '/super-admin/notifikasi',
+                icon: BellRingIcon,
+            }
         ],
     },
 ];
