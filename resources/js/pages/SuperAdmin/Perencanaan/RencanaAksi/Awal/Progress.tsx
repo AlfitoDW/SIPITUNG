@@ -4,9 +4,9 @@ import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/perencanaan' },
-    { title: 'Perjanjian Kinerja', href: '#' },
+    { title: 'Rencana Aksi', href: '#' },
     { title: 'Awal', href: '#' },
-    { title: 'Progres', href: '/perencanaan/perjanjian-kinerja/awal/progres' },
+    { title: 'Progres', href: '/perencanaan/rencana-aksi/awal/progres' },
 ];
 
 export default function Progres() {

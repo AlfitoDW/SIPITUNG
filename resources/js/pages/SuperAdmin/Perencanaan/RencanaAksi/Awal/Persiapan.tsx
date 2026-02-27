@@ -3,9 +3,10 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Perjanjian Kinerja', href: '/#' },
-    { title: 'Awal', href: '/#' },
-    { title: 'Persiapan', href: '/perencanaan/perjanjian-kinerja/awal/persiapan' },
+    { title: 'Perencanaan', href: '/perencanaan' },
+    { title: 'Rencana Aksi', href: '#' },
+    { title: 'Awal', href: '#' },
+    { title: 'Persiapan', href: '/perencanaan/rencana-aksi/awal/persiapan' },
 ];
 
 export default function Persiapan() {

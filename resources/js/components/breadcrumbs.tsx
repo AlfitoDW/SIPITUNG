@@ -1,9 +1,7 @@
-import { Link } from '@inertiajs/react';
 import { Fragment } from 'react';
 import {
     Breadcrumb,
     BreadcrumbItem,
-    BreadcrumbLink,
     BreadcrumbList,
     BreadcrumbPage,
     BreadcrumbSeparator,
@@ -25,17 +23,9 @@ export function Breadcrumbs({
                             return (
                                 <Fragment key={index}>
                                     <BreadcrumbItem>
-                                        {isLast ? (
-                                            <BreadcrumbPage>
-                                                {item.title}
-                                            </BreadcrumbPage>
-                                        ) : (
-                                            <BreadcrumbLink asChild>
-                                                <Link href={item.href}>
-                                                    {item.title}
-                                                </Link>
-                                            </BreadcrumbLink>
-                                        )}
+                                        <BreadcrumbPage className={isLast ? '' : 'text-muted-foreground'}>
+                                            {item.title}
+                                        </BreadcrumbPage>
                                     </BreadcrumbItem>
                                     {!isLast && <BreadcrumbSeparator />}
                                 </Fragment>
