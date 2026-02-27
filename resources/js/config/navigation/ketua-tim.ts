@@ -5,6 +5,7 @@ import {
     HandCoins,
     FileCheck,
     FolderOpen,
+    BellRingIcon,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -92,6 +93,11 @@ const ketuaTimNav: NavGroup[] = [
                 href: '/ketua-tim/dokumen',
                 icon: FolderOpen,
             },
+            {
+                title: 'Notifikasi',
+                href: '/ketua-tim/notifikasi',
+                icon: BellRingIcon,
+            }
         ],
     },
 ];

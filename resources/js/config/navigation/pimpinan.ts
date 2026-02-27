@@ -3,6 +3,7 @@ import {
     ShieldCheck,
     Scale,
     ChartColumnIncreasing,
+    BellRingIcon,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -42,6 +43,16 @@ const pimpinanNav: NavGroup[] = [
             },
         ],
     },
+    {
+        label: 'Misc',
+        items: [
+            {
+                title: 'Notifikasi',
+                href: '/pimpinan/notifikasi',
+                icon: BellRingIcon,
+            }
+        ]
+    }
 ];
 
 export default pimpinanNav;

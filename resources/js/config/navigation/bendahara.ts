@@ -3,6 +3,7 @@ import {
     Banknote,
     ClipboardCheck,
     ChartColumnIncreasing,
+    BellRingIcon,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -37,6 +38,16 @@ const bendaharaNav: NavGroup[] = [
             },
         ],
     },
+    {
+        label: 'Misc',
+        items: [
+            {
+                title: 'Notifikasi',
+                href: '/bendahara/notifikasi',
+                icon: BellRingIcon,
+            }
+        ]
+    }
 ];
 
 export default bendaharaNav;
