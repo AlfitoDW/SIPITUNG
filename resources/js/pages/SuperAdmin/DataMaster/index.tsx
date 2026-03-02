@@ -48,7 +48,7 @@ export default function DataMaster({
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">   
+                    <TabsList className="grid w-full grid-cols-2 h-auto! lg:grid-cols-4 lg:h-9">
                         <TabsTrigger value="kategori">
                             <Tag className="mr-2 h-4 w-4" />Kategori
                         </TabsTrigger>

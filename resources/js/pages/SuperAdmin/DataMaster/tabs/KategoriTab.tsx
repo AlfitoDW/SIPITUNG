@@ -57,8 +57,6 @@ export function KategoriTab({ data }: { data: KategoriKegiatan[] }) {
                             <CardDescription>Kelola kategori kegiatan</CardDescription>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm"><Upload className="mr-2 h-4 w-4" />Import</Button>
-                            <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
                             <Button size="sm" onClick={openAdd}><Plus className="mr-2 h-4 w-4" />Tambah</Button>
                         </div>
                     </div>
