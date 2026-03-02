@@ -41,9 +41,10 @@ export interface ManagementAccount {
 
 export interface TahunAnggaran {
     id: number;
-    tahun: string;
-    isActive: boolean;
-    status: 'active' | 'inactive';
+    tahun: number;
+    label: string;
+    is_active: boolean;
+    is_default: boolean;
 }
 
 export interface TemplateDokumen {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\TahunAnggaran;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -15,16 +16,6 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
-
-    /**
-     * Determines the current asset version.
-     *
-     * @see https://inertiajs.com/asset-versioning
-     */
-    public function version(Request $request): ?string
-    {
-        return parent::version($request);
-    }
 
     /**
      * Define the props that are shared by default.
@@ -42,6 +33,9 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'tahun_anggaran' => fn () => session('tahun_anggaran_id')
+                ? TahunAnggaran::find(session('tahun_anggaran_id'), ['id', 'tahun', 'label'])
+                : null,
         ];
     }
 }

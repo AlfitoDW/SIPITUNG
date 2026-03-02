@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\SuperAdmin\UserController;
 use App\Http\Controllers\SuperAdmin\DataMasterController;
+use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
 
 Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.')->group(function () {
 
@@ -38,4 +39,8 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         ->only(['store', 'update', 'destroy']);
     Route::patch('/data-master/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('data-master.users.toggle-status');
     Route::patch('/data-master/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('data-master.users.reset-password');
+    Route::apiResource('data-master/tahun-anggaran', TahunAnggaranController::class)
+        ->only(['store', 'update', 'destroy']);
+    Route::patch('/data-master/tahun-anggaran/{tahunAnggaran}/toggle-default', [TahunAnggaranController::class,'toggleDefault'])
+      ->name('data-master.tahun-anggaran.toggle-default');
 });

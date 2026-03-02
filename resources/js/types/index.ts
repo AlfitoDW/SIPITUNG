@@ -8,5 +8,6 @@ export type SharedData = {
     name: string;
     auth: Auth;
     sidebarOpen: boolean;
+    tahun_anggaran: { id: number; tahun: number; label: string } | null;
     [key: string]: unknown;
 };

@@ -35,6 +35,7 @@ import { dashboard } from '@/routes';
 import type { BreadcrumbItem, NavItem, SharedData } from '@/types';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
+import { Badge } from '@/components/ui/badge';
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -66,7 +67,7 @@ const activeItemStyles =
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage<SharedData>();
-    const { auth } = page.props;
+    const { auth, tahun_anggaran } = page.props;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
     return (
@@ -215,6 +216,11 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 ))}
                             </div>
                         </div>
+                        {tahun_anggaran && (
+                            <Badge variant="outline" className="hidden sm:inline-flex">
+                                {tahun_anggaran.tahun}
+                            </Badge>
+                        )}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button

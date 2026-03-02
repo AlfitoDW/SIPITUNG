@@ -8,23 +8,26 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, MoreVertical, CheckCircle2, XCircle, Star } from 'lucide-react';
 import { TahunAnggaran } from '../types';
-import { StatusBadge } from '../components/StatusBadge';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import { router } from '@inertiajs/react';
 
 interface TahunAnggaranForm {
     tahun: string;
-    isActive: boolean;
+    label: string;
+    is_active: boolean;
+    is_default: boolean;
 }
 
-const defaultForm: TahunAnggaranForm = { tahun: '', isActive: false };
+const defaultForm: TahunAnggaranForm = { tahun: '', label: '', is_active: true, is_default: false };
 
 export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
     const [showDialog, setShowDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<TahunAnggaran | null>(null);
     const [form, setForm] = useState<TahunAnggaranForm>(defaultForm);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [deletingItem, setDeletingItem] = useState<TahunAnggaran | null>(null);
 
     const openAdd = () => {
         setEditingItem(null);
@@ -34,13 +37,20 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
 
     const openEdit = (item: TahunAnggaran) => {
         setEditingItem(item);
-        setForm({ tahun: item.tahun, isActive: item.isActive });
+        setForm({ tahun: String(item.tahun), label: item.label, is_active: item.is_active, is_default: item.is_default });
         setShowDialog(true);
     };
 
     const handleSave = () => {
-        alert(`Data tahun anggaran berhasil ${editingItem ? 'diupdate' : 'ditambahkan'}`);
-        setShowDialog(false);
+        if (editingItem) {
+            router.put(`/super-admin/data-master/tahun-anggaran/${editingItem.id}`, { ...form }, {
+                onSuccess: () => setShowDialog(false),
+            });
+        } else {
+            router.post('/super-admin/data-master/tahun-anggaran', { ...form }, {
+                onSuccess: () => setShowDialog(false),
+            });
+        }
     };
 
     return (
@@ -61,7 +71,8 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Tahun</TableHead>
-                                    <TableHead>Tahun Aktif</TableHead>
+                                    <TableHead>Label</TableHead>
+                                    <TableHead>Default</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-center">Aksi</TableHead>
                                 </TableRow>
@@ -70,13 +81,19 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                                 {data.length > 0 ? data.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="text-lg font-semibold">{item.tahun}</TableCell>
+                                        <TableCell>{item.label}</TableCell>
                                         <TableCell>
-                                            {item.isActive
-                                                ? <Badge variant="default" className="bg-blue-500">Active Year</Badge>
-                                                : <span className="text-muted-foreground">-</span>
+                                            {item.is_default
+                                                ? <Badge variant="default" className="bg-blue-500"><Star className="mr-1 h-3 w-3" />Default</Badge>
+                                                : <Badge variant="outline" className="text-muted-foreground"><XCircle className="mr-1 h-3 w-3" />-</Badge>
                                             }
                                         </TableCell>
-                                        <TableCell><StatusBadge status={item.status} /></TableCell>
+                                        <TableCell>
+                                            {item.is_active
+                                                ? <Badge variant="default" className="bg-green-500"><CheckCircle2 className="mr-1 h-3 w-3" />Aktif</Badge>
+                                                : <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300"><XCircle className="mr-1 h-3 w-3" />Nonaktif</Badge>
+                                            }
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -86,11 +103,11 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                                                     <DropdownMenuItem onClick={() => openEdit(item)}>
                                                         <Edit className="mr-2 h-4 w-4" />Edit
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => alert('Tahun aktif berhasil diubah')}>
-                                                        Set as Active Year
+                                                    <DropdownMenuItem onClick={() => router.patch(`/super-admin/data-master/tahun-anggaran/${item.id}/toggle-default`)}>
+                                                        Tetapkan sebagai Default
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
+                                                    <DropdownMenuItem onClick={() => { setDeletingItem(item); setShowDeleteDialog(true); }} className="text-red-600">
                                                         <Trash2 className="mr-2 h-4 w-4" />Hapus
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -99,7 +116,7 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                                        <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
                                             Tidak ada data tahun anggaran
                                         </TableCell>
                                     </TableRow>
@@ -119,13 +136,23 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>Tahun <span className="text-red-500">*</span></Label>
-                            <Input type="number" placeholder="2024" value={form.tahun}
+                            <Input type="number" placeholder="2026" value={form.tahun}
                                 onChange={(e) => setForm({ ...form, tahun: e.target.value })} />
                         </div>
+                        <div className="space-y-2">
+                            <Label>Label <span className="text-red-500">*</span></Label>
+                            <Input type="text" placeholder="TA 2026" value={form.label}
+                                onChange={(e) => setForm({ ...form, label: e.target.value })} />
+                        </div>
                         <div className="flex items-center justify-between rounded-lg border p-4">
-                            <Label>Set as Active Year</Label>
-                            <Switch checked={form.isActive}
-                                onCheckedChange={(checked) => setForm({ ...form, isActive: checked })} />
+                            <Label>Aktif</Label>
+                            <Switch checked={form.is_active}
+                                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <Label>Set as Default</Label>
+                            <Switch checked={form.is_default}
+                                onCheckedChange={(checked) => setForm({ ...form, is_default: checked })} />
                         </div>
                     </div>
                     <DialogFooter>
@@ -138,7 +165,13 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
             <DeleteConfirmDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
-                onConfirm={() => { alert('Data berhasil dihapus'); setShowDeleteDialog(false); }}
+                onConfirm={() => {
+                    if (deletingItem) {
+                        router.delete(`/super-admin/data-master/tahun-anggaran/${deletingItem.id}`, {
+                            onSuccess: () => { setShowDeleteDialog(false); setDeletingItem(null); },
+                        });
+                    }
+                }}
             />
         </>
     );

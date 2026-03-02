@@ -1,18 +1,31 @@
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/login';
 
-type Props = {
-    status?: string;
-    canRegister: boolean;
+type TahunAnggaran = {
+    id: number;
+    tahun: number;
+    label: string;
 };
 
-export default function Login({ status }: Props) {
+type Props = {
+    status?: string;
+    tahunAnggaranList: TahunAnggaran[];
+    defaultTahunAnggaranId: number | null;
+};
+
+export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranId }: Props) {
+    const [selectedTahun, setSelectedTahun] = useState<string>(
+        defaultTahunAnggaranId ? String(defaultTahunAnggaranId) : ''
+    );
+
     return (
         <div className="min-h-screen flex">
             <Head title="Login" />
@@ -22,25 +35,19 @@ export default function Login({ status }: Props) {
                 style={{ background: 'linear-gradient(160deg, #003580 0%, #00235a 60%, #001840 100%)' }}>
 
                 {/* Motif batik dekoratif */}
-                    <div className="absolute inset-0 opacity-10"
-                        style={{
-                            backgroundImage: `radial-gradient(circle at 20% 80%, #ffffff 1px, transparent 1px),
-                                            radial-gradient(circle at 80% 20%, #ffffff 1px, transparent 1px),
-                                            radial-gradient(circle at 50% 50%, #ffffff 0.5px, transparent 0.5px)`,
-                            backgroundSize: '60px 60px, 60px 60px, 30px 30px',
-                        }}
-                    />
+                <div className="absolute inset-0 opacity-10"
+                    style={{
+                        backgroundImage: `radial-gradient(circle at 20% 80%, #ffffff 1px, transparent 1px),
+                                        radial-gradient(circle at 80% 20%, #ffffff 1px, transparent 1px),
+                                        radial-gradient(circle at 50% 50%, #ffffff 0.5px, transparent 0.5px)`,
+                        backgroundSize: '60px 60px, 60px 60px, 30px 30px',
+                    }}
+                />
 
                 <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-12 py-16 text-white">
 
-                    {/* Logo Kemendikbud + LLDIKTI berdampingan */}
+                    {/* Logo LLDIKTI */}
                     <div className="flex items-center gap-6 mb-10">
-                        {/* <img
-                            src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
-                            alt="Logo Kemendikbudristek"
-                            className="h-20 w-20 object-contain drop-shadow-lg"
-                        /> */}
-                        {/* <div className="w-px h-16 bg-white/30" /> */}
                         <img
                             src="/Logo-LLDikti-Wilayah-III-08.png"
                             alt="Logo LLDIKTI Wilayah III"
@@ -87,14 +94,9 @@ export default function Login({ status }: Props) {
             {/* ── Kolom Kanan: Form Login ── */}
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-gray-50 px-8 py-12">
 
-                {/* Header mobile (tampil hanya di layar kecil) */}
+                {/* Header mobile */}
                 <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
                     <div className="flex items-center gap-4">
-                        {/* <img
-                            src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
-                            alt="Logo Kemendikbudristek"
-                            className="h-12 w-12 object-contain"
-                        /> */}
                         <img
                             src="/Logo-LLDikti-Wilayah-III-08.png"
                             alt="Logo LLDIKTI Wilayah III"
@@ -137,13 +139,35 @@ export default function Login({ status }: Props) {
                             {({ processing, errors }) => (
                                 <>
                                     <div className="grid gap-5">
+
+                                        {/* Tahun Anggaran */}
+                                        <div className="grid gap-1.5">
+                                            <Label className="text-gray-700 font-medium text-sm">
+                                                Tahun Anggaran
+                                            </Label>
+                                            <input type="hidden" name="tahun_anggaran_id" value={selectedTahun} />
+                                            <Select value={selectedTahun} onValueChange={setSelectedTahun}>
+                                                <SelectTrigger className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                                                    <SelectValue placeholder="Pilih tahun anggaran" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {tahunAnggaranList.map((ta) => (
+                                                        <SelectItem key={ta.id} value={String(ta.id)}>
+                                                            {ta.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Username */}
                                         <div className="grid gap-1.5">
                                             <Label htmlFor="username" className="text-gray-700 font-medium text-sm">
-                                                 Username
+                                                Username
                                             </Label>
                                             <Input
                                                 id="username"
-                                                type="username"
+                                                type="text"
                                                 name="username"
                                                 required
                                                 autoFocus
@@ -155,12 +179,11 @@ export default function Login({ status }: Props) {
                                             <InputError message={errors.username} />
                                         </div>
 
+                                        {/* Kata Sandi */}
                                         <div className="grid gap-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
-                                                    Kata Sandi
-                                                </Label>
-                                            </div>
+                                            <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
+                                                Kata Sandi
+                                            </Label>
                                             <Input
                                                 id="password"
                                                 type="password"
@@ -174,6 +197,7 @@ export default function Login({ status }: Props) {
                                             <InputError message={errors.password} />
                                         </div>
 
+                                        {/* Remember me */}
                                         <div className="flex items-center gap-2.5">
                                             <Checkbox
                                                 id="remember"

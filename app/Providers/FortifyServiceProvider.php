@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Models\User;
+use App\Models\TahunAnggaran;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -47,6 +48,8 @@ class FortifyServiceProvider extends ServiceProvider
             $user = User::where('username', $request->username)->first();
 
             if ($user && Hash::check($request->password, $user->password) && $user->is_active) {
+                $request->session()->put('tahun_anggaran_id', $request->tahun_anggaran_id);
+
                 return $user;
             }
         });
@@ -61,6 +64,8 @@ class FortifyServiceProvider extends ServiceProvider
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'canRegister' => Features::enabled(Features::registration()),
             'status' => $request->session()->get('status'),
+            'tahunAnggaranList' => TahunAnggaran::active()->get(['id', 'tahun', 'label']),
+            'defaultTahunAnggaranId' => TahunAnggaran::where('is_default', true)->value('id'),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [

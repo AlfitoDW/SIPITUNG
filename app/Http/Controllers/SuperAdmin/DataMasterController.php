@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\User;
 use App\Models\TimKerja;
+use App\Models\TahunAnggaran;
 
 class DataMasterController extends Controller
 {
@@ -19,6 +20,8 @@ class DataMasterController extends Controller
             'timKerja' => TimKerja::select('id', 'nama', 'kode')
                 ->where('is_active', true)
                 ->orderBy('nama')
+                ->get(),
+            'tahunAnggaran' => TahunAnggaran::orderBy('tahun', 'desc')
                 ->get(),
         ]);
     }
