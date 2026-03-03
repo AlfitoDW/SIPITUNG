@@ -31,14 +31,14 @@ const superAdminNav: NavGroup[] = [
                     {
                         title: 'Awal',
                         children: [
-                            { title: 'Persiapan', href: '/super-admin/perencanaan/perjanjian-kinerja/awal/persiapan' },
+                            { title: 'Penyusunan', href: '/super-admin/perencanaan/perjanjian-kinerja/awal/penyusunan' },
                             { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/awal/progress'   },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
-                            { title: 'Persiapan', href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/persiapan' },
+                            { title: 'Penyusunan', href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/penyusunan' },
                             { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/progress'   },
                         ],
                     },
@@ -49,18 +49,12 @@ const superAdminNav: NavGroup[] = [
                 icon: ClipboardCheck,
                 children: [
                     {
-                        title: 'Awal',
-                        children: [
-                            { title: 'Persiapan', href: '/super-admin/perencanaan/rencana-aksi/awal/persiapan' },
-                            { title: 'Progress',   href: '/super-admin/perencanaan/rencana-aksi/awal/progress'   },
-                        ],
+                        title: 'Penyusunan',
+                        href: '/super-admin/perencanaan/rencana-aksi/penyusunan',
                     },
                     {
-                        title: 'Revisi',
-                        children: [
-                            { title: 'Persiapan', href: '/super-admin/perencanaan/rencana-aksi/revisi/persiapan' },
-                            { title: 'Progress',   href: '/super-admin/perencanaan/rencana-aksi/revisi/progress'   },
-                        ],
+                        title: 'Progress',
+                        href: '/super-admin/perencanaan/rencana-aksi/progress',
                     },
                 ],
             },

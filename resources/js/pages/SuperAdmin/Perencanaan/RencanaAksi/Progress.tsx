@@ -5,7 +5,6 @@ import type { BreadcrumbItem } from '@/types';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/perencanaan' },
     { title: 'Rencana Aksi', href: '#' },
-    { title: 'Revisi', href: '#' },
     { title: 'Progres', href: '/perencanaan/rencana-aksi/revisi/progres' },
 ];
 
@@ -15,11 +14,11 @@ export default function Progres() {
             <Head title="Progres Revisi — Perjanjian Kinerja" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl font-bold tracking-tight">Progres Revisi</h1>
-                    <p className="text-muted-foreground">Rencana Aksi — Revisi</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Progres Rencana Aksi</h1>
+                    <p className="text-muted-foreground">Rencana Aksi — progres</p>
                 </div>
                 <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed">
-                    <p className="text-muted-foreground">Konten halaman Progres Revisi akan ditampilkan di sini.</p>
+                    <p className="text-muted-foreground">Konten halaman Progres Rencana Aksi akan ditampilkan di sini.</p>
                 </div>
             </div>
         </AppLayout>

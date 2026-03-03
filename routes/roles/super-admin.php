@@ -13,17 +13,15 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
     Route::get('/perencanaan', fn() => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');
 
     Route::prefix('perencanaan/perjanjian-kinerja')->name('perencanaan.pk.')->group(function () {
-        Route::get('awal/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Persiapan'))->name('awal.persiapan');
+        Route::get('awal/penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Penyusunan'))->name('awal.penyusunan');
         Route::get('awal/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Progress'))->name('awal.progress');
-        Route::get('revisi/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Persiapan'))->name('revisi.persiapan');
+        Route::get('revisi/penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan'))->name('revisi.penyusunan');
         Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Progress'))->name('revisi.progress');
     });
 
     Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
-        Route::get('awal/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Awal/Persiapan'))->name('awal.persiapan');
-        Route::get('awal/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Awal/Progress'))->name('awal.progress');
-        Route::get('revisi/persiapan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Revisi/Persiapan'))->name('revisi.persiapan');
-        Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Revisi/Progress'))->name('revisi.progress');
+        Route::get('penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan'))->name('penyusunan');
+        Route::get('progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Progress'))->name('progress');
     });
 
     Route::get('/pertanggungjawaban', fn() => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');

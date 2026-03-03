@@ -30,15 +30,15 @@ const ketuaTimNav: NavGroup[] = [
                     {
                         title: 'Awal',
                         children: [
-                            { title: 'Persiapan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/persiapan' },
-                            { title: 'Progress',  href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/progress'  },
+                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/persiapan' },
+                            { title: 'Progress',   href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/progress'  },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
-                            { title: 'Persiapan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/persiapan' },
-                            { title: 'Progress',  href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/progress'  },
+                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/persiapan' },
+                            { title: 'Progress',   href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/progress'  },
                         ],
                     },
                 ],
@@ -50,15 +50,15 @@ const ketuaTimNav: NavGroup[] = [
                     {
                         title: 'Awal',
                         children: [
-                            { title: 'Persiapan', href: '/ketua-tim/perencanaan/rencana-aksi/awal/persiapan' },
-                            { title: 'Progress',  href: '/ketua-tim/perencanaan/rencana-aksi/awal/progress'  },
+                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/rencana-aksi/awal/persiapan' },
+                            { title: 'Progress',   href: '/ketua-tim/perencanaan/rencana-aksi/awal/progress'  },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
-                            { title: 'Persiapan', href: '/ketua-tim/perencanaan/rencana-aksi/revisi/persiapan' },
-                            { title: 'Progress',  href: '/ketua-tim/perencanaan/rencana-aksi/revisi/progress'  },
+                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/rencana-aksi/revisi/persiapan' },
+                            { title: 'Progress',   href: '/ketua-tim/perencanaan/rencana-aksi/revisi/progress'  },
                         ],
                     },
                 ],
