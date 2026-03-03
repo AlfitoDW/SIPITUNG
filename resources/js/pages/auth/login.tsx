@@ -213,7 +213,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                                         <Button
                                             type="submit"
                                             tabIndex={4}
-                                            disabled={processing}
+                                            disabled={processing || (tahunAnggaranList.length > 0 && !selectedTahun)}
                                             data-test="login-button"
                                             className="h-11 w-full font-semibold mt-1"
                                             style={{ backgroundColor: '#003580' }}

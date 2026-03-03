@@ -48,7 +48,21 @@ class FortifyServiceProvider extends ServiceProvider
             $user = User::where('username', $request->username)->first();
 
             if ($user && Hash::check($request->password, $user->password) && $user->is_active) {
-                $request->session()->put('tahun_anggaran_id', $request->tahun_anggaran_id);
+                $tahunAnggaranId = $request->tahun_anggaran_id;
+
+                // Validate tahun_anggaran_id; jika tidak valid, fallback ke yang is_default
+                if ($tahunAnggaranId) {
+                    $valid = TahunAnggaran::where('id', $tahunAnggaranId)->where('is_active', true)->exists();
+                    if (! $valid) {
+                        $tahunAnggaranId = null;
+                    }
+                }
+
+                if (! $tahunAnggaranId) {
+                    $tahunAnggaranId = TahunAnggaran::where('is_default', true)->where('is_active', true)->value('id');
+                }
+
+                $request->session()->put('tahun_anggaran_id', $tahunAnggaranId);
 
                 return $user;
             }
