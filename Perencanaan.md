@@ -2,7 +2,7 @@
 
 **Tanggal:** 2026-03-04
 **Terakhir Diupdate:** 2026-03-04
-**Status Saat Ini:** Backend (migration, model, seeder, controller) sudah ada. Frontend SuperAdmin sudah konek ke DB. KetuaTim sudah ada halaman tapi masih read-only — CRUD belum diimplementasi.
+**Status Saat Ini:** ✅ CRUD lengkap sudah diimplementasi. KetuaTim bisa input/edit/hapus/submit. SuperAdmin bisa approve/reject/reopen. Progress bar dan status badge sudah aktif.
 
 ---
 
@@ -135,30 +135,32 @@ Untuk **Rencana Aksi (RA)** tidak ada Awal/Revisi — hanya satu dokumen dengan 
 
 ### 4A. KetuaTim
 
-| Halaman | Route | Status | Fungsi |
-|---|---|---|---|
-| `KetuaTim/.../PerjanjianKinerja/Awal/Penyusunan` | `.../awal/persiapan` | ✅ Ada, read-only | Perlu tambah form CRUD |
-| `KetuaTim/.../PerjanjianKinerja/Awal/Progress` | `.../awal/progress` | ✅ Ada, read-only | Implementasi konten |
-| `KetuaTim/.../PerjanjianKinerja/Revisi/Penyusunan` | `.../revisi/persiapan` | ✅ Ada, read-only | Perlu tambah form CRUD |
-| `KetuaTim/.../PerjanjianKinerja/Revisi/Progress` | `.../revisi/progress` | ✅ Ada, read-only | Implementasi konten |
-| `KetuaTim/.../RencanaAksi/Penyusunan` | `.../rencana-aksi/penyusunan` | ✅ Ada, read-only | Perlu tambah form CRUD |
-| `KetuaTim/.../RencanaAksi/Progress` | `.../rencana-aksi/progress` | ✅ Ada, read-only | Implementasi konten |
+| Halaman | Route | Status |
+|---|---|---|
+| `KetuaTim/.../PerjanjianKinerja/Awal/Penyusunan` | `.../awal/persiapan` | ✅ CRUD + progress bar + status badge |
+| `KetuaTim/.../PerjanjianKinerja/Awal/Progress` | `.../awal/progress` | ✅ Ada (placeholder) |
+| `KetuaTim/.../PerjanjianKinerja/Revisi/Penyusunan` | `.../revisi/persiapan` | ✅ CRUD + progress bar + status badge |
+| `KetuaTim/.../PerjanjianKinerja/Revisi/Progress` | `.../revisi/progress` | ✅ Ada (placeholder) |
+| `KetuaTim/.../RencanaAksi/Penyusunan` | `.../rencana-aksi/penyusunan` | ✅ CRUD + progress bar + status badge |
+| `KetuaTim/.../RencanaAksi/Progress` | `.../rencana-aksi/progress` | ✅ Ada (placeholder) |
 
-**Yang perlu ditambahkan di setiap halaman Penyusunan KetuaTim:**
-- Tombol "Tambah Sasaran" / "Tambah Indikator" (PK) atau "Edit Target Triwulan" (RA)
-- Dialog/form inline untuk create & edit
-- Tombol delete per baris
-- Tombol "Submit ke SuperAdmin" (ubah status → `submitted`)
-- Badge status dokumen (draft / submitted / approved / rejected)
+**Yang sudah ada di setiap halaman Penyusunan KetuaTim:**
+- Progress bar 5-step (buat → sasaran → indikator → submit → disetujui)
+- Badge status (Draft / Menunggu / Disetujui / Ditolak) dengan warna berbeda
+- Buat dokumen baru (jika belum ada) via tombol + POST init
+- Dialog tambah/edit Sasaran (PK) atau Indikator (RA)
+- Tombol delete per baris dengan AlertDialog konfirmasi
+- Tombol "Submit ke SuperAdmin" dengan konfirmasi (hanya muncul saat editable + ada data)
+- Banner info saat dokumen terkunci (submitted/approved) atau ditolak
 
 ### 4B. SuperAdmin
 
-| Halaman | Status | Yang Perlu Ditambahkan |
-|---|---|---|
-| `SuperAdmin/.../PerjanjianKinerja/Awal/Penyusunan` | ✅ Ada, konek DB | Tombol Approve/Reject per Tim Kerja, badge status |
-| `SuperAdmin/.../PerjanjianKinerja/Revisi/Penyusunan` | ✅ Ada, konek DB | Sama seperti di atas |
-| `SuperAdmin/.../RencanaAksi/Penyusunan` | ✅ Ada, konek DB | Sama seperti di atas |
-| `SuperAdmin/.../Progress` (semua) | ⚠️ Placeholder | Implementasi konten progres nyata |
+| Halaman | Status |
+|---|---|
+| `SuperAdmin/.../PerjanjianKinerja/Awal/Penyusunan` | ✅ Badge status + tombol Setujui/Tolak/Buka Kembali |
+| `SuperAdmin/.../PerjanjianKinerja/Revisi/Penyusunan` | ✅ Badge status + tombol Setujui/Tolak/Buka Kembali |
+| `SuperAdmin/.../RencanaAksi/Penyusunan` | ✅ Badge status + tombol Setujui/Tolak/Buka Kembali |
+| `SuperAdmin/.../Progress` (semua) | ⚠️ Placeholder — belum diimplementasi |
 
 ---
 
@@ -166,77 +168,74 @@ Untuk **Rencana Aksi (RA)** tidak ada Awal/Revisi — hanya satu dokumen dengan 
 
 ### Controllers
 
-| Controller | Status | Fungsi |
+| Controller | Status | Method yang ada |
 |---|---|---|
-| `KetuaTim/PerencanaanController` | ✅ Ada (GET only) | Perlu tambah POST/PUT/DELETE + submit |
-| `SuperAdmin/PerencanaanController` | ✅ Ada (GET only) | Perlu tambah approve/reject/reopen |
+| `KetuaTim/PerencanaanController` | ✅ Lengkap | pkAwal, pkAwalInit, pkAwalSubmit, pkRevisi, pkRevisiInit, pkRevisiSubmit, sasaranStore/Update/Destroy, indikatorStore/Update/Destroy, raInit, raIndikatorStore/Update/Destroy, raSubmit, progress semua |
+| `SuperAdmin/PerencanaanController` | ✅ Lengkap | pkAwal, pkRevisi, rencanaAksi, pkApprove, pkReject, pkReopen, raApprove, raReject, raReopen |
 
-### Route KetuaTim — yang perlu ditambahkan
+### Route KetuaTim (sudah diimplementasi)
 
 ```php
-// PK Awal
-Route::post('awal/init', [PerencanaanController::class, 'pkAwalInit'])->name('awal.init');         // Buat PK baru jika belum ada
-Route::post('awal/sasaran', [PerencanaanController::class, 'sasaranStore'])->name('awal.sasaran.store');
-Route::put('awal/sasaran/{sasaran}', [PerencanaanController::class, 'sasaranUpdate'])->name('awal.sasaran.update');
-Route::delete('awal/sasaran/{sasaran}', [PerencanaanController::class, 'sasaranDestroy'])->name('awal.sasaran.destroy');
-Route::post('awal/indikator', [PerencanaanController::class, 'indikatorStore'])->name('awal.indikator.store');
-Route::put('awal/indikator/{indikator}', [PerencanaanController::class, 'indikatorUpdate'])->name('awal.indikator.update');
-Route::delete('awal/indikator/{indikator}', [PerencanaanController::class, 'indikatorDestroy'])->name('awal.indikator.destroy');
-Route::patch('awal/submit', [PerencanaanController::class, 'pkAwalSubmit'])->name('awal.submit');
+// PK Awal & Revisi
+Route::post('awal/init', ...) / Route::post('revisi/init', ...)
+Route::patch('awal/submit', ...) / Route::patch('revisi/submit', ...)
+
+// Sasaran (shared awal & revisi)
+Route::post/put/delete 'perencanaan/sasaran/{sasaran}'
+
+// Indikator Kinerja (shared)
+Route::post/put/delete 'perencanaan/indikator/{indikator}'
 
 // Rencana Aksi
-Route::post('rencana-aksi/init', ...)->name('ra.init');                                             // Buat RA baru
-Route::put('rencana-aksi/indikator/{indikator}', ...)->name('ra.indikator.update');                 // Edit target TW
-Route::patch('rencana-aksi/submit', ...)->name('ra.submit');
+Route::post 'rencana-aksi/init'
+Route::post/put/delete 'rencana-aksi/indikator/{indikator}'
+Route::patch 'rencana-aksi/submit'
 ```
 
-### Route SuperAdmin — yang perlu ditambahkan
+### Route SuperAdmin (sudah diimplementasi)
 
 ```php
-// Approve / reject / reopen per dokumen
-Route::patch('perjanjian-kinerja/{pk}/approve', ...)->name('pk.approve');
-Route::patch('perjanjian-kinerja/{pk}/reject', ...)->name('pk.reject');
-Route::patch('perjanjian-kinerja/{pk}/reopen', ...)->name('pk.reopen');
-Route::patch('rencana-aksi/{ra}/approve', ...)->name('ra.approve');
-Route::patch('rencana-aksi/{ra}/reject', ...)->name('ra.reject');
+Route::patch 'perjanjian-kinerja/{pk}/approve|reject|reopen'
+Route::patch 'rencana-aksi/{ra}/approve|reject|reopen'
 ```
 
 ---
 
-## 6. Ringkasan Gap Saat Ini
+## 6. Ringkasan Status Saat Ini
 
-| Komponen | Ada? | Catatan |
+| Komponen | Status | Catatan |
 |---|---|---|
-| Migration tabel PK & RA | ✅ | Sudah ada (5 migration files) |
-| Models PK, Sasaran, IKU, RA | ✅ | Sudah ada |
-| Seeder data default | ✅ | PerencanaanSeeder sudah ada |
-| `KetuaTim/PerencanaanController` | ✅ | Ada, tapi hanya GET |
-| `SuperAdmin/PerencanaanController` | ✅ | Ada, tapi hanya GET |
-| Halaman SuperAdmin PK/RA (view) | ✅ | Sudah konek ke DB via Inertia props |
-| Halaman KetuaTim (semua) | ✅ | Ada, tapi masih read-only |
-| CRUD routes KetuaTim (POST/PUT/DELETE) | ❌ | Belum ada |
-| Form/dialog input KetuaTim | ❌ | Belum ada |
-| Status workflow (draft→submitted→approved) | ❌ | Kolom status ada di DB, tapi belum ada aksi |
-| Approval routes SuperAdmin | ❌ | Belum ada |
-| Halaman Progress (semua) | ❌ | Placeholder kosong |
+| Migration tabel PK & RA | ✅ | Status enum: `draft\|submitted\|approved\|rejected` |
+| Models PK, Sasaran, IKU, RA | ✅ | Helper methods: `isEditable()`, `isApproved()`, dll |
+| Seeder data default | ✅ | PerencanaanSeeder — 4 sasaran, 9 IKU |
+| `KetuaTim/PerencanaanController` | ✅ | CRUD lengkap + submit |
+| `SuperAdmin/PerencanaanController` | ✅ | View + approve/reject/reopen |
+| Halaman KetuaTim Penyusunan PK Awal | ✅ | CRUD + progress bar + badge + submit |
+| Halaman KetuaTim Penyusunan PK Revisi | ✅ | CRUD + progress bar + badge + submit |
+| Halaman KetuaTim Penyusunan RA | ✅ | CRUD + progress bar + badge + submit |
+| Halaman SuperAdmin PK Awal/Revisi | ✅ | Badge status + Setujui/Tolak/Buka Kembali |
+| Halaman SuperAdmin RA | ✅ | Badge status + Setujui/Tolak/Buka Kembali |
+| Status workflow (draft→submitted→approved) | ✅ | Fully implemented di FE + BE |
+| Halaman Progress (semua, 6 halaman) | ⚠️ | Placeholder — belum ada konten nyata |
 
 ---
 
-## 7. Urutan Pengerjaan yang Disarankan
+## 7. Riwayat Pengerjaan
 
-> Migration, Model, Seeder, Controller GET, dan halaman view sudah selesai. Fokus selanjutnya ke CRUD dan workflow.
+| Step | Tanggal | Keterangan | Status |
+|---|---|---|---|
+| 1 | 2026-03-04 | Update enum status migration + helper methods model | ✅ Done |
+| 2 | 2026-03-04 | KetuaTim — route CRUD + controller lengkap | ✅ Done |
+| 3 | 2026-03-04 | KetuaTim PK Awal — UI CRUD + progress bar + badge | ✅ Done |
+| 4 | 2026-03-04 | KetuaTim PK Revisi — UI CRUD + progress bar + badge | ✅ Done |
+| 5 | 2026-03-04 | KetuaTim Rencana Aksi — UI CRUD + progress bar + badge | ✅ Done |
+| 6 | 2026-03-04 | SuperAdmin — approve/reject/reopen + badge status | ✅ Done |
 
-1. **Update migration** — ubah enum `status` dari `('draft','final')` → `('draft','submitted','approved','rejected')` di tabel `perjanjian_kinerja` dan `rencana_aksi`
-2. **KetuaTim PK Awal CRUD** (pilot):
-   - Tambah route POST/PUT/DELETE + submit di `ketua-tim.php`
-   - Tambah method controller di `KetuaTim/PerencanaanController`
-   - Tambah form/dialog di halaman `Penyusunan.tsx` (dialog tambah sasaran, inline edit indikator)
-   - Tambah tombol Submit + badge status
-3. **KetuaTim PK Revisi CRUD** — ikuti pola yang sama dengan PK Awal
-4. **KetuaTim Rencana Aksi CRUD** — inline edit target triwulan per baris
-5. **SuperAdmin approve/reject** — tambah route + method controller + tombol di halaman SuperAdmin
-6. **Halaman Progress** — implementasi konten (persentase field terisi, status per tim)
-7. **(Opsional)** Notifikasi saat status berubah (submitted → approve/reject)
+## 8. Pekerjaan Selanjutnya
+
+1. **Halaman Progress** (6 halaman placeholder) — implementasi konten realisasi kinerja per triwulan
+2. **(Opsional)** Notifikasi saat status berubah (submitted → approve/reject)
+3. **(Opsional)** Export dokumen PK/RA ke PDF
 
 ---
 
