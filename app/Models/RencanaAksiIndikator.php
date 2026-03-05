@@ -11,6 +11,7 @@ class RencanaAksiIndikator extends Model
 
     protected $fillable = [
         'rencana_aksi_id',
+        'sasaran_id',
         'kode',
         'nama',
         'satuan',
@@ -25,5 +26,10 @@ class RencanaAksiIndikator extends Model
     public function rencanaAksi(): BelongsTo
     {
         return $this->belongsTo(RencanaAksi::class, 'rencana_aksi_id');
+    }
+
+    public function sasaran(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Sasaran::class, 'sasaran_id');
     }
 }

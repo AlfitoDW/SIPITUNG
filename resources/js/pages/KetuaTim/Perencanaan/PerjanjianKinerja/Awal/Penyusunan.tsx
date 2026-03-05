@@ -1,3 +1,4 @@
+import React from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -213,84 +214,102 @@ export default function Penyusunan({ tahun, pk }: Props) {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        {/* ── Sasaran list ── */}
-                        {pk.sasarans.map((sasaran) => {
-                            const color = getColor(sasaran.kode);
-                            return (
-                                <div key={sasaran.id} className={`rounded-xl border shadow-sm overflow-hidden ${color.accent}`}>
-                                    {/* Sasaran header */}
-                                    <div className={`flex items-center justify-between px-4 py-2.5 ${color.sasaranBg}`}>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
-                                            <span className="text-sm font-medium">{sasaran.nama}</span>
-                                        </div>
-                                        {isEditable && (
-                                            <div className="flex items-center gap-1">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSasaran(sasaran)}>
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteDialog({ open: true, type: 'sasaran', id: sasaran.id, label: sasaran.kode })}>
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
+                        {pk.sasarans.length === 0 ? (
+                            <p className="text-sm text-muted-foreground italic">Belum ada sasaran. Tambahkan sasaran di bawah.</p>
+                        ) : (
+                            <div className="rounded-xl border shadow-sm overflow-hidden">
+                                <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
+                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
+                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
+                                            <TableHead className={`text-center align-middle font-semibold text-white ${isEditable ? 'border-r border-white/20 w-20' : 'w-20'}`}>Target</TableHead>
+                                            {isEditable && <TableHead className="text-center align-middle font-semibold text-white w-20">Aksi</TableHead>}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pk.sasarans.flatMap((sasaran) => {
+                                            const color = getColor(sasaran.kode);
+                                            const ikuCount = sasaran.indikators.length;
+                                            const emptyRow = ikuCount === 0;
+                                            const rowSpan = (emptyRow ? 1 : ikuCount) + (isEditable ? 1 : 0);
 
-                                    {/* Indikator table */}
-                                    <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                                        <TableHeader>
-                                            <TableRow className="hover:bg-transparent bg-muted/50">
-                                                <TableHead className="text-xs font-semibold">Indikator</TableHead>
-                                                <TableHead className="text-xs font-semibold text-center w-24">Satuan</TableHead>
-                                                <TableHead className="text-xs font-semibold text-center w-20">Target</TableHead>
-                                                {isEditable && <TableHead className="text-xs font-semibold text-center w-20">Aksi</TableHead>}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {sasaran.indikators.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={isEditable ? 4 : 3} className="text-center text-sm text-muted-foreground py-4">
-                                                        Belum ada indikator
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                sasaran.indikators.map((iku) => (
-                                                    <TableRow key={iku.id} className="hover:bg-muted/30">
-                                                        <TableCell className="text-sm">
-                                                            <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                            <p className="leading-snug">{iku.nama}</p>
+                                            const sasaranCell = (
+                                                <TableCell rowSpan={rowSpan} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                    {isEditable && (
+                                                        <div className="flex items-center gap-1 mt-2">
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditSasaran(sasaran)}>
+                                                                <Pencil className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => setDeleteDialog({ open: true, type: 'sasaran', id: sasaran.id, label: sasaran.kode })}>
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            );
+
+                                            const rows: React.ReactNode[] = [];
+
+                                            if (emptyRow) {
+                                                rows.push(
+                                                    <TableRow key={`${sasaran.id}-empty`} className="hover:bg-muted/30">
+                                                        {sasaranCell}
+                                                        <TableCell colSpan={isEditable ? 4 : 3} className="text-center text-sm text-muted-foreground py-4 italic">
+                                                            Belum ada indikator
                                                         </TableCell>
-                                                        <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                                        <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
-                                                        {isEditable && (
-                                                            <TableCell className="text-center">
-                                                                <div className="flex items-center justify-center gap-1">
-                                                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditIndikator(iku)}>
-                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteDialog({ open: true, type: 'indikator', id: iku.id, label: iku.kode })}>
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        )}
                                                     </TableRow>
-                                                ))
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                                );
+                                            } else {
+                                                sasaran.indikators.forEach((iku, idx) => {
+                                                    rows.push(
+                                                        <TableRow key={iku.id} className="hover:bg-muted/30 align-top">
+                                                            {idx === 0 && sasaranCell}
+                                                            <TableCell className="text-sm align-top">
+                                                                <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                                <p className="leading-snug">{iku.nama}</p>
+                                                            </TableCell>
+                                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                                            {isEditable && (
+                                                                <TableCell className="text-center">
+                                                                    <div className="flex items-center justify-center gap-1">
+                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditIndikator(iku)}>
+                                                                            <Pencil className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteDialog({ open: true, type: 'indikator', id: iku.id, label: iku.kode })}>
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                });
+                                            }
 
-                                    {isEditable && (
-                                        <div className="px-4 py-2 bg-muted/20 border-t">
-                                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openAddIndikator(sasaran.id)}>
-                                                <PlusCircle className="h-3.5 w-3.5" />
-                                                Tambah Indikator
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                            if (isEditable) {
+                                                rows.push(
+                                                    <TableRow key={`${sasaran.id}-add`} className="hover:bg-muted/10 bg-muted/5">
+                                                        <TableCell colSpan={4}>
+                                                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openAddIndikator(sasaran.id)}>
+                                                                <PlusCircle className="h-3.5 w-3.5" />
+                                                                Tambah Indikator
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            }
+
+                                            return rows;
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
 
                         {isEditable && (
                             <Button variant="outline" className="self-start gap-2" onClick={openAddSasaran}>

@@ -19,20 +19,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type Indikator = {
-    id: number;
-    kode: string;
-    nama: string;
-    satuan: string;
-    target: string;
-    target_tw1: string | null;
-    target_tw2: string | null;
-    target_tw3: string | null;
-    target_tw4: string | null;
+    id: number; kode: string; nama: string; satuan: string; target: string;
+    target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null;
 };
-
-type RA    = { id: number; status: 'draft' | 'submitted' | 'approved' | 'rejected'; indikators: Indikator[] };
-type Tahun = { id: number; tahun: number; label: string };
-type Props = { tahun: Tahun; ra: RA | null };
+type Sasaran = { id: number; kode: string; nama: string; indikators: Indikator[] };
+type RA      = { id: number; status: 'draft' | 'submitted' | 'approved' | 'rejected'; sasarans: Sasaran[] };
+type Tahun   = { id: number; tahun: number; label: string };
+type Props   = { tahun: Tahun; ra: RA | null; sasarans: Sasaran[] };
 
 const STATUS_CONFIG = {
     draft:     { label: 'Draft',     className: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -41,27 +34,28 @@ const STATUS_CONFIG = {
     rejected:  { label: 'Ditolak',   className: 'bg-red-100 text-red-700 border-red-200' },
 };
 
-type IndikatorFormState = {
-    kode: string; nama: string; satuan: string; target: string;
-    target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string;
+const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
+    'S 1': { sasaranBg: 'bg-blue-50 dark:bg-blue-950/40',       kodeBadge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
+    'S 2': { sasaranBg: 'bg-emerald-50 dark:bg-emerald-950/40', kodeBadge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', accent: 'border-l-4 border-l-emerald-500' },
+    'S 3': { sasaranBg: 'bg-violet-50 dark:bg-violet-950/40',   kodeBadge: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',    accent: 'border-l-4 border-l-violet-500' },
+    'S 4': { sasaranBg: 'bg-amber-50 dark:bg-amber-950/40',     kodeBadge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
 };
-
-const EMPTY_FORM: IndikatorFormState = { kode: '', nama: '', satuan: '', target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
+function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
 function calcProgress(ra: RA | null): number {
     if (!ra) return 0;
     if (ra.status === 'approved') return 100;
     if (ra.status === 'submitted') return 80;
-    if (ra.indikators.length === 0) return 10;
-    const withTw = ra.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length;
-    return Math.round(10 + (withTw / ra.indikators.length) * 50);
+    const totalIndikator = ra.sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
+    if (totalIndikator === 0) return 10;
+    const hasTw = ra.sasarans.some(sar => sar.indikators.some(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4));
+    return hasTw ? 60 : 35;
 }
 
 function StatusBadge({ status }: { status: RA['status'] }) {
     const cfg = STATUS_CONFIG[status];
     return <Badge variant="outline" className={cfg.className}>{cfg.label}</Badge>;
 }
-
 function StepItem({ done, label }: { done: boolean; label: string }) {
     return (
         <div className="flex items-center gap-1.5 text-sm">
@@ -71,38 +65,47 @@ function StepItem({ done, label }: { done: boolean; label: string }) {
     );
 }
 
-export default function Penyusunan({ tahun, ra }: Props) {
+type IndikatorForm = { kode: string; nama: string; satuan: string; target: string; target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
+const EMPTY_FORM: IndikatorForm = { kode: '', nama: '', satuan: '', target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
+
+export default function Penyusunan({ tahun, ra, sasarans }: Props) {
     const isEditable = !ra || ra.status === 'draft' || ra.status === 'rejected';
     const progress   = calcProgress(ra);
 
-    const [indikatorDialog, setIndikatorDialog] = useState<{ open: boolean; editing: Indikator | null }>({ open: false, editing: null });
+    const [indikatorDialog, setIndikatorDialog] = useState<{ open: boolean; sasaranId: number | null; editing: Indikator | null }>({ open: false, sasaranId: null, editing: null });
     const [deleteId, setDeleteId]               = useState<number | null>(null);
     const [submitDialog, setSubmitDialog]       = useState(false);
-    const [form, setForm]                       = useState<IndikatorFormState>(EMPTY_FORM);
+    const [form, setForm]                       = useState<IndikatorForm>(EMPTY_FORM);
 
-    function openAdd()                    { setForm(EMPTY_FORM); setIndikatorDialog({ open: true, editing: null }); }
-    function openEdit(i: Indikator)       { setForm({ kode: i.kode, nama: i.nama, satuan: i.satuan, target: i.target, target_tw1: i.target_tw1 ?? '', target_tw2: i.target_tw2 ?? '', target_tw3: i.target_tw3 ?? '', target_tw4: i.target_tw4 ?? '' }); setIndikatorDialog({ open: true, editing: i }); }
-    function setField(k: keyof IndikatorFormState, v: string) { setForm(f => ({ ...f, [k]: v })); }
+    function openAdd(sasaranId: number) {
+        setForm(EMPTY_FORM);
+        setIndikatorDialog({ open: true, sasaranId, editing: null });
+    }
+    function openEdit(iku: Indikator) {
+        setForm({ kode: iku.kode, nama: iku.nama, satuan: iku.satuan, target: iku.target, target_tw1: iku.target_tw1 ?? '', target_tw2: iku.target_tw2 ?? '', target_tw3: iku.target_tw3 ?? '', target_tw4: iku.target_tw4 ?? '' });
+        setIndikatorDialog({ open: true, sasaranId: null, editing: iku });
+    }
+    function setField(k: keyof IndikatorForm, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
     function saveIndikator() {
         const payload = { ...form, target_tw1: form.target_tw1 || null, target_tw2: form.target_tw2 || null, target_tw3: form.target_tw3 || null, target_tw4: form.target_tw4 || null };
-        const { editing } = indikatorDialog;
+        const { editing, sasaranId } = indikatorDialog;
         if (editing) {
-            router.put(`/ketua-tim/perencanaan/rencana-aksi/indikator/${editing.id}`, payload, { onSuccess: () => setIndikatorDialog({ open: false, editing: null }) });
+            router.put(`/ketua-tim/perencanaan/rencana-aksi/indikator/${editing.id}`, payload, { onSuccess: () => setIndikatorDialog({ open: false, sasaranId: null, editing: null }) });
         } else {
-            router.post('/ketua-tim/perencanaan/rencana-aksi/indikator', { ...payload, rencana_aksi_id: ra!.id }, { onSuccess: () => setIndikatorDialog({ open: false, editing: null }) });
+            router.post('/ketua-tim/perencanaan/rencana-aksi/indikator', { ...payload, sasaran_id: sasaranId }, { onSuccess: () => setIndikatorDialog({ open: false, sasaranId: null, editing: null }) });
         }
     }
-
     function confirmDelete() {
         if (deleteId) router.delete(`/ketua-tim/perencanaan/rencana-aksi/indikator/${deleteId}`, { onSuccess: () => setDeleteId(null) });
     }
-
     function submitRA() {
         router.patch('/ketua-tim/perencanaan/rencana-aksi/submit', {}, { onSuccess: () => setSubmitDialog(false) });
     }
 
-    const twFilled = ra ? ra.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length : 0;
+    const displaySasarans: Sasaran[] = ra?.sasarans ?? sasarans;
+    const totalIndikator = displaySasarans.reduce((s, sar) => s + sar.indikators.length, 0);
+    const twFilled = displaySasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length, 0);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -118,7 +121,7 @@ export default function Penyusunan({ tahun, ra }: Props) {
                         </div>
                         <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
                     </div>
-                    {ra && isEditable && ra.indikators.length > 0 && (
+                    {ra && isEditable && totalIndikator > 0 && (
                         <Button onClick={() => setSubmitDialog(true)}>
                             <Send className="h-4 w-4" />Submit ke SuperAdmin
                         </Button>
@@ -134,8 +137,8 @@ export default function Penyusunan({ tahun, ra }: Props) {
                     <Progress value={progress} className="h-2" />
                     <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
                         <StepItem done={!!ra} label="Dokumen dibuat" />
-                        <StepItem done={!!ra && ra.indikators.length > 0} label={`Indikator diisi (${ra?.indikators.length ?? 0})`} />
-                        <StepItem done={twFilled > 0} label={`Target TW diisi (${twFilled}/${ra?.indikators.length ?? 0})`} />
+                        <StepItem done={totalIndikator > 0} label={`Indikator diisi (${totalIndikator})`} />
+                        <StepItem done={twFilled > 0} label={`Target TW diisi (${twFilled}/${totalIndikator})`} />
                         <StepItem done={!!ra && (ra.status === 'submitted' || ra.status === 'approved')} label="Disubmit" />
                         <StepItem done={!!ra && ra.status === 'approved'} label="Disetujui" />
                     </div>
@@ -163,67 +166,104 @@ export default function Penyusunan({ tahun, ra }: Props) {
                             <PlusCircle className="h-4 w-4" />Buat Dokumen Rencana Aksi
                         </Button>
                     </div>
+                ) : displaySasarans.length === 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900">
+                        Belum ada sasaran. Buat Perjanjian Kinerja Awal terlebih dahulu agar sasaran dapat digunakan di sini.
+                    </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
-                        <div className="rounded-xl border shadow-sm overflow-hidden">
-                            <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                        <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
-                                        <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
-                                        <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
-                                        <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
-                                        {isEditable && <TableHead rowSpan={2} className="text-center font-semibold text-white w-20">Aksi</TableHead>}
-                                    </TableRow>
-                                    <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                        {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
-                                            <TableHead key={tw} className={`text-center font-semibold text-white w-20${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {ra.indikators.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={isEditable ? 8 : 7} className="text-center text-sm text-muted-foreground py-8">
-                                                Belum ada indikator. Tambahkan indikator kinerja di bawah.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : ra.indikators.map((iku) => (
-                                        <TableRow key={iku.id} className="align-top hover:bg-muted/30">
-                                            <TableCell className="text-sm align-top">
-                                                <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                <p className="leading-snug">{iku.nama}</p>
-                                            </TableCell>
-                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
-                                            <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                            <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                            <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                            <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                            {isEditable && (
-                                                <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(iku)}><Pencil className="h-3.5 w-3.5" /></Button>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(iku.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
+                    <div className="rounded-xl border shadow-sm overflow-hidden">
+                        <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
+                                    <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
+                                    {isEditable && <TableHead rowSpan={2} className="text-center font-semibold text-white w-20">Aksi</TableHead>}
+                                </TableRow>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
+                                        <TableHead key={tw} className={`text-center font-semibold text-white w-20${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
                                     ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {displaySasarans.flatMap((sasaran) => {
+                                    const color   = getColor(sasaran.kode);
+                                    const count   = sasaran.indikators.length;
+                                    // rowspan mencakup baris indikator + 1 baris "Tambah Indikator" (jika editable)
+                                    const rowSpan = isEditable ? count + 1 : Math.max(count, 1);
 
-                        {isEditable && (
-                            <Button variant="outline" className="self-start gap-2" onClick={openAdd}>
-                                <PlusCircle className="h-4 w-4" />Tambah Indikator
-                            </Button>
-                        )}
+                                    const indikatorRows = count === 0
+                                        ? [(
+                                            <TableRow key={`${sasaran.id}-empty`} className="hover:bg-muted/20">
+                                                <TableCell rowSpan={rowSpan} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                </TableCell>
+                                                <TableCell colSpan={isEditable ? 5 : 6} className="text-center text-sm text-muted-foreground py-4 italic">
+                                                    Belum ada indikator
+                                                </TableCell>
+                                                {isEditable && (
+                                                    <TableCell className="text-center">
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAdd(sasaran.id)}>
+                                                            <PlusCircle className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        )]
+                                        : sasaran.indikators.map((iku, idx) => (
+                                            <TableRow key={iku.id} className="align-top hover:bg-muted/30">
+                                                {idx === 0 && (
+                                                    <TableCell rowSpan={rowSpan} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                        <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                        <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                    </TableCell>
+                                                )}
+                                                <TableCell className="text-sm align-top">
+                                                    <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                    <p className="leading-snug">{iku.nama}</p>
+                                                </TableCell>
+                                                <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                                <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                                <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                {isEditable && (
+                                                    <TableCell className="text-center">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(iku)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(iku.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ));
+
+                                    const addRow = isEditable
+                                        ? [(
+                                            <TableRow key={`${sasaran.id}-add`} className="hover:bg-muted/10">
+                                                <TableCell colSpan={isEditable ? 8 : 7} className="py-1 pl-3">
+                                                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => openAdd(sasaran.id)}>
+                                                        <PlusCircle className="h-3.5 w-3.5" />Tambah Indikator
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        )]
+                                        : [];
+
+                                    return [...indikatorRows, ...addRow];
+                                })}
+                            </TableBody>
+                        </Table>
                     </div>
                 )}
             </div>
 
-            {/* Dialog: Tambah/Edit Indikator RA */}
+            {/* Dialog: Tambah/Edit Indikator */}
             <Dialog open={indikatorDialog.open} onOpenChange={(v) => setIndikatorDialog(s => ({ ...s, open: v }))}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
@@ -249,22 +289,10 @@ export default function Penyusunan({ tahun, ra }: Props) {
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="grid gap-1.5">
-                                <Label>Target TW I</Label>
-                                <Input value={form.target_tw1} onChange={e => setField('target_tw1', e.target.value)} placeholder="-" />
-                            </div>
-                            <div className="grid gap-1.5">
-                                <Label>Target TW II</Label>
-                                <Input value={form.target_tw2} onChange={e => setField('target_tw2', e.target.value)} placeholder="-" />
-                            </div>
-                            <div className="grid gap-1.5">
-                                <Label>Target TW III</Label>
-                                <Input value={form.target_tw3} onChange={e => setField('target_tw3', e.target.value)} placeholder="-" />
-                            </div>
-                            <div className="grid gap-1.5">
-                                <Label>Target TW IV</Label>
-                                <Input value={form.target_tw4} onChange={e => setField('target_tw4', e.target.value)} placeholder="-" />
-                            </div>
+                            <div className="grid gap-1.5"><Label>Target TW I</Label><Input value={form.target_tw1} onChange={e => setField('target_tw1', e.target.value)} placeholder="-" /></div>
+                            <div className="grid gap-1.5"><Label>Target TW II</Label><Input value={form.target_tw2} onChange={e => setField('target_tw2', e.target.value)} placeholder="-" /></div>
+                            <div className="grid gap-1.5"><Label>Target TW III</Label><Input value={form.target_tw3} onChange={e => setField('target_tw3', e.target.value)} placeholder="-" /></div>
+                            <div className="grid gap-1.5"><Label>Target TW IV</Label><Input value={form.target_tw4} onChange={e => setField('target_tw4', e.target.value)} placeholder="-" /></div>
                         </div>
                     </div>
                     <DialogFooter>
@@ -274,7 +302,7 @@ export default function Penyusunan({ tahun, ra }: Props) {
                 </DialogContent>
             </Dialog>
 
-            {/* AlertDialog: Hapus Indikator */}
+            {/* AlertDialog: Hapus */}
             <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -288,7 +316,7 @@ export default function Penyusunan({ tahun, ra }: Props) {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* AlertDialog: Submit RA */}
+            {/* AlertDialog: Submit */}
             <AlertDialog open={submitDialog} onOpenChange={setSubmitDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

@@ -46,9 +46,28 @@ class PerencanaanController extends Controller
     {
         $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
 
-        $ras = RencanaAksi::with(['indikators', 'timKerja'])
+        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->get();
+            ->get()
+            ->map(function ($ra) {
+                $grouped = $ra->indikators->groupBy('sasaran_id');
+
+                $sasarans = $grouped->map(function ($indikators, $sasaranId) {
+                    $s = $indikators->first()->sasaran;
+                    return [
+                        'kode'       => $s?->kode ?? '-',
+                        'nama'       => $s?->nama ?? 'Tanpa Sasaran',
+                        'indikators' => $indikators->toArray(),
+                    ];
+                })->values();
+
+                return [
+                    'id'       => $ra->id,
+                    'status'   => $ra->status,
+                    'tim_kerja' => $ra->timKerja,
+                    'sasarans' => $sasarans,
+                ];
+            });
 
         return Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,

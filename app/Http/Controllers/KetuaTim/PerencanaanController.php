@@ -268,17 +268,39 @@ class PerencanaanController extends Controller
 
     public function rencanaAksi(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun      = TahunAnggaran::where('is_default', true)->firstOrFail();
         $timKerjaId = $request->user()->tim_kerja_id;
+
+        // Sasaran diambil dari PK Awal milik tim kerja ini
+        $pk = PerjanjianKinerja::with('sasarans')
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('tim_kerja_id', $timKerjaId)
+            ->where('jenis', 'awal')
+            ->first();
 
         $ra = RencanaAksi::with(['indikators'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $timKerjaId)
             ->first();
 
+        // Group indikator RA per sasaran agar frontend bisa render per-sasaran
+        $indikatorsBySasaran = $ra
+            ? $ra->indikators->groupBy('sasaran_id')
+            : collect();
+
+        $sasarans = $pk
+            ? $pk->sasarans->map(fn($s) => [
+                'id'         => $s->id,
+                'kode'       => $s->kode,
+                'nama'       => $s->nama,
+                'indikators' => $indikatorsBySasaran->get($s->id, collect())->values()->toArray(),
+            ])->values()->toArray()
+            : [];
+
         return Inertia::render('KetuaTim/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun' => $tahun,
-            'ra'    => $ra,
+            'tahun'    => $tahun,
+            'ra'       => $ra ? ['id' => $ra->id, 'status' => $ra->status, 'sasarans' => $sasarans] : null,
+            'sasarans' => $sasarans,
         ]);
     }
 
@@ -298,18 +320,23 @@ class PerencanaanController extends Controller
     public function raIndikatorStore(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'rencana_aksi_id' => ['required', 'integer'],
-            'kode'            => ['required', 'string', 'max:30'],
-            'nama'            => ['required', 'string', 'max:500'],
-            'satuan'          => ['required', 'string', 'max:50'],
-            'target'          => ['required', 'string', 'max:50'],
-            'target_tw1'      => ['nullable', 'string', 'max:50'],
-            'target_tw2'      => ['nullable', 'string', 'max:50'],
-            'target_tw3'      => ['nullable', 'string', 'max:50'],
-            'target_tw4'      => ['nullable', 'string', 'max:50'],
+            'sasaran_id'  => ['required', 'integer'],
+            'kode'        => ['required', 'string', 'max:30'],
+            'nama'        => ['required', 'string', 'max:500'],
+            'satuan'      => ['required', 'string', 'max:50'],
+            'target'      => ['required', 'string', 'max:50'],
+            'target_tw1'  => ['nullable', 'string', 'max:50'],
+            'target_tw2'  => ['nullable', 'string', 'max:50'],
+            'target_tw3'  => ['nullable', 'string', 'max:50'],
+            'target_tw4'  => ['nullable', 'string', 'max:50'],
         ]);
 
-        $ra = RencanaAksi::where('id', $data['rencana_aksi_id'])
+        // Validasi sasaran milik tim kerja ini
+        $sasaran = Sasaran::with('perjanjianKinerja')->findOrFail($data['sasaran_id']);
+        abort_if($sasaran->perjanjianKinerja->tim_kerja_id !== $request->user()->tim_kerja_id, 403);
+
+        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $ra    = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $request->user()->tim_kerja_id)
             ->firstOrFail();
 
@@ -317,7 +344,19 @@ class PerencanaanController extends Controller
 
         $urutan = $ra->indikators()->max('urutan') + 1;
 
-        RencanaAksiIndikator::create([...$data, 'urutan' => $urutan]);
+        RencanaAksiIndikator::create([
+            'rencana_aksi_id' => $ra->id,
+            'sasaran_id'      => $data['sasaran_id'],
+            'kode'            => $data['kode'],
+            'nama'            => $data['nama'],
+            'satuan'          => $data['satuan'],
+            'target'          => $data['target'],
+            'target_tw1'      => $data['target_tw1'],
+            'target_tw2'      => $data['target_tw2'],
+            'target_tw3'      => $data['target_tw3'],
+            'target_tw4'      => $data['target_tw4'],
+            'urutan'          => $urutan,
+        ]);
 
         return back()->with('success', 'Indikator berhasil ditambahkan.');
     }

@@ -7,6 +7,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { clearAppearance } from '@/hooks/use-appearance';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/appearance';
@@ -21,6 +22,7 @@ export function UserMenuContent({ user }: Props) {
 
     const handleLogout = () => {
         cleanup();
+        clearAppearance();
         router.flushAll();
     };
 

@@ -103,11 +103,22 @@ class PerencanaanSeeder extends Seeder
             ]
         );
 
+        // Ambil sasaran dari PK Awal untuk di-link ke RA indikator
+        $pkSasarans = Sasaran::where('perjanjian_kinerja_id', $pk->id)
+            ->pluck('id', 'kode');
+
         $urutan = 1;
         foreach ($this->getRaIndikatorData() as $iku) {
-            RencanaAksiIndikator::firstOrCreate(
+            // Cari sasaran yang sesuai berdasarkan prefix kode indikator (IKU 1.x → S 1, dll.)
+            preg_match('/IKU (\d+)/', $iku['kode'], $m);
+            $sasaranKode = isset($m[1]) ? "S {$m[1]}" : null;
+            $sasaranId   = $sasaranKode ? ($pkSasarans->get($sasaranKode)) : null;
+
+            // updateOrCreate agar sasaran_id diperbarui di record yang sudah ada
+            RencanaAksiIndikator::updateOrCreate(
                 ['rencana_aksi_id' => $ra->id, 'kode' => $iku['kode']],
                 [
+                    'sasaran_id' => $sasaranId,
                     'nama'       => $iku['nama'],
                     'satuan'     => $iku['satuan'],
                     'target'     => $iku['target'],

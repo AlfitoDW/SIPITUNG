@@ -14,10 +14,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Penyusunan', href: '/super-admin/perencanaan/rencana-aksi/penyusunan' },
 ];
 
-type Indikator = { id: number; kode: string; nama: string; satuan: string; target: string; target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null };
-type RA        = { id: number; status: 'draft' | 'submitted' | 'approved' | 'rejected'; indikators: Indikator[]; tim_kerja: { nama_singkat: string } };
-type Tahun     = { id: number; tahun: number; label: string };
-type Props     = { tahun: Tahun; ras: RA[] };
+type Indikator    = { id: number; kode: string; nama: string; satuan: string; target: string; target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null };
+type SasaranGroup = { kode: string; nama: string; indikators: Indikator[] };
+type RA           = { id: number; status: 'draft' | 'submitted' | 'approved' | 'rejected'; sasarans: SasaranGroup[]; tim_kerja: { nama_singkat: string } };
+type Tahun        = { id: number; tahun: number; label: string };
+type Props        = { tahun: Tahun; ras: RA[] };
 
 const STATUS_CONFIG = {
     draft:     { label: 'Draft',     className: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -25,6 +26,14 @@ const STATUS_CONFIG = {
     approved:  { label: 'Disetujui', className: 'bg-green-100 text-green-700 border-green-200' },
     rejected:  { label: 'Ditolak',   className: 'bg-red-100 text-red-700 border-red-200' },
 };
+
+const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
+    'S 1': { sasaranBg: 'bg-blue-50 dark:bg-blue-950/40',       kodeBadge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
+    'S 2': { sasaranBg: 'bg-emerald-50 dark:bg-emerald-950/40', kodeBadge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', accent: 'border-l-4 border-l-emerald-500' },
+    'S 3': { sasaranBg: 'bg-violet-50 dark:bg-violet-950/40',   kodeBadge: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',    accent: 'border-l-4 border-l-violet-500' },
+    'S 4': { sasaranBg: 'bg-amber-50 dark:bg-amber-950/40',     kodeBadge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
+};
+function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
 type ActionDialog = { open: boolean; raId: number | null; action: 'approve' | 'reject' | 'reopen'; label: string };
 
@@ -34,7 +43,6 @@ export default function Penyusunan({ tahun, ras }: Props) {
     function openDialog(ra: RA, action: 'approve' | 'reject' | 'reopen') {
         setDialog({ open: true, raId: ra.id, action, label: ra.tim_kerja.nama_singkat });
     }
-
     function confirm() {
         const { raId, action } = dialog;
         router.patch(`/super-admin/perencanaan/rencana-aksi/${raId}/${action}`, {}, {
@@ -64,8 +72,10 @@ export default function Penyusunan({ tahun, ras }: Props) {
                 ) : (
                     ras.map((ra) => {
                         const statusCfg = STATUS_CONFIG[ra.status];
+
                         return (
                             <div key={ra.id} className="flex flex-col gap-2">
+                                {/* RA header */}
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-semibold">{ra.tim_kerja.nama_singkat}</span>
@@ -90,13 +100,14 @@ export default function Penyusunan({ tahun, ras }: Props) {
                                     </div>
                                 </div>
 
-                                {ra.indikators.length === 0 ? (
+                                {ra.sasarans.length === 0 ? (
                                     <p className="text-sm text-muted-foreground italic pl-1">Belum ada indikator.</p>
                                 ) : (
                                     <div className="rounded-xl border shadow-sm overflow-hidden">
                                         <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
                                             <TableHeader>
                                                 <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
                                                     <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
                                                     <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
                                                     <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
@@ -109,20 +120,29 @@ export default function Penyusunan({ tahun, ras }: Props) {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {ra.indikators.map((iku) => (
-                                                    <TableRow key={iku.id} className="align-top hover:bg-muted/30">
-                                                        <TableCell className="text-sm align-top">
-                                                            <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                            <p className="leading-snug">{iku.nama}</p>
-                                                        </TableCell>
-                                                        <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                                        <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
-                                                        <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                        <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                        <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                        <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                    </TableRow>
-                                                ))}
+                                                {ra.sasarans.flatMap((sasaran) => {
+                                                    const color = getColor(sasaran.kode);
+                                                    return sasaran.indikators.map((iku, idx) => (
+                                                        <TableRow key={`${sasaran.kode}-${iku.id}`} className="align-top hover:bg-muted/30">
+                                                            {idx === 0 && (
+                                                                <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                                </TableCell>
+                                                            )}
+                                                            <TableCell className="text-sm align-top">
+                                                                <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                                <p className="leading-snug">{iku.nama}</p>
+                                                            </TableCell>
+                                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                                            <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                            <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                            <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                            <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                        </TableRow>
+                                                    ));
+                                                })}
                                             </TableBody>
                                         </Table>
                                     </div>

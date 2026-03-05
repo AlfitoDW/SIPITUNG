@@ -70,16 +70,6 @@ const ketuaTimNav: NavGroup[] = [
         ],
     },
     {
-        label: 'Pertanggungjawaban',
-        items: [
-            {
-                title: 'LPJ',
-                href: '/ketua-tim/lpj',
-                icon: FileCheck,
-            },
-        ],
-    },
-    {
         label: 'Lainnya',
         items: [
             {
