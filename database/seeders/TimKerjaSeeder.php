@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\TimKerja;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class TimKerjaSeeder extends Seeder
 {
@@ -90,10 +90,7 @@ class TimKerjaSeeder extends Seeder
         ];
 
         foreach ($timKerja as $tim) {
-            DB::table('tim_kerja')->insert(array_merge($tim, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+            TimKerja::updateOrCreate(['kode' => $tim['kode']], $tim);
         }
     }
 }
