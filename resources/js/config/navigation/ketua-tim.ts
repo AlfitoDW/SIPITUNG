@@ -48,18 +48,12 @@ const ketuaTimNav: NavGroup[] = [
                 icon: ClipboardCheck,
                 children: [
                     {
-                        title: 'Awal',
-                        children: [
-                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/rencana-aksi/awal/persiapan' },
-                            { title: 'Progress',   href: '/ketua-tim/perencanaan/rencana-aksi/awal/progress'  },
-                        ],
+                        title: 'Penyusunan',
+                        href : '/ketua-tim/perencanaan/rencana-aksi/penyusunan',
                     },
                     {
-                        title: 'Revisi',
-                        children: [
-                            { title: 'Penyusunan', href: '/ketua-tim/perencanaan/rencana-aksi/revisi/persiapan' },
-                            { title: 'Progress',   href: '/ketua-tim/perencanaan/rencana-aksi/revisi/progress'  },
-                        ],
+                        title: 'Progress',
+                        href : '/ketua-tim/perencanaan/rencana-aksi/progress',
                     },
                 ],
             },
@@ -72,16 +66,6 @@ const ketuaTimNav: NavGroup[] = [
                 title: 'Permohonan Dana',
                 href: '/ketua-tim/permohonan-dana',
                 icon: HandCoins,
-            },
-        ],
-    },
-    {
-        label: 'Pertanggungjawaban',
-        items: [
-            {
-                title: 'LPJ',
-                href: '/ketua-tim/lpj',
-                icon: FileCheck,
             },
         ],
     },

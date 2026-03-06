@@ -77,6 +77,15 @@ export function initializeTheme(): void {
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
+export function clearAppearance(): void {
+    if (typeof window === 'undefined') return;
+    currentAppearance = 'light';
+    localStorage.removeItem('appearance');
+    setCookie('appearance', 'light');
+    applyTheme('light');
+    notify();
+}
+
 export function useAppearance(): UseAppearanceReturn {
     const appearance: Appearance = useSyncExternalStore(
         subscribe,

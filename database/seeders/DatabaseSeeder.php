@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             TimKerjaSeeder::class,
             UserSeeder::class,
             TahunAnggaranSeeder::class,
+            PerencanaanSeeder::class,
         ]);
     }
 }

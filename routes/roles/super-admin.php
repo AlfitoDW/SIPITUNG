@@ -3,25 +3,31 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\SuperAdmin\UserController;
+use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboard;
 use App\Http\Controllers\SuperAdmin\DataMasterController;
+use App\Http\Controllers\SuperAdmin\PerencanaanController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
 
 Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.')->group(function () {
 
-    Route::get('/dashboard', fn() => Inertia::render('SuperAdmin/Dashboard'))->name('dashboard');
+    Route::get('/dashboard', [SuperAdminDashboard::class, 'index'])->name('dashboard');
     Route::get('/keuangan', fn() => Inertia::render('SuperAdmin/Keuangan'))->name('keuangan');
     Route::get('/perencanaan', fn() => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');
 
     Route::prefix('perencanaan/perjanjian-kinerja')->name('perencanaan.pk.')->group(function () {
-        Route::get('awal/penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Penyusunan'))->name('awal.penyusunan');
+        Route::get('awal/penyusunan', [PerencanaanController::class, 'pkAwal'])->name('awal.penyusunan');
         Route::get('awal/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Progress'))->name('awal.progress');
-        Route::get('revisi/penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan'))->name('revisi.penyusunan');
+        Route::get('revisi/penyusunan', [PerencanaanController::class, 'pkRevisi'])->name('revisi.penyusunan');
         Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Progress'))->name('revisi.progress');
+
+        Route::patch('{pk}/reopen', [PerencanaanController::class, 'pkReopen'])->name('reopen');
     });
 
     Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
-        Route::get('penyusunan', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan'))->name('penyusunan');
+        Route::get('penyusunan', [PerencanaanController::class, 'rencanaAksi'])->name('penyusunan');
         Route::get('progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Progress'))->name('progress');
+
+        Route::patch('{ra}/reopen', [PerencanaanController::class, 'raReopen'])->name('reopen');
     });
 
     Route::get('/pertanggungjawaban', fn() => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');
