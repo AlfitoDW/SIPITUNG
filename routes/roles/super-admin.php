@@ -3,13 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\SuperAdmin\UserController;
+use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboard;
 use App\Http\Controllers\SuperAdmin\DataMasterController;
 use App\Http\Controllers\SuperAdmin\PerencanaanController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
 
 Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.')->group(function () {
 
-    Route::get('/dashboard', fn() => Inertia::render('SuperAdmin/Dashboard'))->name('dashboard');
+    Route::get('/dashboard', [SuperAdminDashboard::class, 'index'])->name('dashboard');
     Route::get('/keuangan', fn() => Inertia::render('SuperAdmin/Keuangan'))->name('keuangan');
     Route::get('/perencanaan', fn() => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');
 

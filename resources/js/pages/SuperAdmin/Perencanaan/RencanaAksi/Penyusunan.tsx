@@ -4,6 +4,7 @@ import type { BreadcrumbItem } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
@@ -71,76 +72,80 @@ export default function Penyusunan({ tahun, ras }: Props) {
                 {ras.length === 0 ? (
                     <p className="text-muted-foreground">Belum ada data dari Tim Kerja manapun.</p>
                 ) : (
-                    ras.map((ra) => {
-                        const statusCfg = STATUS_CONFIG[ra.status];
-
-                        return (
-                            <div key={ra.id} className="flex flex-col gap-2">
-                                {/* RA header */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold">{ra.tim_kerja.nama_singkat}</span>
-                                        <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
+                    <Accordion type="multiple" className="flex flex-col gap-2">
+                        {ras.map((ra) => {
+                            const statusCfg = STATUS_CONFIG[ra.status];
+                            return (
+                                <AccordionItem key={ra.id} value={`ra-${ra.id}`} className="rounded-xl border shadow-sm overflow-hidden">
+                                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40 [&[data-state=open]]:bg-muted/40">
+                                        <div className="flex items-center gap-2 flex-1 mr-2">
+                                            <span className="text-sm font-semibold">{ra.tim_kerja.nama_singkat}</span>
+                                            <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
+                                        </div>
                                         {ra.status === 'ppk_approved' && (
-                                            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-muted-foreground" onClick={() => openDialog(ra)}>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 gap-1.5 text-muted-foreground mr-2"
+                                                onClick={(e) => { e.stopPropagation(); openDialog(ra); }}
+                                            >
                                                 <RotateCcw className="h-3.5 w-3.5" />Buka Kembali
                                             </Button>
                                         )}
-                                    </div>
-                                </div>
-
-                                {ra.sasarans.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground italic pl-1">Belum ada indikator.</p>
-                                ) : (
-                                    <div className="rounded-xl border shadow-sm overflow-hidden">
-                                        <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                                            <TableHeader>
-                                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
-                                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
-                                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
-                                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
-                                                    <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
-                                                </TableRow>
-                                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                                    {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
-                                                        <TableHead key={tw} className={`text-center font-semibold text-white w-20${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {ra.sasarans.flatMap((sasaran) => {
-                                                    const color = getColor(sasaran.kode);
-                                                    return sasaran.indikators.map((iku, idx) => (
-                                                        <TableRow key={`${sasaran.kode}-${iku.id}`} className="align-top hover:bg-muted/30">
-                                                            {idx === 0 && (
-                                                                <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
-                                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
-                                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
-                                                                </TableCell>
-                                                            )}
-                                                            <TableCell className="text-sm align-top">
-                                                                <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                                <p className="leading-snug">{iku.nama}</p>
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
-                                                            <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                            <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                            <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                                            <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pb-0">
+                                        {ra.sasarans.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground italic px-4 py-3">Belum ada indikator.</p>
+                                        ) : (
+                                            <div className="overflow-hidden">
+                                                <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                                                    <TableHeader>
+                                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
+                                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
+                                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
+                                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
+                                                            <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
                                                         </TableRow>
-                                                    ));
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })
+                                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                                            {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
+                                                                <TableHead key={tw} className={`text-center font-semibold text-white w-20${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
+                                                            ))}
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {ra.sasarans.flatMap((sasaran) => {
+                                                            const color = getColor(sasaran.kode);
+                                                            return sasaran.indikators.map((iku, idx) => (
+                                                                <TableRow key={`${sasaran.kode}-${iku.id}`} className="align-top hover:bg-muted/30">
+                                                                    {idx === 0 && (
+                                                                        <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                                            <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                                            <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                                        </TableCell>
+                                                                    )}
+                                                                    <TableCell className="text-sm align-top">
+                                                                        <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                                        <p className="leading-snug">{iku.nama}</p>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                                                    <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                                                    <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                                    <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                                    <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                                    <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                                </TableRow>
+                                                            ));
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            );
+                        })}
+                    </Accordion>
                 )}
             </div>
 

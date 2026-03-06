@@ -299,7 +299,14 @@ class PerencanaanController extends Controller
 
         return Inertia::render('KetuaTim/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun'    => $tahun,
-            'ra'       => $ra ? ['id' => $ra->id, 'status' => $ra->status, 'sasarans' => $sasarans] : null,
+            'ra'       => $ra ? [
+                'id'                => $ra->id,
+                'status'            => $ra->status,
+                'rekomendasi_kabag' => $ra->rekomendasi_kabag,
+                'rekomendasi_ppk'   => $ra->rekomendasi_ppk,
+                'rejected_by'       => $ra->rejected_by,
+                'sasarans'          => $sasarans,
+            ] : null,
             'sasarans' => $sasarans,
         ]);
     }

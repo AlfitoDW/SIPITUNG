@@ -4,6 +4,7 @@ import type { BreadcrumbItem } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -70,65 +71,68 @@ export default function Penyusunan({ tahun, pks, role }: Props) {
                 {pks.length === 0 ? (
                     <p className="text-muted-foreground">Tidak ada dokumen yang perlu direview saat ini.</p>
                 ) : (
-                    pks.map((pk) => {
-                        const statusCfg = STATUS_CONFIG[pk.status] ?? STATUS_CONFIG['draft'];
-                        return (
-                            <div key={pk.id} className="flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold">{pk.tim_kerja.nama_singkat}</span>
-                                        <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Button size="sm" variant="outline" className="h-7 gap-1.5 border-green-300 text-green-700 hover:bg-green-50" onClick={() => openDialog(pk, 'approve')}>
-                                            <CheckCircle2 className="h-3.5 w-3.5" />Setujui
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="h-7 gap-1.5 border-red-300 text-red-700 hover:bg-red-50" onClick={() => openDialog(pk, 'reject')}>
-                                            <XCircle className="h-3.5 w-3.5" />Tolak
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {pk.sasarans.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground italic pl-1">Belum ada data sasaran.</p>
-                                ) : (
-                                    <div className="rounded-xl border shadow-sm overflow-hidden">
-                                        <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                                            <TableHeader>
-                                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                                    <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
-                                                    <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
-                                                    <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
-                                                    <TableHead className="text-center align-middle font-semibold text-white w-20">Target</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {pk.sasarans.flatMap((sasaran) => {
-                                                    const color = getColor(sasaran.kode);
-                                                    return sasaran.indikators.map((iku, idx) => (
-                                                        <TableRow key={`${sasaran.id}-${iku.id}`} className="align-top hover:bg-muted/30">
-                                                            {idx === 0 && (
-                                                                <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
-                                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
-                                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
-                                                                </TableCell>
-                                                            )}
-                                                            <TableCell className="text-sm align-top">
-                                                                <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                                <p className="leading-snug">{iku.nama}</p>
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                    <Accordion type="multiple" className="flex flex-col gap-2">
+                        {pks.map((pk) => {
+                            const statusCfg = STATUS_CONFIG[pk.status] ?? STATUS_CONFIG['draft'];
+                            return (
+                                <AccordionItem key={pk.id} value={`pk-${pk.id}`} className="rounded-xl border shadow-sm overflow-hidden">
+                                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40 data-[state=open]:bg-muted/40">
+                                        <div className="flex items-center gap-2 flex-1 mr-2">
+                                            <span className="text-sm font-semibold">{pk.tim_kerja.nama_singkat}</span>
+                                            <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mr-2">
+                                            <Button size="sm" variant="outline" className="h-7 gap-1.5 border-green-300 text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); openDialog(pk, 'approve'); }}>
+                                                <CheckCircle2 className="h-3.5 w-3.5" />Setujui
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-7 gap-1.5 border-red-300 text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); openDialog(pk, 'reject'); }}>
+                                                <XCircle className="h-3.5 w-3.5" />Tolak
+                                            </Button>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pb-0">
+                                        {pk.sasarans.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground italic px-4 py-3">Belum ada data sasaran.</p>
+                                        ) : (
+                                            <div className="overflow-hidden">
+                                                <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                                                    <TableHeader>
+                                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
+                                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
+                                                            <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
+                                                            <TableHead className="text-center align-middle font-semibold text-white w-20">Target</TableHead>
                                                         </TableRow>
-                                                    ));
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {pk.sasarans.flatMap((sasaran) => {
+                                                            const color = getColor(sasaran.kode);
+                                                            return sasaran.indikators.map((iku, idx) => (
+                                                                <TableRow key={`${sasaran.id}-${iku.id}`} className="align-top hover:bg-muted/30">
+                                                                    {idx === 0 && (
+                                                                        <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                                            <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                                            <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                                        </TableCell>
+                                                                    )}
+                                                                    <TableCell className="text-sm align-top">
+                                                                        <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                                        <p className="leading-snug">{iku.nama}</p>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                                                    <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                                                </TableRow>
+                                                            ));
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            );
+                        })}
+                    </Accordion>
                 )}
             </div>
 

@@ -22,7 +22,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Indikator = { id: number; kode: string; nama: string; satuan: string; target: string };
 type Sasaran   = { id: number; kode: string; nama: string; indikators: Indikator[] };
-type PK        = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; sasarans: Sasaran[] };
+type PK        = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; sasarans: Sasaran[]; rekomendasi_kabag: string | null; rekomendasi_ppk: string | null; rejected_by: 'kabag_umum' | 'ppk' | null };
 type Tahun     = { id: number; tahun: number; label: string };
 type Props     = { tahun: Tahun; pk: PK | null };
 
@@ -151,8 +151,14 @@ export default function Penyusunan({ tahun, pk }: Props) {
                 </div>
 
                 {pk?.status === 'rejected' && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900">
-                        Dokumen ini ditolak. Silakan perbaiki dan submit ulang.
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 space-y-1">
+                        <p className="font-medium">Dokumen ditolak oleh {pk.rejected_by === 'kabag_umum' ? 'Kabag Umum' : 'PPK'}. Silakan perbaiki dan submit ulang.</p>
+                        {(pk.rejected_by === 'kabag_umum' ? pk.rekomendasi_kabag : pk.rekomendasi_ppk) && (
+                            <p className="text-red-600 dark:text-red-400">
+                                <span className="font-medium">Rekomendasi: </span>
+                                {pk.rejected_by === 'kabag_umum' ? pk.rekomendasi_kabag : pk.rekomendasi_ppk}
+                            </p>
+                        )}
                     </div>
                 )}
                 {pk && !isEditable && (
