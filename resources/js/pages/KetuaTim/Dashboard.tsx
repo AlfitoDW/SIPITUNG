@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, ClipboardList, ChevronRight } from 'lucide-react';
+import { FileText, ClipboardList, ChevronRight, Loader2 } from 'lucide-react';
 
 type DocStatus = { id: number; status: string; indikators_count?: number } | null;
 type Tahun     = { id: number; tahun: number; label: string } | null;
@@ -15,10 +15,10 @@ type Props = {
     ra: DocStatus;
 };
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; className: string; spinner?: boolean }> = {
     draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200',   spinner: true },
+    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200', spinner: true },
     ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
     rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
 };
@@ -39,7 +39,10 @@ function DocCard({ title, icon: Icon, doc, href, emptyLabel }: {
                     <div>
                         {doc ? (
                             <>
-                                <Badge variant="outline" className={cfg!.className}>{cfg!.label}</Badge>
+                                <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${cfg!.className}`}>
+                                    {cfg!.spinner && <Loader2 className="h-3 w-3 animate-spin" />}
+                                    {cfg!.label}
+                                </Badge>
                                 {doc.indikators_count !== undefined && (
                                     <p className="text-xs text-muted-foreground mt-1">{doc.indikators_count} indikator</p>
                                 )}

@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
 type Props = {
@@ -80,8 +80,8 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
 
                 <div className="grid gap-4 md:grid-cols-3 items-stretch">
                     <StatCard
-                        icon={Clock}
-                        iconClass="text-amber-500"
+                        icon={Loader2}
+                        iconClass="text-amber-500 animate-spin"
                         title="Menunggu Review"
                         total={totalPending}
                         totalClass="text-amber-600"

@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { BreadcrumbItem } from '@/types';
-import { FileText, Users, ClipboardList } from 'lucide-react';
+import { FileText, Users, ClipboardList, Loader2 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/super-admin/dashboard' },
@@ -13,11 +13,14 @@ type StatusStats = { draft: number; submitted: number; kabag_approved: number; p
 type Tahun = { id: number; tahun: number; label: string } | null;
 type Props = { tahun: Tahun; timKerjaTotal: number; pkAwal: StatusStats; pkRevisi: StatusStats; ra: StatusStats };
 
-function StatRow({ label, value, color }: { label: string; value: number; color: string }) {
+function StatRow({ label, value, color, spinner }: { label: string; value: number; color: string; spinner?: boolean }) {
     if (value === 0) return null;
     return (
         <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{label}</span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+                {spinner && <Loader2 className="h-3 w-3 animate-spin" />}
+                {label}
+            </span>
             <Badge variant="outline" className={color}>{value}</Badge>
         </div>
     );
@@ -39,8 +42,8 @@ function DocCard({ title, icon: Icon, stats, href }: { title: string; icon: Reac
                 ) : (
                     <>
                         <StatRow label="Draft"           value={stats.draft}          color="bg-slate-100 text-slate-700 border-slate-200" />
-                        <StatRow label="Menunggu Kabag"  value={stats.submitted}       color="bg-blue-100 text-blue-700 border-blue-200" />
-                        <StatRow label="Menunggu PPK"    value={stats.kabag_approved}  color="bg-amber-100 text-amber-700 border-amber-200" />
+                        <StatRow label="Menunggu Kabag"  value={stats.submitted}       color="bg-blue-100 text-blue-700 border-blue-200"   spinner />
+                        <StatRow label="Menunggu PPK"    value={stats.kabag_approved}  color="bg-amber-100 text-amber-700 border-amber-200" spinner />
                         <StatRow label="Terkunci"        value={stats.ppk_approved}    color="bg-green-100 text-green-700 border-green-200" />
                         <StatRow label="Ditolak"         value={stats.rejected}        color="bg-red-100 text-red-700 border-red-200" />
                     </>
