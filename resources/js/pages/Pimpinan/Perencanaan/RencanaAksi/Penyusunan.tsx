@@ -4,23 +4,24 @@ import type { BreadcrumbItem } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Perencanaan', href: '/super-admin/perencanaan' },
-    { title: 'Rencana Aksi', href: '#' },
-    { title: 'Penyusunan', href: '/super-admin/perencanaan/rencana-aksi/penyusunan' },
+    { title: 'Perencanaan', href: '#' },
+    { title: 'Rencana Aksi', href: '/pimpinan/perencanaan/rencana-aksi' },
 ];
 
 type Indikator    = { id: number; kode: string; nama: string; satuan: string; target: string; target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null };
 type SasaranGroup = { kode: string; nama: string; indikators: Indikator[] };
-type RA           = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; sasarans: SasaranGroup[]; tim_kerja: { nama_singkat: string } };
+type RA           = { id: number; status: string; sasarans: SasaranGroup[]; tim_kerja: { nama_singkat: string } };
 type Tahun        = { id: number; tahun: number; label: string };
-type Props        = { tahun: Tahun; ras: RA[] };
+type Props        = { tahun: Tahun; ras: RA[]; role: 'kabag_umum' | 'ppk' };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
     submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
     kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -36,58 +37,54 @@ const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; acce
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-type ActionDialog = { open: boolean; raId: number | null; action: 'reopen'; label: string };
+type ActionDialog = { open: boolean; raId: number | null; action: 'approve' | 'reject'; label: string };
 
-export default function Penyusunan({ tahun, ras }: Props) {
-    const [dialog, setDialog] = useState<ActionDialog>({ open: false, raId: null, action: 'reopen', label: '' });
+export default function Penyusunan({ tahun, ras, role }: Props) {
+    const [dialog, setDialog] = useState<ActionDialog>({ open: false, raId: null, action: 'approve', label: '' });
+    const [rekomendasi, setRekomendasi] = useState('');
 
-    function openDialog(ra: RA) {
-        setDialog({ open: true, raId: ra.id, action: 'reopen', label: ra.tim_kerja.nama_singkat });
+    function openDialog(ra: RA, action: 'approve' | 'reject') {
+        setRekomendasi('');
+        setDialog({ open: true, raId: ra.id, action, label: ra.tim_kerja.nama_singkat });
     }
+
     function confirm() {
-        const { raId } = dialog;
-        router.patch(`/super-admin/perencanaan/rencana-aksi/${raId}/reopen`, {}, {
+        const { raId, action } = dialog;
+        router.post(`/pimpinan/perencanaan/rencana-aksi/${raId}/${action}`, { rekomendasi }, {
             onSuccess: () => setDialog(d => ({ ...d, open: false })),
         });
     }
 
-    const submittedCount = ras.filter(r => r.status === 'submitted').length;
+    const roleLabel = role === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Penyusunan — Rencana Aksi" />
+            <Head title="Rencana Aksi — Perencanaan" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
-                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Review Rencana Aksi</h1>
+                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label} · Anda login sebagai <span className="font-medium">{roleLabel}</span></p>
                 </div>
 
-                {submittedCount > 0 && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900">
-                        {submittedCount} dokumen menunggu persetujuan.
-                    </div>
-                )}
-
                 {ras.length === 0 ? (
-                    <p className="text-muted-foreground">Belum ada data dari Tim Kerja manapun.</p>
+                    <p className="text-muted-foreground">Tidak ada dokumen yang perlu direview saat ini.</p>
                 ) : (
                     ras.map((ra) => {
-                        const statusCfg = STATUS_CONFIG[ra.status];
-
+                        const statusCfg = STATUS_CONFIG[ra.status] ?? STATUS_CONFIG['draft'];
                         return (
                             <div key={ra.id} className="flex flex-col gap-2">
-                                {/* RA header */}
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-semibold">{ra.tim_kerja.nama_singkat}</span>
                                         <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                        {ra.status === 'ppk_approved' && (
-                                            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-muted-foreground" onClick={() => openDialog(ra)}>
-                                                <RotateCcw className="h-3.5 w-3.5" />Buka Kembali
-                                            </Button>
-                                        )}
+                                        <Button size="sm" variant="outline" className="h-7 gap-1.5 border-green-300 text-green-700 hover:bg-green-50" onClick={() => openDialog(ra, 'approve')}>
+                                            <CheckCircle2 className="h-3.5 w-3.5" />Setujui
+                                        </Button>
+                                        <Button size="sm" variant="outline" className="h-7 gap-1.5 border-red-300 text-red-700 hover:bg-red-50" onClick={() => openDialog(ra, 'reject')}>
+                                            <XCircle className="h-3.5 w-3.5" />Tolak
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -144,20 +141,34 @@ export default function Penyusunan({ tahun, ras }: Props) {
                 )}
             </div>
 
-            <AlertDialog open={dialog.open} onOpenChange={(v) => setDialog(d => ({ ...d, open: v }))}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Buka kembali dokumen?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Rencana Aksi dari {dialog.label} akan dibuka kembali ke status draft.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirm}>Buka Kembali</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <Dialog open={dialog.open} onOpenChange={(v) => setDialog(d => ({ ...d, open: v }))}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {dialog.action === 'approve' ? `Setujui RA — ${dialog.label}` : `Tolak RA — ${dialog.label}`}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="rekomendasi">Rekomendasi <span className="text-muted-foreground">(opsional)</span></Label>
+                        <Textarea
+                            id="rekomendasi"
+                            placeholder="Tulis rekomendasi atau catatan..."
+                            value={rekomendasi}
+                            onChange={(e) => setRekomendasi(e.target.value)}
+                            rows={4}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDialog(d => ({ ...d, open: false }))}>Batal</Button>
+                        <Button
+                            variant={dialog.action === 'reject' ? 'destructive' : 'default'}
+                            onClick={confirm}
+                        >
+                            {dialog.action === 'approve' ? 'Setujui' : 'Tolak'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

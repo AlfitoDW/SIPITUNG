@@ -23,15 +23,16 @@ type Indikator = {
     target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null;
 };
 type Sasaran = { id: number; kode: string; nama: string; indikators: Indikator[] };
-type RA      = { id: number; status: 'draft' | 'submitted' | 'approved' | 'rejected'; sasarans: Sasaran[] };
+type RA      = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; sasarans: Sasaran[] };
 type Tahun   = { id: number; tahun: number; label: string };
 type Props   = { tahun: Tahun; ra: RA | null; sasarans: Sasaran[] };
 
 const STATUS_CONFIG = {
-    draft:     { label: 'Draft',     className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted: { label: 'Menunggu',  className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    approved:  { label: 'Disetujui', className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:  { label: 'Ditolak',   className: 'bg-red-100 text-red-700 border-red-200' },
+    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
+    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
+    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
@@ -44,7 +45,8 @@ function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S
 
 function calcProgress(ra: RA | null): number {
     if (!ra) return 0;
-    if (ra.status === 'approved') return 100;
+    if (ra.status === 'ppk_approved') return 100;
+    if (ra.status === 'kabag_approved') return 90;
     if (ra.status === 'submitted') return 80;
     const totalIndikator = ra.sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
     if (totalIndikator === 0) return 10;
@@ -123,7 +125,7 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                     </div>
                     {ra && isEditable && totalIndikator > 0 && (
                         <Button onClick={() => setSubmitDialog(true)}>
-                            <Send className="h-4 w-4" />Submit ke SuperAdmin
+                            <Send className="h-4 w-4" />Submit ke Kabag Umum
                         </Button>
                     )}
                 </div>
@@ -139,8 +141,8 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                         <StepItem done={!!ra} label="Dokumen dibuat" />
                         <StepItem done={totalIndikator > 0} label={`Indikator diisi (${totalIndikator})`} />
                         <StepItem done={twFilled > 0} label={`Target TW diisi (${twFilled}/${totalIndikator})`} />
-                        <StepItem done={!!ra && (ra.status === 'submitted' || ra.status === 'approved')} label="Disubmit" />
-                        <StepItem done={!!ra && ra.status === 'approved'} label="Disetujui" />
+                        <StepItem done={!!ra && ra.status !== 'draft' && ra.status !== 'rejected'} label="Disubmit" />
+                        <StepItem done={!!ra && ra.status === 'ppk_approved'} label="Disetujui" />
                     </div>
                 </div>
 
@@ -151,7 +153,7 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                 )}
                 {ra && !isEditable && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900">
-                        {ra.status === 'submitted' ? 'Dokumen sedang menunggu persetujuan SuperAdmin.' : 'Dokumen telah disetujui dan terkunci.'}
+                        {ra.status === 'submitted' ? 'Dokumen sedang menunggu review Kabag Umum.' : ra.status === 'kabag_approved' ? 'Dokumen sedang menunggu review PPK.' : 'Dokumen telah disetujui dan terkunci.'}
                     </div>
                 )}
 
@@ -322,7 +324,7 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Submit Rencana Aksi?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Dokumen akan dikirim ke SuperAdmin untuk disetujui. Anda tidak dapat mengedit sebelum dokumen dikembalikan atau ditolak.
+                            Dokumen akan dikirim ke Kabag Umum untuk direview. Anda tidak dapat mengedit sebelum dokumen dikembalikan atau ditolak.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

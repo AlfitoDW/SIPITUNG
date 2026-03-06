@@ -75,53 +75,21 @@ class PerencanaanController extends Controller
         ]);
     }
 
-    // ─── PK Approve / Reject / Reopen ───────────────────────────────────────────
-
-    public function pkApprove(PerjanjianKinerja $pk): RedirectResponse
-    {
-        abort_if($pk->status !== 'submitted', 422, 'Hanya dokumen submitted yang dapat disetujui.');
-        $pk->update(['status' => 'approved']);
-
-        return back()->with('success', "PK {$pk->timKerja->nama_singkat} berhasil disetujui.");
-    }
-
-    public function pkReject(PerjanjianKinerja $pk): RedirectResponse
-    {
-        abort_if($pk->status !== 'submitted', 422, 'Hanya dokumen submitted yang dapat ditolak.');
-        $pk->update(['status' => 'rejected']);
-
-        return back()->with('success', "PK {$pk->timKerja->nama_singkat} ditolak.");
-    }
+    // ─── PK Reopen (SuperAdmin only — unlock after ppk_approved) ─────────────────
 
     public function pkReopen(PerjanjianKinerja $pk): RedirectResponse
     {
-        abort_if($pk->status !== 'approved', 422, 'Hanya dokumen approved yang dapat dibuka kembali.');
+        abort_if($pk->status !== 'ppk_approved', 422, 'Hanya dokumen yang sudah terkunci dapat dibuka kembali.');
         $pk->update(['status' => 'draft']);
 
         return back()->with('success', "PK {$pk->timKerja->nama_singkat} dibuka kembali.");
     }
 
-    // ─── RA Approve / Reject / Reopen ───────────────────────────────────────────
-
-    public function raApprove(RencanaAksi $ra): RedirectResponse
-    {
-        abort_if($ra->status !== 'submitted', 422, 'Hanya dokumen submitted yang dapat disetujui.');
-        $ra->update(['status' => 'approved']);
-
-        return back()->with('success', "RA {$ra->timKerja->nama_singkat} berhasil disetujui.");
-    }
-
-    public function raReject(RencanaAksi $ra): RedirectResponse
-    {
-        abort_if($ra->status !== 'submitted', 422, 'Hanya dokumen submitted yang dapat ditolak.');
-        $ra->update(['status' => 'rejected']);
-
-        return back()->with('success', "RA {$ra->timKerja->nama_singkat} ditolak.");
-    }
+    // ─── RA Reopen (SuperAdmin only — unlock after ppk_approved) ─────────────────
 
     public function raReopen(RencanaAksi $ra): RedirectResponse
     {
-        abort_if($ra->status !== 'approved', 422, 'Hanya dokumen approved yang dapat dibuka kembali.');
+        abort_if($ra->status !== 'ppk_approved', 422, 'Hanya dokumen yang sudah terkunci dapat dibuka kembali.');
         $ra->update(['status' => 'draft']);
 
         return back()->with('success', "RA {$ra->timKerja->nama_singkat} dibuka kembali.");

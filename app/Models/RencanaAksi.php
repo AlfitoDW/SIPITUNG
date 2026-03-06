@@ -15,17 +15,22 @@ class RencanaAksi extends Model
         'tim_kerja_id',
         'status',
         'created_by',
+        'rekomendasi_kabag',
+        'rekomendasi_ppk',
+        'rejected_by',
     ];
 
     protected $casts = [
         'status' => 'string',
     ];
 
-    public function isDraft(): bool     { return $this->status === 'draft'; }
-    public function isSubmitted(): bool { return $this->status === 'submitted'; }
-    public function isApproved(): bool  { return $this->status === 'approved'; }
-    public function isRejected(): bool  { return $this->status === 'rejected'; }
-    public function isEditable(): bool  { return in_array($this->status, ['draft', 'rejected']); }
+    public function isDraft(): bool          { return $this->status === 'draft'; }
+    public function isSubmitted(): bool      { return $this->status === 'submitted'; }
+    public function isKabagApproved(): bool  { return $this->status === 'kabag_approved'; }
+    public function isPpkApproved(): bool    { return $this->status === 'ppk_approved'; }
+    public function isRejected(): bool       { return $this->status === 'rejected'; }
+    public function isLocked(): bool         { return $this->status === 'ppk_approved'; }
+    public function isEditable(): bool       { return in_array($this->status, ['draft', 'rejected']); }
 
     public function tahunAnggaran(): BelongsTo
     {

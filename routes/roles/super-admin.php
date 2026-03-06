@@ -19,18 +19,14 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::get('revisi/penyusunan', [PerencanaanController::class, 'pkRevisi'])->name('revisi.penyusunan');
         Route::get('revisi/progress', fn() => Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Progress'))->name('revisi.progress');
 
-        Route::patch('{pk}/approve', [PerencanaanController::class, 'pkApprove'])->name('approve');
-        Route::patch('{pk}/reject',  [PerencanaanController::class, 'pkReject'])->name('reject');
-        Route::patch('{pk}/reopen',  [PerencanaanController::class, 'pkReopen'])->name('reopen');
+        Route::patch('{pk}/reopen', [PerencanaanController::class, 'pkReopen'])->name('reopen');
     });
 
     Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
         Route::get('penyusunan', [PerencanaanController::class, 'rencanaAksi'])->name('penyusunan');
         Route::get('progress', fn() => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Progress'))->name('progress');
 
-        Route::patch('{ra}/approve', [PerencanaanController::class, 'raApprove'])->name('approve');
-        Route::patch('{ra}/reject',  [PerencanaanController::class, 'raReject'])->name('reject');
-        Route::patch('{ra}/reopen',  [PerencanaanController::class, 'raReopen'])->name('reopen');
+        Route::patch('{ra}/reopen', [PerencanaanController::class, 'raReopen'])->name('reopen');
     });
 
     Route::get('/pertanggungjawaban', fn() => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');
