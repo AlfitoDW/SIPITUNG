@@ -14,7 +14,7 @@ class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $tahun       = TahunAnggaran::where('is_default', true)->first();
+        $tahun  = TahunAnggaran::forSession();
         $timKerjaTotal = TimKerja::count();
 
         $statuses = ['draft', 'submitted', 'kabag_approved', 'ppk_approved', 'rejected'];

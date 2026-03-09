@@ -20,7 +20,7 @@ class PerencanaanController extends Controller
 
     public function pkAwal(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $pk = PerjanjianKinerja::with(['sasarans.indikators'])
@@ -37,7 +37,7 @@ class PerencanaanController extends Controller
 
     public function pkAwalInit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         PerjanjianKinerja::firstOrCreate(
@@ -50,7 +50,7 @@ class PerencanaanController extends Controller
 
     public function pkAwalSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $request->user()->tim_kerja_id)
             ->where('jenis', 'awal')
@@ -68,7 +68,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisi(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $pk = PerjanjianKinerja::with(['sasarans.indikators'])
@@ -85,7 +85,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisiInit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         PerjanjianKinerja::firstOrCreate(
@@ -98,7 +98,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisiSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $request->user()->tim_kerja_id)
             ->where('jenis', 'revisi')
@@ -232,7 +232,7 @@ class PerencanaanController extends Controller
 
     public function pkAwalProgress(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $pk = PerjanjianKinerja::with(['sasarans.indikators'])
@@ -249,7 +249,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisiProgress(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $pk = PerjanjianKinerja::with(['sasarans.indikators'])
@@ -268,7 +268,7 @@ class PerencanaanController extends Controller
 
     public function rencanaAksi(Request $request): Response
     {
-        $tahun      = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         // Sasaran diambil dari PK Awal milik tim kerja ini
@@ -313,7 +313,7 @@ class PerencanaanController extends Controller
 
     public function raInit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         RencanaAksi::firstOrCreate(
@@ -342,7 +342,7 @@ class PerencanaanController extends Controller
         $sasaran = Sasaran::with('perjanjianKinerja')->findOrFail($data['sasaran_id']);
         abort_if($sasaran->perjanjianKinerja->tim_kerja_id !== $request->user()->tim_kerja_id, 403);
 
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $ra    = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $request->user()->tim_kerja_id)
             ->firstOrFail();
@@ -403,7 +403,7 @@ class PerencanaanController extends Controller
 
     public function raSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $ra = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $request->user()->tim_kerja_id)
             ->firstOrFail();
@@ -418,7 +418,7 @@ class PerencanaanController extends Controller
 
     public function rencanaAksiProgress(Request $request): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $ra = RencanaAksi::with(['indikators'])

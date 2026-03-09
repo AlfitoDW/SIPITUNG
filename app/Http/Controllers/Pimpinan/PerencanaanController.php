@@ -24,7 +24,7 @@ class PerencanaanController extends Controller
 
     public function pkAwal(): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $status = $this->statusForRole();
 
         $pks = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
@@ -43,7 +43,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisi(): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
         $status = $this->statusForRole();
 
         
@@ -62,7 +62,7 @@ class PerencanaanController extends Controller
 
     public function rencanaAksi(): Response
     {
-        $tahun  = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun  = TahunAnggaran::forSession();
         $status = $this->statusForRole();
 
         $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])

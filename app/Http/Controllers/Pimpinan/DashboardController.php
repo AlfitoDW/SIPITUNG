@@ -15,7 +15,7 @@ class DashboardController extends Controller
     {
         $user        = auth()->user();
         $type        = $user->pimpinan_type;
-        $tahun       = TahunAnggaran::where('is_default', true)->first();
+        $tahun       = TahunAnggaran::forSession();
 
         $pendingStatus  = $type === 'kabag_umum' ? 'submitted'      : 'kabag_approved';
         $approvedStatus = $type === 'kabag_umum' ? 'kabag_approved' : 'ppk_approved';

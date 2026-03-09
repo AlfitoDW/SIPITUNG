@@ -15,7 +15,7 @@ class DashboardController extends Controller
     {
         $user       = auth()->user();
         $timKerjaId = $user->tim_kerja_id;
-        $tahun      = TahunAnggaran::where('is_default', true)->first();
+        $tahun      = TahunAnggaran::forSession();
 
         $pkAwal = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $timKerjaId)->where('jenis', 'awal')

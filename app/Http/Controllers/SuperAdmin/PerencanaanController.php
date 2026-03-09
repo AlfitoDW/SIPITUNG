@@ -14,7 +14,7 @@ class PerencanaanController extends Controller
 {
     public function pkAwal(): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
 
         $pks = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -29,7 +29,7 @@ class PerencanaanController extends Controller
 
     public function pkRevisi(): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
 
         $pks = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -44,7 +44,7 @@ class PerencanaanController extends Controller
 
     public function rencanaAksi(): Response
     {
-        $tahun = TahunAnggaran::where('is_default', true)->firstOrFail();
+        $tahun = TahunAnggaran::forSession();
 
         $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)

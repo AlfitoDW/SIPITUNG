@@ -33,4 +33,15 @@ class TahunAnggaran extends Model
     {
         return $query->where('is_default', true);
     }
+
+    public static function forSession(): ?self
+    {
+        $id = session('tahun_anggaran_id');
+
+        if ($id) {
+            return static::find($id);
+        }
+
+        return static::where('is_default', true)->first();
+    }
 }
