@@ -1,9 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import type { BreadcrumbItem } from '@/types';
-import { FileText, Users, ClipboardList, Loader2 } from 'lucide-react';
+import { FileText, Users, ClipboardList, Loader2, ChevronRight } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/super-admin/dashboard' },
@@ -13,44 +12,64 @@ type StatusStats = { draft: number; submitted: number; kabag_approved: number; p
 type Tahun = { id: number; tahun: number; label: string } | null;
 type Props = { tahun: Tahun; timKerjaTotal: number; pkAwal: StatusStats; pkRevisi: StatusStats; ra: StatusStats };
 
-function StatRow({ label, value, color, spinner }: { label: string; value: number; color: string; spinner?: boolean }) {
-    if (value === 0) return null;
-    return (
-        <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-                {spinner && <Loader2 className="h-3 w-3 animate-spin" />}
-                {label}
-            </span>
-            <Badge variant="outline" className={color}>{value}</Badge>
-        </div>
-    );
-}
+const STATUS_ROWS = [
+    { key: 'draft',          label: 'Draft',          dot: 'bg-slate-300',  text: 'text-slate-500',  spinner: false },
+    { key: 'submitted',      label: 'Menunggu Kabag', dot: 'bg-blue-400',   text: 'text-blue-600',   spinner: true,  spinnerColor: 'text-blue-400' },
+    { key: 'kabag_approved', label: 'Menunggu PPK',   dot: 'bg-amber-400',  text: 'text-amber-600',  spinner: true,  spinnerColor: 'text-amber-400' },
+    { key: 'ppk_approved',   label: 'Terkunci',       dot: 'bg-green-400',  text: 'text-green-600',  spinner: false },
+    { key: 'rejected',       label: 'Ditolak',        dot: 'bg-red-400',    text: 'text-red-600',    spinner: false },
+] as const;
 
 function DocCard({ title, icon: Icon, stats, href }: { title: string; icon: React.ElementType; stats: StatusStats; href: string }) {
     const total = Object.values(stats).reduce((a, b) => a + b, 0);
     return (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
+        <div className="overflow-hidden rounded-xl border bg-card">
+            <div className="h-0.5 w-full bg-[#003580]" />
+            <div className="p-5">
+                {/* Icon + title */}
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#003580]/8">
+                        <Icon className="h-4 w-4 text-[#003580]" />
+                    </div>
+                    <span className="text-sm font-semibold">{title}</span>
+                </div>
+
+                {/* Status rows */}
                 {total === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">Belum ada data</p>
+                    <p className="text-sm text-muted-foreground">Belum ada data</p>
                 ) : (
-                    <>
-                        <StatRow label="Draft"           value={stats.draft}          color="bg-slate-100 text-slate-700 border-slate-200" />
-                        <StatRow label="Menunggu Kabag"  value={stats.submitted}       color="bg-blue-100 text-blue-700 border-blue-200"   spinner />
-                        <StatRow label="Menunggu PPK"    value={stats.kabag_approved}  color="bg-amber-100 text-amber-700 border-amber-200" spinner />
-                        <StatRow label="Terkunci"        value={stats.ppk_approved}    color="bg-green-100 text-green-700 border-green-200" />
-                        <StatRow label="Ditolak"         value={stats.rejected}        color="bg-red-100 text-red-700 border-red-200" />
-                    </>
+                    <div className="space-y-2.5">
+                        {STATUS_ROWS.map((row) => {
+                            const value = stats[row.key];
+                            if (value === 0) return null;
+                            return (
+                                <div key={row.key} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {row.spinner
+                                            ? <Loader2 className={`h-3 w-3 animate-spin ${row.spinnerColor}`} />
+                                            : <span className={`h-2 w-2 rounded-full ${row.dot}`} />
+                                        }
+                                        <span className={`text-xs ${row.text}`}>{row.label}</span>
+                                    </div>
+                                    <span className={`text-xs font-bold tabular-nums ${row.text}`}>{value}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 )}
-                <Link href={href} className="block pt-1 text-xs text-primary hover:underline">Lihat detail →</Link>
-            </CardContent>
-        </Card>
+
+                {/* Footer */}
+                <div className="mt-4 pt-4 border-t border-dashed flex items-center justify-between">
+                    <Link href={href} className="flex items-center gap-0.5 text-xs text-muted-foreground/40 hover:text-[#003580]/60 transition-colors group/link">
+                        Lihat detail
+                        <ChevronRight className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
+                    </Link>
+                    {total > 0 && (
+                        <span className="text-xs font-bold tabular-nums text-muted-foreground">{total} tim kerja</span>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -67,12 +86,22 @@ export default function Dashboard({ tahun, timKerjaTotal, pkAwal, pkRevisi, ra }
                 </div>
 
                 {/* Summary card */}
-                <Card className="border-[#003580]/20 bg-[#003580]/5">
-                    <CardContent className="flex items-center gap-4 pt-6">
-                        <Users className="h-8 w-8 text-[#003580]" />
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Tim Kerja</p>
-                            <p className="text-3xl font-bold text-[#003580]">{timKerjaTotal}</p>
+                <Card className="border-[#003580]/20 overflow-hidden">
+                    <div className="h-0.5 w-full bg-[#003580]" />
+                    <CardContent className="p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#003580]/10">
+                                <Users className="h-6 w-6 text-[#003580]" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Total Tim Kerja</p>
+                                <p className="text-3xl font-bold text-foreground tabular-nums leading-none">{timKerjaTotal}</p>
+                                {tahun && (
+                                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-mono font-semibold bg-[#003580]/8 text-[#003580] mt-1.5">
+                                        {tahun.label}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

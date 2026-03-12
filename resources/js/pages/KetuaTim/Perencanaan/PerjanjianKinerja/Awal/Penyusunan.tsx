@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { PlusCircle, Pencil, Trash2, Send, CheckCircle2, Circle, FileText } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, Send, CheckCircle2, Circle, FileText, Lock, Loader2 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/ketua-tim/perencanaan' },
@@ -202,8 +202,41 @@ export default function Penyusunan({ tahun, pk }: Props) {
 
                 {/* ── Submitted/Approved banner ── */}
                 {pk && !isEditable && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900">
-                        {pk.status === 'submitted' ? 'Dokumen sedang menunggu review Kabag Umum.' : pk.status === 'kabag_approved' ? 'Dokumen sedang menunggu review PPK.' : 'Dokumen telah disetujui dan terkunci.'}
+                    <div className="rounded-xl border bg-muted/30 p-4">
+                        <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
+                                {pk.status === 'submitted'
+                                    ? <Loader2      className="h-4 w-4 animate-spin text-sky-400" />
+                                    : pk.status === 'kabag_approved'
+                                    ? <CheckCircle2 className="h-4 w-4 text-amber-400" />
+                                    : <Lock         className="h-4 w-4 text-emerald-500" />
+                                }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">
+                                    {pk.status === 'submitted'      ? 'Menunggu Review Kabag Umum' :
+                                     pk.status === 'kabag_approved' ? 'Disetujui Kabag Umum' :
+                                                                      'Dokumen Terkunci'}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {pk.status === 'submitted'      ? 'Dokumen telah disubmit dan sedang dalam antrian review.' :
+                                     pk.status === 'kabag_approved' ? 'Sedang menunggu persetujuan dari PPK.' :
+                                                                      'Telah mendapat persetujuan penuh. Dokumen tidak dapat diubah.'}
+                                </p>
+                            </div>
+                        </div>
+                        {(pk.status === 'kabag_approved' || pk.status === 'ppk_approved') && pk.rekomendasi_kabag && (
+                            <div className="mt-3 pt-3 border-t border-border/60">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan Kabag Umum</p>
+                                <p className="text-sm leading-relaxed pl-3 border-l-2 border-l-border italic text-muted-foreground">{pk.rekomendasi_kabag}</p>
+                            </div>
+                        )}
+                        {pk.status === 'ppk_approved' && pk.rekomendasi_ppk && (
+                            <div className="mt-3 pt-3 border-t border-border/60">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan PPK</p>
+                                <p className="text-sm leading-relaxed pl-3 border-l-2 border-l-border italic text-muted-foreground">{pk.rekomendasi_ppk}</p>
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -1,8 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { FileText, ClipboardList, ChevronRight, Loader2 } from 'lucide-react';
+import { FileText, ClipboardList, ChevronRight, Loader2, Building2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 type DocStatus = { id: number; status: string; indikators_count?: number } | null;
 type Tahun     = { id: number; tahun: number; label: string } | null;
@@ -15,12 +14,20 @@ type Props = {
     ra: DocStatus;
 };
 
-const STATUS_CONFIG: Record<string, { label: string; className: string; spinner?: boolean }> = {
-    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200',   spinner: true },
-    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200', spinner: true },
-    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
+const STATUS_CONFIG: Record<string, {
+    label: string;
+    dot: string;
+    text: string;
+    pillBg: string;
+    accentBg: string;
+    spinner?: boolean;
+    spinnerColor?: string;
+}> = {
+    draft:          { label: 'Draft',          dot: 'bg-slate-300',  text: 'text-slate-600',  pillBg: 'bg-slate-100',  accentBg: 'bg-slate-300' },
+    submitted:      { label: 'Menunggu Kabag', dot: 'bg-blue-400',   text: 'text-blue-700',   pillBg: 'bg-blue-50',    accentBg: 'bg-blue-400',  spinner: true, spinnerColor: 'text-blue-400' },
+    kabag_approved: { label: 'Menunggu PPK',   dot: 'bg-amber-400',  text: 'text-amber-700',  pillBg: 'bg-amber-50',   accentBg: 'bg-amber-400', spinner: true, spinnerColor: 'text-amber-400' },
+    ppk_approved:   { label: 'Terkunci',       dot: 'bg-green-400',  text: 'text-green-700',  pillBg: 'bg-green-50',   accentBg: 'bg-green-400' },
+    rejected:       { label: 'Ditolak',        dot: 'bg-red-400',    text: 'text-red-700',    pillBg: 'bg-red-50',     accentBg: 'bg-red-400' },
 };
 
 function DocCard({ title, icon: Icon, doc, href, emptyLabel }: {
@@ -28,32 +35,49 @@ function DocCard({ title, icon: Icon, doc, href, emptyLabel }: {
 }) {
     const cfg = doc ? (STATUS_CONFIG[doc.status] ?? STATUS_CONFIG['draft']) : null;
     return (
-        <Link href={href}>
-            <Card className="cursor-pointer transition-colors hover:bg-muted/40">
-                <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Icon className="h-4 w-4" />{title}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                    <div>
-                        {doc ? (
-                            <>
-                                <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${cfg!.className}`}>
-                                    {cfg!.spinner && <Loader2 className="h-3 w-3 animate-spin" />}
-                                    {cfg!.label}
-                                </Badge>
-                                {doc.indikators_count !== undefined && (
-                                    <p className="text-xs text-muted-foreground mt-1">{doc.indikators_count} indikator</p>
-                                )}
-                            </>
-                        ) : (
-                            <p className="text-sm text-muted-foreground italic">{emptyLabel}</p>
-                        )}
+        <Link href={href} className="block group">
+            <div className="relative overflow-hidden rounded-xl border bg-card transition-all duration-200 hover:border-[#003580]/30 hover:shadow-md">
+                {/* Status accent stripe */}
+                <div className={`h-0.5 w-full ${cfg ? cfg.accentBg : 'bg-slate-200'}`} />
+
+                <div className="p-5">
+                    {/* Icon + title */}
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#003580]/8">
+                            <Icon className="h-4 w-4 text-[#003580]" />
+                        </div>
+                        <span className="text-sm font-semibold">{title}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-            </Card>
+
+                    {/* Status pill */}
+                    {doc ? (
+                        <div className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 ${cfg!.pillBg}`}>
+                            {cfg!.spinner
+                                ? <Loader2 className={`h-3 w-3 animate-spin ${cfg!.spinnerColor}`} />
+                                : <span className={`h-1.5 w-1.5 rounded-full ${cfg!.dot}`} />
+                            }
+                            <span className={`text-xs font-semibold tracking-wide ${cfg!.text}`}>{cfg!.label}</span>
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5">
+                            <span className="text-xs text-muted-foreground">{emptyLabel}</span>
+                        </div>
+                    )}
+
+                    {/* Footer: indikator count + link hint */}
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-dashed">
+                        <span className="text-xs text-muted-foreground">
+                            {doc?.indikators_count !== undefined
+                                ? `${doc.indikators_count} indikator kinerja`
+                                : <span className="invisible">—</span>
+                            }
+                        </span>
+                        <span className="flex items-center gap-0.5 text-xs text-muted-foreground/40 group-hover:text-[#003580]/50 transition-colors">
+                            Buka <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                    </div>
+                </div>
+            </div>
         </Link>
     );
 }
@@ -69,11 +93,26 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra 
                 </div>
 
                 {timKerja && (
-                    <Card className="border-[#003580]/20 bg-[#003580]/5">
-                        <CardContent className="pt-6">
-                            <p className="text-sm text-muted-foreground mb-1">Tim Kerja Anda</p>
-                            <h3 className="text-xl font-bold text-[#003580]">{timKerja.nama}</h3>
-                            <p className="text-sm text-[#003580]/70 mt-0.5">Kode: {timKerja.kode}</p>
+                    <Card className="border-[#003580]/20 overflow-hidden">
+                        <div className="h-0.5 w-full bg-[#003580]" />
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-4">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#003580]/10">
+                                    <Building2 className="h-6 w-6 text-[#003580]" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Tim Kerja Anda</p>
+                                    <h3 className="text-base font-bold text-foreground leading-tight truncate">{timKerja.nama}</h3>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-mono font-semibold bg-[#003580]/8 text-[#003580]">
+                                            {timKerja.kode}
+                                        </span>
+                                        {timKerja.nama_singkat && (
+                                            <span className="text-xs text-muted-foreground">{timKerja.nama_singkat}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
