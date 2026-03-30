@@ -5,6 +5,7 @@ import {
     Scale,
     ChartColumnIncreasing,
     BellRingIcon,
+    HandCoins,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -36,6 +37,16 @@ const pimpinanNav: NavGroup[] = [
                 title: 'Rencana Aksi',
                 href: '/pimpinan/perencanaan/rencana-aksi',
                 icon: ClipboardList,
+            },
+        ],
+    },
+    {
+        label: 'Keuangan',
+        items: [
+            {
+                title: 'Permohonan Dana',
+                href: '/pimpinan/keuangan/permohonan-dana',
+                icon: HandCoins,
             },
         ],
     },

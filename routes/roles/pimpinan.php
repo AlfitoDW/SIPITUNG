@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\Pimpinan\DashboardController;
 use App\Http\Controllers\Pimpinan\PerencanaanController;
+use App\Http\Controllers\Pimpinan\PermohonanDanaController;
 
 Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group(function () {
 
@@ -27,5 +28,14 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
         Route::get('/rencana-aksi', [PerencanaanController::class, 'rencanaAksi'])->name('ra');
         Route::post('/rencana-aksi/{ra}/approve', [PerencanaanController::class, 'raApprove'])->name('ra.approve');
         Route::post('/rencana-aksi/{ra}/reject', [PerencanaanController::class, 'raReject'])->name('ra.reject');
+    });
+
+    // ─── Keuangan ─────────────────────────────────────────────────────────────────
+    Route::prefix('keuangan')->name('keuangan.')->group(function () {
+        Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
+            Route::get('/',              [PermohonanDanaController::class, 'index'])->name('index');
+            Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
+            Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
+        });
     });
 });

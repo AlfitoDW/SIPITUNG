@@ -4,6 +4,7 @@ import {
     ClipboardCheck,
     ChartColumnIncreasing,
     BellRingIcon,
+    HandCoins,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -22,9 +23,9 @@ const bendaharaNav: NavGroup[] = [
         label: 'Keuangan',
         items: [
             {
-                title: 'Pencairan Dana',
-                href: '/bendahara/pencairan',
-                icon: Banknote,
+                title: 'Permohonan Dana',
+                href: '/bendahara/permohonan-dana',
+                icon: HandCoins,
             },
             {
                 title: 'Verifikasi LPJ',

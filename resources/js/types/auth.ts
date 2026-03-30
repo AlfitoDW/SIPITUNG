@@ -14,6 +14,7 @@ export type User = {
     role: UserRole;
     pimpinan_type?: PimpinanType;
     tim_kerja_id?: number;
+    is_koordinator?: boolean;
     [key: string]: unknown;
 };
 

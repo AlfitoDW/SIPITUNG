@@ -16,12 +16,14 @@ class TimKerja extends Model
         'kode',
         'deskripsi',
         'is_active',
+        'is_koordinator',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
+            'is_active'      => 'boolean',
+            'is_koordinator' => 'boolean',
         ];
     }
 

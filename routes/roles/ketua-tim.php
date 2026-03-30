@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\KetuaTim\PerencanaanController;
+use App\Http\Controllers\KetuaTim\PermohonanDanaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\KetuaTim\DashboardController;
@@ -45,7 +46,19 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         Route::patch('submit', [PerencanaanController::class, 'raSubmit'])->name('submit');
     });
 
-    Route::get('/permohonan-dana', fn() => Inertia::render('KetuaTim/PermohonanDana'))->name('permohonan-dana');
+    Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
+        Route::get('/',                [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/buat',            [PermohonanDanaController::class, 'create'])->name('create');
+        Route::post('/',               [PermohonanDanaController::class, 'store'])->name('store');
+        Route::get('/approval',        [PermohonanDanaController::class, 'approvalIndex'])->name('approval');
+        Route::post('/{pd}/approve',   [PermohonanDanaController::class, 'approve'])->name('approve');
+        Route::post('/{pd}/reject',    [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::get('/{pd}/edit',       [PermohonanDanaController::class, 'edit'])->name('edit');
+        Route::put('/{pd}',            [PermohonanDanaController::class, 'update'])->name('update');
+        Route::delete('/{pd}',         [PermohonanDanaController::class, 'destroy'])->name('destroy');
+        Route::patch('/{pd}/submit',   [PermohonanDanaController::class, 'submit'])->name('submit');
+    });
+
     Route::get('/lpj', fn() => Inertia::render('KetuaTim/LPJ'))->name('lpj');
     Route::get('/dokumen', fn() => Inertia::render('KetuaTim/Dokumen'))->name('dokumen');
 });

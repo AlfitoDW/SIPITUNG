@@ -94,6 +94,11 @@ class User extends Authenticatable
         return $this->isPimpinan() && $this->pimpinan_type === 'ppk';
     }
 
+    public function isKetuaKoordinator(): bool
+    {
+        return $this->role === 'ketua_tim_kerja' && ($this->timkerja?->is_koordinator ?? false);
+    }
+
     public function getRoleNameAttribute(): string 
     {
         return match($this->role){
