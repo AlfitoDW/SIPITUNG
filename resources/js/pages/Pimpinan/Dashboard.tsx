@@ -8,9 +8,9 @@ type Props = {
     user: { nama_lengkap: string };
     pimpinanType: 'kabag_umum' | 'ppk';
     tahun: Tahun;
-    pending:  { pk_awal: number; pk_revisi: number; ra: number };
-    approved: { pk: number; ra: number };
-    rejected: { pk: number; ra: number };
+    pending:  { pk_awal: number; pk_revisi: number; ra: number; permohonan_dana: number };
+    approved: { pk: number; ra: number; permohonan_dana: number };
+    rejected: { pk: number; ra: number; permohonan_dana: number };
 };
 
 function StatCard({
@@ -39,7 +39,6 @@ function StatCard({
             <div className="h-full overflow-hidden rounded-xl border bg-card transition-all duration-200 hover:shadow-md hover:border-current/20">
                 <div className={`h-0.5 w-full ${accentBg}`} />
                 <div className="flex flex-col h-full p-5">
-                    {/* Icon + title */}
                     <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
                             <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
@@ -50,11 +49,9 @@ function StatCard({
                         <ChevronRight className="h-4 w-4 text-muted-foreground/30 transition-all group-hover:text-muted-foreground/60 group-hover:translate-x-0.5" />
                     </div>
 
-                    {/* Big number */}
                     <p className={`text-4xl font-bold tabular-nums leading-none ${totalClass}`}>{total}</p>
                     <p className="text-xs text-muted-foreground mt-1">dokumen</p>
 
-                    {/* Rows */}
                     <div className="mt-4 pt-4 border-t border-dashed space-y-2.5">
                         {rows.map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between">
@@ -71,9 +68,13 @@ function StatCard({
 
 export default function Dashboard({ user, pimpinanType, tahun, pending, approved, rejected }: Props) {
     const roleLabel = pimpinanType === 'kabag_umum' ? 'Kepala Bagian Umum' : 'Pejabat Pembuat Komitmen (PPK)';
-    const totalPending  = pending.pk_awal + pending.pk_revisi + pending.ra;
-    const totalApproved = approved.pk + approved.ra;
-    const totalRejected = rejected.pk + rejected.ra;
+    const totalPending  = pending.pk_awal + pending.pk_revisi + pending.ra + pending.permohonan_dana;
+    const totalApproved = approved.pk + approved.ra + approved.permohonan_dana;
+    const totalRejected = rejected.pk + rejected.ra + rejected.permohonan_dana;
+
+    const pdLink = pimpinanType === 'kabag_umum'
+        ? '/pimpinan/keuangan/permohonan-dana'
+        : '/pimpinan/keuangan/permohonan-dana';
 
     return (
         <AppLayout>
@@ -117,9 +118,10 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
                         totalClass="text-amber-600 dark:text-amber-400"
                         href="/pimpinan/perencanaan/perjanjian-kinerja/awal"
                         rows={[
-                            { label: 'PK Awal',      value: pending.pk_awal },
-                            { label: 'PK Revisi',    value: pending.pk_revisi },
-                            { label: 'Rencana Aksi', value: pending.ra },
+                            { label: 'PK Awal',          value: pending.pk_awal },
+                            { label: 'PK Revisi',         value: pending.pk_revisi },
+                            { label: 'Rencana Aksi',      value: pending.ra },
+                            { label: 'Permohonan Dana',   value: pending.permohonan_dana },
                         ]}
                     />
                     <StatCard
@@ -133,7 +135,8 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
                         href="/pimpinan/perencanaan/perjanjian-kinerja/awal"
                         rows={[
                             { label: 'Perjanjian Kinerja', value: approved.pk },
-                            { label: 'Rencana Aksi',       value: approved.ra },
+                            { label: 'Rencana Aksi',        value: approved.ra },
+                            { label: 'Permohonan Dana',     value: approved.permohonan_dana },
                         ]}
                     />
                     <StatCard
@@ -144,10 +147,11 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
                         title="Ditolak"
                         total={totalRejected}
                         totalClass="text-red-600 dark:text-red-400"
-                        href="/pimpinan/perencanaan/perjanjian-kinerja/awal"
+                        href={pdLink}
                         rows={[
                             { label: 'Perjanjian Kinerja', value: rejected.pk },
-                            { label: 'Rencana Aksi',       value: rejected.ra },
+                            { label: 'Rencana Aksi',        value: rejected.ra },
+                            { label: 'Permohonan Dana',     value: rejected.permohonan_dana },
                         ]}
                     />
                 </div>
