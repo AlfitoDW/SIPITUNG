@@ -74,7 +74,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                     {/* Nama sistem */}
                     <div className="text-center">
                         <h2 className="text-xl font-semibold mb-2">
-                            SIPITUNG
+                            SIINYONG
                         </h2>
                         <p className="text-blue-200 text-sm leading-relaxed max-w-xs">
                             Platform pengelolaan dokumen perencanaan, keuangan,
