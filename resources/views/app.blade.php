@@ -32,9 +32,8 @@
 
         <title inertia>{{ config('app.name', 'Sistem Informasi LLDIKTI 3') }}</title>
 
-    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
-    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.svg') }}">
+    <link rel="icon" href="{{ asset('Sipitung.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ asset('Sipitung.svg') }}">
     <link rel="manifest" href="{{ asset('site.webmanifest') }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
