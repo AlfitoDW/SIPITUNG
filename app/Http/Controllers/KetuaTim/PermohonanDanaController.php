@@ -157,7 +157,7 @@ class PermohonanDanaController extends Controller
     public function destroy(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->tim_kerja_id !== $request->user()->tim_kerja_id, 403);
-        abort_if(! $pd->isDraft(), 403, 'Hanya permohonan berstatus draft yang dapat dihapus.');
+        abort_if(! $pd->isEditable(), 403, 'Hanya permohonan berstatus draft atau ditolak yang dapat dihapus.');
 
         $pd->delete();
 

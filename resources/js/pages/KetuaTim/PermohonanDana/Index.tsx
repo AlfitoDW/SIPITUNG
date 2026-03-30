@@ -143,15 +143,13 @@ export default function Index({ tahun, permohonan }: Props) {
                                                                 >
                                                                     <Send className="h-3 w-3" />Ajukan
                                                                 </Button>
-                                                                {pd.status === 'draft' && (
-                                                                    <Button
-                                                                        size="sm" variant="outline"
-                                                                        className="h-7 gap-1 text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                                                        onClick={() => setDeleteDialog({ open: true, pd })}
-                                                                    >
-                                                                        <Trash2 className="h-3 w-3" />
-                                                                    </Button>
-                                                                )}
+                                                                <Button
+                                                                    size="sm" variant="outline"
+                                                                    className="h-7 gap-1 text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                                                    onClick={() => setDeleteDialog({ open: true, pd })}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
                                                             </>
                                                         )}
                                                     </div>
