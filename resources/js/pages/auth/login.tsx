@@ -61,7 +61,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                             Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                         </p>
                         <h1 className="text-3xl font-bold leading-tight mb-1">
-                            LLDIKTI Wilayah IV
+                            LLDIKTI Wilayah III
                         </h1>
                         <p className="text-blue-200 text-sm">
                             Lembaga Layanan Pendidikan Tinggi
