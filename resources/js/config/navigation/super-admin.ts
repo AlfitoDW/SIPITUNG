@@ -82,11 +82,11 @@ const superAdminNav: NavGroup[] = [
                 children: [
                     {
                         title: 'Permohonan Dana',
-                        href: '/keuangan/permohonan-dana',
+                        href: '/super-admin/keuangan/permohonan-dana',
                     },
                     {
                         title: 'Pencairan Dana',
-                        href: '/keuangan/pencairan-dana',
+                        href: '/super-admin/keuangan/pencairan-dana',
                     },
                 ],
             },

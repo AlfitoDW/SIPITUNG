@@ -7,11 +7,16 @@ use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboard;
 use App\Http\Controllers\SuperAdmin\DataMasterController;
 use App\Http\Controllers\SuperAdmin\PerencanaanController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
+use App\Http\Controllers\SuperAdmin\KeuanganController;
 
 Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.')->group(function () {
 
     Route::get('/dashboard', [SuperAdminDashboard::class, 'index'])->name('dashboard');
-    Route::get('/keuangan', fn() => Inertia::render('SuperAdmin/Keuangan'))->name('keuangan');
+
+    Route::prefix('keuangan')->name('keuangan.')->group(function () {
+        Route::get('permohonan-dana', [KeuanganController::class, 'permohonanDana'])->name('permohonan-dana');
+        Route::get('pencairan-dana',  [KeuanganController::class, 'pencairanDana'])->name('pencairan-dana');
+    });
     Route::get('/perencanaan', fn() => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');
 
     Route::prefix('perencanaan/perjanjian-kinerja')->name('perencanaan.pk.')->group(function () {
