@@ -181,7 +181,7 @@ export default function Dashboard({ tahun, timKerjaTotal, pkAwal, pkRevisi, ra, 
                             icon={HandCoins}
                             stats={permohonanDana}
                             statusRows={PD_ROWS}
-                            href="/super-admin/dashboard"
+                            href="/super-admin/keuangan/permohonan-dana"
                             accentBg="bg-emerald-500"
                             footer={
                                 nilaiCair > 0
