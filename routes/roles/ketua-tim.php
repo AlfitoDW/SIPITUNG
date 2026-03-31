@@ -61,4 +61,5 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
 
     Route::get('/lpj', fn() => Inertia::render('KetuaTim/LPJ'))->name('lpj');
     Route::get('/dokumen', fn() => Inertia::render('KetuaTim/Dokumen'))->name('dokumen');
+    Route::get('/notifikasi', fn() => Inertia::render('KetuaTim/Notifikasi'))->name('notifikasi');
 });
