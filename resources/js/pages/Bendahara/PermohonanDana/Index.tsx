@@ -21,10 +21,10 @@ const fmt = (n: number | string) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(n));
 
 const STATUS: Record<string, { label: string; className: string }> = {
-    bendahara_checked: { label: 'Terverifikasi',     className: 'bg-purple-100 text-purple-700 border-purple-200' },
-    katimku_approved:  { label: 'Disetujui Ketua Tim',className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    dicairkan:         { label: 'Sudah Dicairkan',   className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:          { label: 'Ditolak',           className: 'bg-red-100 text-red-700 border-red-200' },
+    bendahara_checked: { label: 'Terverifikasi',      className: 'bg-blue-100 text-blue-800 border-blue-200' },
+    katimku_approved:  { label: 'Disetujui Ketua Tim',className: 'bg-blue-100 text-blue-900 border-blue-300' },
+    dicairkan:         { label: 'Sudah Dicairkan',    className: 'bg-green-50 text-green-700 border-green-200' },
+    rejected:          { label: 'Ditolak',            className: 'bg-red-50 text-red-600 border-red-200' },
 };
 
 type Item = { id: number; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string; keterangan: string | null };
