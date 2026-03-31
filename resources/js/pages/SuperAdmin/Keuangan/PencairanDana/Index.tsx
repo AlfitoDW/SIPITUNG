@@ -78,8 +78,8 @@ export default function Index({ tahun, pencairan, timKerjaList }: Props) {
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-col gap-3 md:flex-row">
-                    <div className="relative flex-1">
+                <div className="flex flex-wrap gap-3">
+                    <div className="relative min-w-48 flex-1">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Cari nomor atau keperluan..."
@@ -89,7 +89,7 @@ export default function Index({ tahun, pencairan, timKerjaList }: Props) {
                         />
                     </div>
                     <Select value={filterTimKerja} onValueChange={setFilterTimKerja}>
-                        <SelectTrigger className="w-50">
+                        <SelectTrigger className="w-48 overflow-hidden">
                             <Building2 className="mr-2 h-4 w-4 shrink-0" />
                             <SelectValue placeholder="Semua Tim Kerja" />
                         </SelectTrigger>
