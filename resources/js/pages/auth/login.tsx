@@ -31,51 +31,63 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
             <Head title="Login" />
 
             {/* ── Kolom Kiri: Branding ── */}
-            <div className="hidden lg:flex lg:w-1/2 flex-col relative overflow-hidden"
-                style={{ background: 'linear-gradient(160deg, #003580 0%, #00235a 60%, #001840 100%)' }}>
+            <div className="hidden lg:flex lg:w-1/2 flex-col relative overflow-hidden">
 
-                {/* Motif batik dekoratif */}
-                <div className="absolute inset-0 opacity-10"
-                    style={{
-                        backgroundImage: `radial-gradient(circle at 20% 80%, #ffffff 1px, transparent 1px),
-                                        radial-gradient(circle at 80% 20%, #ffffff 1px, transparent 1px),
-                                        radial-gradient(circle at 50% 50%, #ffffff 0.5px, transparent 0.5px)`,
-                        backgroundSize: '60px 60px, 60px 60px, 30px 30px',
-                    }}
+                {/* Background foto gedung */}
+                <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{ backgroundImage: 'url(/Gedung-Crop2.png)' }}
                 />
+
+                {/* Overlay gradient gelap supaya teks terbaca */}
+                <div
+                    className="absolute inset-0"
+                    style={{ background: 'linear-gradient(180deg, rgba(0,30,80,0.55) 0%, rgba(0,15,50,0.80) 60%, rgba(0,10,35,0.95) 100%)' }}
+                />
+
+                {/* Shimmer line dekoratif */}
+                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'linear-gradient(90deg, transparent, #4fa3ff, transparent)' }} />
 
                 <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-12 py-16 text-white">
 
-                    {/* Logo LLDIKTI */}
-                    <div className="flex items-center gap-6 mb-10">
-                        <img
-                            src="/Logo-LLDikti-Wilayah-III-08.png"
-                            alt="Logo LLDIKTI Wilayah III"
-                            className="h-20 object-contain drop-shadow-lg"
-                        />
+                    {/* Logo LLDIKTI dengan ring */}
+                    <div className="flex items-center justify-center mb-10">
+                        <div className="p-3 rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20 shadow-2xl">
+                            <img
+                                src="/TeksPutih-removebg-preview.png"
+                                alt="Logo LLDIKTI Wilayah III"
+                                className="h-20 object-contain drop-shadow-lg"
+                            />
+                        </div>
                     </div>
 
                     {/* Nama lembaga */}
                     <div className="text-center mb-10">
-                        <p className="text-sm font-medium tracking-widest text-blue-200 uppercase mb-2">
+                        <p className="text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase mb-3">
                             Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                         </p>
-                        <h1 className="text-3xl font-bold leading-tight mb-1">
+                        <h1 className="text-3xl font-extrabold leading-tight mb-1 drop-shadow-md">
                             LLDIKTI Wilayah III
                         </h1>
-                        <p className="text-blue-200 text-sm">
+                        <p className="text-blue-200 text-sm mt-1">
                             Lembaga Layanan Pendidikan Tinggi
                         </p>
                     </div>
 
                     {/* Divider */}
-                    <div className="w-16 h-0.5 bg-white/30 mb-10" />
+                    <div className="flex items-center gap-3 mb-10 w-48">
+                        <div className="flex-1 h-px bg-white/30" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-white/60" />
+                        <div className="flex-1 h-px bg-white/30" />
+                    </div>
 
                     {/* Nama sistem */}
                     <div className="text-center">
-                        <h2 className="text-xl font-semibold mb-2">
-                            SIPITUNG
-                        </h2>
+                        <div className="inline-block px-5 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
+                            <h2 className="text-lg font-bold tracking-widest uppercase">
+                                SIPITUNG
+                            </h2>
+                        </div>
                         <p className="text-blue-200 text-sm leading-relaxed max-w-xs">
                             Platform pengelolaan dokumen perencanaan, keuangan,
                             dan pertanggungjawaban secara terintegrasi.
@@ -85,7 +97,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
 
                 {/* Footer kiri */}
                 <div className="relative z-10 px-12 pb-8 text-center">
-                    <p className="text-blue-300 text-xs">
+                    <p className="text-blue-300/70 text-xs">
                         © {new Date().getFullYear()} LLDIKTI Wilayah III · Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                     </p>
                 </div>
@@ -98,7 +110,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                 <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
                     <div className="flex items-center gap-4">
                         <img
-                            src="/Logo-LLDikti-Wilayah-III-08.png"
+                            src="/TeksPutih-removebg-preview.png"
                             alt="Logo LLDIKTI Wilayah III"
                             className="h-12 object-contain"
                         />
