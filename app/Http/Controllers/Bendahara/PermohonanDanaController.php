@@ -29,7 +29,7 @@ class PermohonanDanaController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $riwayat = PermohonanDana::with(['timKerja'])
+        $riwayat = PermohonanDana::with(['timKerja', 'items'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['bendahara_checked', 'katimku_approved', 'dicairkan', 'rejected'])
             ->orderByDesc('updated_at')

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClipboardCheck, Banknote, History, Search, Building2 } from 'lucide-react';
+import { ClipboardCheck, Banknote, History, Search, Building2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -39,6 +39,7 @@ type PD = {
     status: string;
     keterangan: string | null;
     rekomendasi_kabag: string | null;
+    catatan_pencairan: string | null;
     tim_kerja: { id: number; nama: string; kode: string };
     items?: Item[];
 };
@@ -148,6 +149,7 @@ function PDAccordion({ pds, onAction, actionLabel, actionClass, actionIcon, acti
 export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaList }: Props) {
     const [dialog, setDialog] = useState<ActionDialog>({ open: false, pd: null, action: 'cek' });
     const [catatan, setCatatan] = useState('');
+    const [expanded, setExpanded] = useState<number | null>(null);
     const [search, setSearch] = useState('');
     const [filterTimKerja, setFilterTimKerja] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -296,6 +298,7 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaL
                                 <Table>
                                     <TableHeader>
                                         <TableRow style={{ backgroundColor: '#003580' }}>
+                                            <TableHead className="text-white font-semibold w-8"></TableHead>
                                             <TableHead className="text-white font-semibold">Nomor</TableHead>
                                             <TableHead className="text-white font-semibold">Unit Kerja</TableHead>
                                             <TableHead className="text-white font-semibold">Keperluan</TableHead>
@@ -306,16 +309,71 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaL
                                     <TableBody>
                                         {filteredRiwayat.map((pd) => {
                                             const s = STATUS[pd.status] ?? { label: pd.status, className: 'bg-slate-100 text-slate-700 border-slate-200' };
+                                            const isExpanded = expanded === pd.id;
                                             return (
-                                                <TableRow key={pd.id} className="hover:bg-muted/30">
-                                                    <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
-                                                    <TableCell className="text-sm">{pd.tim_kerja.nama}</TableCell>
-                                                    <TableCell className="text-sm">{pd.keperluan}</TableCell>
-                                                    <TableCell className="text-right font-semibold">{fmt(pd.total_anggaran)}</TableCell>
-                                                    <TableCell className="text-center">
-                                                        <Badge variant="outline" className={s.className}>{s.label}</Badge>
-                                                    </TableCell>
-                                                </TableRow>
+                                                <>
+                                                    <TableRow key={pd.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setExpanded(isExpanded ? null : pd.id)}>
+                                                        <TableCell>
+                                                            <span className="text-muted-foreground">
+                                                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
+                                                        <TableCell className="text-sm">{pd.tim_kerja.nama}</TableCell>
+                                                        <TableCell className="text-sm">{pd.keperluan}</TableCell>
+                                                        <TableCell className="text-right font-semibold">{fmt(pd.total_anggaran)}</TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Badge variant="outline" className={s.className}>{s.label}</Badge>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    {isExpanded && (
+                                                        <TableRow key={`${pd.id}-detail`} className="bg-muted/20">
+                                                            <TableCell colSpan={6} className="p-0">
+                                                                <div className="px-6 py-4 space-y-3">
+                                                                    {pd.keterangan && (
+                                                                        <p className="text-sm text-muted-foreground italic">{pd.keterangan}</p>
+                                                                    )}
+                                                                    {pd.items && pd.items.length > 0 && (
+                                                                        <Table>
+                                                                            <TableHeader>
+                                                                                <TableRow className="bg-slate-100 hover:bg-slate-100">
+                                                                                    <TableHead className="text-xs w-8">No</TableHead>
+                                                                                    <TableHead className="text-xs">Uraian</TableHead>
+                                                                                    <TableHead className="text-xs text-center">Volume</TableHead>
+                                                                                    <TableHead className="text-xs text-center">Satuan</TableHead>
+                                                                                    <TableHead className="text-xs text-right">Harga Satuan</TableHead>
+                                                                                    <TableHead className="text-xs text-right">Total</TableHead>
+                                                                                </TableRow>
+                                                                            </TableHeader>
+                                                                            <TableBody>
+                                                                                {pd.items.map((item, idx) => (
+                                                                                    <TableRow key={item.id} className="hover:bg-transparent">
+                                                                                        <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                                                                                        <TableCell className="text-xs">{item.uraian}</TableCell>
+                                                                                        <TableCell className="text-xs text-center">{item.volume}</TableCell>
+                                                                                        <TableCell className="text-xs text-center">{item.satuan}</TableCell>
+                                                                                        <TableCell className="text-xs text-right">{fmt(item.harga_satuan)}</TableCell>
+                                                                                        <TableCell className="text-xs text-right font-medium">{fmt(item.total)}</TableCell>
+                                                                                    </TableRow>
+                                                                                ))}
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    )}
+                                                                    {pd.rekomendasi_kabag && (
+                                                                        <p className="text-xs text-indigo-700 bg-indigo-50 rounded px-3 py-1.5">
+                                                                            <span className="font-semibold">Catatan Kabag:</span> {pd.rekomendasi_kabag}
+                                                                        </p>
+                                                                    )}
+                                                                    {pd.catatan_pencairan && (
+                                                                        <p className="text-xs text-green-700 bg-green-50 rounded px-3 py-1.5">
+                                                                            <span className="font-semibold">Catatan Pencairan:</span> {pd.catatan_pencairan}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </>
                                             );
                                         })}
                                     </TableBody>

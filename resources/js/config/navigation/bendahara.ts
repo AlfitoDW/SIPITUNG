@@ -27,16 +27,16 @@ const bendaharaNav: NavGroup[] = [
                 href: '/bendahara/permohonan-dana',
                 icon: HandCoins,
             },
-            {
-                title: 'Verifikasi LPJ',
-                href: '/bendahara/verifikasi-lpj',
-                icon: ClipboardCheck,
-            },
-            {
-                title: 'Laporan Keuangan',
-                href: '/bendahara/laporan',
-                icon: ChartColumnIncreasing,
-            },
+            // {
+            //     title: 'Verifikasi LPJ',
+            //     href: '/bendahara/verifikasi-lpj',
+            //     icon: ClipboardCheck,
+            // },
+            // {
+            //     title: 'Laporan Keuangan',
+            //     href: '/bendahara/laporan',
+            //     icon: ChartColumnIncreasing,
+            // },
         ],
     },
     {

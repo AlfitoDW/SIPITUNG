@@ -50,31 +50,31 @@ const pimpinanNav: NavGroup[] = [
             },
         ],
     },
-    {
-        label: 'Persetujuan',
-        items: [
-            {
-                title: 'Approval',
-                href: '/pimpinan/approval',
-                icon: ShieldCheck,
-            },
-            {
-                title: 'Validasi',
-                href: '/pimpinan/validasi',
-                icon: Scale,
-            },
-        ],
-    },
-    {
-        label: 'Laporan',
-        items: [
-            {
-                title: 'Laporan',
-                href: '/pimpinan/laporan',
-                icon: ChartColumnIncreasing,
-            },
-        ],
-    },
+    // {
+    //     label: 'Persetujuan',
+    //     items: [
+    //         {
+    //             title: 'Approval',
+    //             href: '/pimpinan/approval',
+    //             icon: ShieldCheck,
+    //         },
+    //         {
+    //             title: 'Validasi',
+    //             href: '/pimpinan/validasi',
+    //             icon: Scale,
+    //         },
+    //     ],
+    // },
+    // {
+    //     label: 'Laporan',
+    //     items: [
+    //         {
+    //             title: 'Laporan',
+    //             href: '/pimpinan/laporan',
+    //             icon: ChartColumnIncreasing,
+    //         },
+    //     ],
+    // },
     {
         label: 'Misc',
         items: [
