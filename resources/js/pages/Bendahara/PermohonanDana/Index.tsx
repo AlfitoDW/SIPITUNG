@@ -302,6 +302,7 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaL
                                             <TableHead className="text-white font-semibold">Nomor</TableHead>
                                             <TableHead className="text-white font-semibold">Unit Kerja</TableHead>
                                             <TableHead className="text-white font-semibold">Keperluan</TableHead>
+                                            <TableHead className="text-white font-semibold">Tgl Kegiatan</TableHead>
                                             <TableHead className="text-white font-semibold text-right">Total</TableHead>
                                             <TableHead className="text-white font-semibold text-center">Status</TableHead>
                                         </TableRow>
@@ -321,6 +322,9 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaL
                                                         <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
                                                         <TableCell className="text-sm">{pd.tim_kerja.nama}</TableCell>
                                                         <TableCell className="text-sm">{pd.keperluan}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {new Date(pd.tanggal_kegiatan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                        </TableCell>
                                                         <TableCell className="text-right font-semibold">{fmt(pd.total_anggaran)}</TableCell>
                                                         <TableCell className="text-center">
                                                             <Badge variant="outline" className={s.className}>{s.label}</Badge>
@@ -328,7 +332,7 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaL
                                                     </TableRow>
                                                     {isExpanded && (
                                                         <TableRow key={`${pd.id}-detail`} className="bg-muted/20">
-                                                            <TableCell colSpan={6} className="p-0">
+                                                            <TableCell colSpan={7} className="p-0">
                                                                 <div className="px-6 py-4 space-y-3">
                                                                     {pd.keterangan && (
                                                                         <p className="text-sm text-muted-foreground italic">{pd.keterangan}</p>
