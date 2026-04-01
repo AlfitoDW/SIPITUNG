@@ -50,19 +50,17 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
 
                 <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-12 py-16 text-white">
 
-                    {/* Logo LLDIKTI dengan ring */}
+                    {/* Logo LLDIKTI */}
                     <div className="flex items-center justify-center mb-10">
-                        <div className="p-3 rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20 shadow-2xl">
-                            <img
-                                src="/TeksPutih-removebg-preview.png"
-                                alt="Logo LLDIKTI Wilayah III"
-                                className="h-20 object-contain drop-shadow-lg"
-                            />
-                        </div>
+                        <img
+                            src="/TeksPutih-removebg-preview.png"
+                            alt="Logo LLDIKTI Wilayah III"
+                            className="h-20 object-contain drop-shadow-lg"
+                        />
                     </div>
 
                     {/* Nama lembaga */}
-                    <div className="text-center mb-10">
+                    <div className="text-center mb-14">
                         <p className="text-xs font-semibold tracking-[0.2em] text-blue-200 uppercase mb-3">
                             Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                         </p>
@@ -75,16 +73,16 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                     </div>
 
                     {/* Divider */}
-                    <div className="flex items-center gap-3 mb-10 w-48">
+                    <div className="flex items-center gap-3 mb-14 w-56">
                         <div className="flex-1 h-px bg-white/30" />
                         <div className="h-1.5 w-1.5 rounded-full bg-white/60" />
                         <div className="flex-1 h-px bg-white/30" />
                     </div>
 
                     {/* Nama sistem */}
-                    <div className="text-center">
-                        <div className="inline-block px-5 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
-                            <h2 className="text-lg font-bold tracking-widest uppercase">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="flex items-center justify-center px-6 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
+                            <h2 className="text-lg font-bold tracking-widest uppercase leading-none">
                                 SIPITUNG
                             </h2>
                         </div>
