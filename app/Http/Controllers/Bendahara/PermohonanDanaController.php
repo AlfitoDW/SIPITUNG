@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Bendahara;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
+use App\Models\TimKerja;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -34,11 +35,14 @@ class PermohonanDanaController extends Controller
             ->orderByDesc('updated_at')
             ->get();
 
+        $timKerjaList = TimKerja::orderBy('nama')->get(['id', 'nama']);
+
         return Inertia::render('Bendahara/PermohonanDana/Index', [
-            'tahun'      => $tahun,
-            'verifikasi' => $verifikasi,
-            'pencairan'  => $pencairan,
-            'riwayat'    => $riwayat,
+            'tahun'        => $tahun,
+            'verifikasi'   => $verifikasi,
+            'pencairan'    => $pencairan,
+            'riwayat'      => $riwayat,
+            'timKerjaList' => $timKerjaList,
         ]);
     }
 

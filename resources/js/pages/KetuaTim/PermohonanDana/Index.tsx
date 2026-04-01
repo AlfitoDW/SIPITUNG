@@ -107,14 +107,11 @@ export default function Index({ tahun, permohonan }: Props) {
 
                                     return (
                                         <>
-                                            <TableRow key={pd.id} className="hover:bg-muted/30">
+                                            <TableRow key={pd.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setExpanded(isExpanded ? null : pd.id)}>
                                                 <TableCell>
-                                                    <button
-                                                        onClick={() => setExpanded(isExpanded ? null : pd.id)}
-                                                        className="text-muted-foreground hover:text-foreground"
-                                                    >
+                                                    <span className="text-muted-foreground">
                                                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                                    </button>
+                                                    </span>
                                                 </TableCell>
                                                 <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
                                                 <TableCell className="font-medium">{pd.keperluan}</TableCell>
@@ -125,7 +122,7 @@ export default function Index({ tahun, permohonan }: Props) {
                                                 <TableCell className="text-center">
                                                     <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex items-center justify-center gap-1.5">
                                                         {editable(pd) && (
                                                             <>

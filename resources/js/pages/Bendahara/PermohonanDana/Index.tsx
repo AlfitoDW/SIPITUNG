@@ -9,8 +9,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardCheck, Banknote, History } from 'lucide-react';
-import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ClipboardCheck, Banknote, History, Search, Building2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Keuangan', href: '#' },
@@ -37,7 +39,7 @@ type PD = {
     status: string;
     keterangan: string | null;
     rekomendasi_kabag: string | null;
-    tim_kerja: { nama: string; kode: string };
+    tim_kerja: { id: number; nama: string; kode: string };
     items?: Item[];
 };
 type Props = {
@@ -45,6 +47,7 @@ type Props = {
     verifikasi: PD[];
     pencairan: PD[];
     riwayat: PD[];
+    timKerjaList: { id: number; nama: string }[];
 };
 
 type ActionDialog = { open: boolean; pd: PD | null; action: 'cek' | 'cairkan' };
@@ -142,9 +145,26 @@ function PDAccordion({ pds, onAction, actionLabel, actionClass, actionIcon, acti
     );
 }
 
-export default function Index({ tahun, verifikasi, pencairan, riwayat }: Props) {
+export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaList }: Props) {
     const [dialog, setDialog] = useState<ActionDialog>({ open: false, pd: null, action: 'cek' });
     const [catatan, setCatatan] = useState('');
+    const [search, setSearch] = useState('');
+    const [filterTimKerja, setFilterTimKerja] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+
+    const filteredRiwayat = useMemo(() => {
+        return riwayat.filter((pd) => {
+            const matchSearch =
+                search === '' ||
+                pd.nomor_permohonan.toLowerCase().includes(search.toLowerCase()) ||
+                pd.keperluan.toLowerCase().includes(search.toLowerCase());
+            const matchTimKerja =
+                filterTimKerja === 'all' || pd.tim_kerja.id.toString() === filterTimKerja;
+            const matchStatus =
+                filterStatus === 'all' || pd.status === filterStatus;
+            return matchSearch && matchTimKerja && matchStatus;
+        });
+    }, [riwayat, search, filterTimKerja, filterStatus]);
 
     function openDialog(pd: PD, action: 'cek' | 'cairkan') {
         setCatatan('');
@@ -229,9 +249,47 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat }: Props) 
                     </TabsContent>
 
                     <TabsContent value="riwayat" className="mt-4">
+                        <div className="flex flex-wrap gap-3 mb-4">
+                            <div className="relative min-w-48 flex-1">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Cari nomor atau keperluan..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                            <Select value={filterTimKerja} onValueChange={setFilterTimKerja}>
+                                <SelectTrigger className="w-48 overflow-hidden">
+                                    <Building2 className="mr-2 h-4 w-4 shrink-0" />
+                                    <SelectValue placeholder="Semua Tim Kerja" />
+                                </SelectTrigger>
+                                <SelectContent side="bottom" avoidCollisions={false}>
+                                    <SelectItem value="all">Semua Tim Kerja</SelectItem>
+                                    {timKerjaList.map((tk) => (
+                                        <SelectItem key={tk.id} value={tk.id.toString()}>{tk.nama}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger className="w-48 overflow-hidden">
+                                    <SelectValue placeholder="Semua Status" />
+                                </SelectTrigger>
+                                <SelectContent side="bottom" avoidCollisions={false}>
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    {Object.entries(STATUS).map(([key, cfg]) => (
+                                        <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         {riwayat.length === 0 ? (
                             <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground text-sm">
                                 Belum ada riwayat.
+                            </div>
+                        ) : filteredRiwayat.length === 0 ? (
+                            <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground text-sm">
+                                Tidak ada data yang sesuai dengan filter.
                             </div>
                         ) : (
                             <div className="rounded-xl border overflow-hidden shadow-sm">
@@ -246,7 +304,7 @@ export default function Index({ tahun, verifikasi, pencairan, riwayat }: Props) 
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {riwayat.map((pd) => {
+                                        {filteredRiwayat.map((pd) => {
                                             const s = STATUS[pd.status] ?? { label: pd.status, className: 'bg-slate-100 text-slate-700 border-slate-200' };
                                             return (
                                                 <TableRow key={pd.id} className="hover:bg-muted/30">
