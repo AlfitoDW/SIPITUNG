@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 class TahunAnggaranController extends Controller
 {
@@ -50,5 +53,17 @@ class TahunAnggaranController extends Controller
         $tahunAnggaran->update(['is_default' => true]);
 
         return back()->with('success', 'Tahun anggaran default berhasil diubah.');
+    }
+
+    public function switchSession(Request $request): Response
+    {
+        $request->validate([
+            'tahun_anggaran_id' => ['required', Rule::exists('tahun_anggaran', 'id')->where('is_active', true)],
+        ]);
+
+        session(['tahun_anggaran_id' => $request->tahun_anggaran_id]);
+
+        // Paksa full browser reload agar Inertia prefetch cache terhapus
+        return Inertia::location(url()->previous() ?: route('dashboard'));
     }
 }

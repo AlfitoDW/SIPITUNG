@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\KetuaTim\PerencanaanController;
+use App\Http\Controllers\KetuaTim\PengukuranController;
 use App\Http\Controllers\KetuaTim\PermohonanDanaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,24 +26,17 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         Route::patch('revisi/submit', [PerencanaanController::class, 'pkRevisiSubmit'])->name('revisi.submit');
     });
 
-    // Sasaran & Indikator — shared untuk PK Awal & Revisi
+    // Update target IKU di PK (hanya field target)
     Route::prefix('perencanaan')->name('perencanaan.')->group(function () {
-        Route::post('sasaran', [PerencanaanController::class, 'sasaranStore'])->name('sasaran.store');
-        Route::put('sasaran/{sasaran}', [PerencanaanController::class, 'sasaranUpdate'])->name('sasaran.update');
-        Route::delete('sasaran/{sasaran}', [PerencanaanController::class, 'sasaranDestroy'])->name('sasaran.destroy');
-
-        Route::post('indikator', [PerencanaanController::class, 'indikatorStore'])->name('indikator.store');
-        Route::put('indikator/{indikator}', [PerencanaanController::class, 'indikatorUpdate'])->name('indikator.update');
-        Route::delete('indikator/{indikator}', [PerencanaanController::class, 'indikatorDestroy'])->name('indikator.destroy');
+        Route::patch('indikator/{indikator}/target', [PerencanaanController::class, 'indikatorTargetUpdate'])->name('indikator.target');
     });
 
     Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
         Route::get('penyusunan', [PerencanaanController::class, 'rencanaAksi'])->name('penyusunan');
         Route::get('progress', [PerencanaanController::class, 'rencanaAksiProgress'])->name('progress');
         Route::post('init', [PerencanaanController::class, 'raInit'])->name('init');
-        Route::put('indikator/{indikator}', [PerencanaanController::class, 'raIndikatorUpdate'])->name('indikator.update');
-        Route::delete('indikator/{indikator}', [PerencanaanController::class, 'raIndikatorDestroy'])->name('indikator.destroy');
-        Route::post('indikator', [PerencanaanController::class, 'raIndikatorStore'])->name('indikator.store');
+        // Update target + target_tw RA indikator (hanya field target)
+        Route::patch('indikator/{indikator}/target', [PerencanaanController::class, 'raIndikatorUpdate'])->name('indikator.target');
         Route::patch('submit', [PerencanaanController::class, 'raSubmit'])->name('submit');
     });
 
@@ -57,6 +51,12 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         Route::put('/{pd}',            [PermohonanDanaController::class, 'update'])->name('update');
         Route::delete('/{pd}',         [PermohonanDanaController::class, 'destroy'])->name('destroy');
         Route::patch('/{pd}/submit',   [PermohonanDanaController::class, 'submit'])->name('submit');
+    });
+
+    // Pengukuran Kinerja
+    Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
+        Route::get('/',       [PengukuranController::class, 'index'])->name('index');
+        Route::post('store',  [PengukuranController::class, 'store'])->name('store');
     });
 
     Route::get('/lpj', fn() => Inertia::render('KetuaTim/LPJ'))->name('lpj');

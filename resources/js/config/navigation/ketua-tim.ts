@@ -2,8 +2,8 @@ import {
     LayoutDashboard,
     ClipboardPenLine,
     ClipboardCheck,
+    ChartNoAxesColumn,
     HandCoins,
-    FileCheck,
     FolderOpen,
     BellRingIcon,
 } from 'lucide-react';
@@ -56,6 +56,16 @@ const ketuaTimNav: NavGroup[] = [
                         href : '/ketua-tim/perencanaan/rencana-aksi/progress',
                     },
                 ],
+            },
+        ],
+    },
+    {
+        label: 'Pengukuran',
+        items: [
+            {
+                title: 'Pengukuran Kinerja',
+                href: '/ketua-tim/pengukuran',
+                icon: ChartNoAxesColumn,
             },
         ],
     },

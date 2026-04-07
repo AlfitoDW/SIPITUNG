@@ -6,6 +6,7 @@ import {
     HandCoins,
     Database,
     BellRingIcon,
+    Users,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import type { NavGroup } from '@/types';
@@ -42,6 +43,7 @@ const superAdminNav: NavGroup[] = [
                             { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/progress'   },
                         ],
                     },
+                    { title: 'Matriks PK', href: '/super-admin/perencanaan/perjanjian-kinerja/matriks' },
                 ],
             },
             {
@@ -67,8 +69,8 @@ const superAdminNav: NavGroup[] = [
                 title: 'Pengukuran Kinerja',
                 icon: ChartNoAxesColumn,
                 children: [
-                    { title: 'Penyusunan', href: '#' },
-                    { title: 'Progress',   href: '#' },
+                    { title: 'Kelola Periode',    href: '/super-admin/pengukuran' },
+                    { title: 'Realisasi Kinerja', href: '/super-admin/pengukuran/realisasi' },
                 ],
             },
         ],
@@ -93,18 +95,28 @@ const superAdminNav: NavGroup[] = [
         ],
     },
     {
-        label: 'Misc',
+        label: 'Master Data',
         items: [
+            {
+                title: 'Tim Kerja',
+                href: '/super-admin/master/tim-kerja',
+                icon: Users,
+            },
             {
                 title: 'Data Master',
                 href: '/super-admin/data-master',
                 icon: Database,
             },
+        ],
+    },
+    {
+        label: 'Misc',
+        items: [
             {
                 title: 'Notifikasi',
                 href: '/super-admin/notifikasi',
                 icon: BellRingIcon,
-            }
+            },
         ],
     },
 ];

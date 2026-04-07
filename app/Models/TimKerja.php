@@ -14,6 +14,7 @@ class TimKerja extends Model
     protected $fillable = [
         'nama',
         'kode',
+        'nama_singkat',
         'deskripsi',
         'is_active',
         'is_koordinator',

@@ -3,7 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\IndikatorKinerja;
+use App\Models\MasterSasaran;
+use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
+use App\Models\RealisasiKinerja;
 use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
 use App\Models\Sasaran;
@@ -17,172 +20,398 @@ class PerencanaanSeeder extends Seeder
     public function run(): void
     {
         $tahun = TahunAnggaran::where('is_default', true)->first();
-        $timPKU = TimKerja::where('kode', 'TK-PKU')->first();
-        $ketuaPKU = User::where('username', 'ketua.pku')->first();
 
-        if (! $tahun || ! $timPKU || ! $ketuaPKU) {
-            $this->command->warn('PerencanaanSeeder: pastikan TahunAnggaranSeeder, TimKerjaSeeder, dan UserSeeder sudah dijalankan terlebih dahulu.');
+        if (! $tahun) {
+            $this->command->warn('PerencanaanSeeder: TahunAnggaranSeeder belum dijalankan.');
             return;
         }
 
-        $sasaranData = $this->getSasaranData();
+        // Bersihkan data lama untuk tahun ini agar re-seed tidak nabrak
+        MasterSasaran::where('tahun_anggaran_id', $tahun->id)->delete();
+        $pkIds = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->pluck('id');
+        $sasaranIds = Sasaran::whereIn('perjanjian_kinerja_id', $pkIds)->pluck('id');
+        \DB::table('indikator_kinerja_pic')->whereIn('indikator_kinerja_id',
+            IndikatorKinerja::whereIn('sasaran_id', $sasaranIds)->pluck('id')
+        )->delete();
+        IndikatorKinerja::whereIn('sasaran_id', $sasaranIds)->delete();
+        Sasaran::whereIn('perjanjian_kinerja_id', $pkIds)->delete();
+        $raIds = RencanaAksi::where('tahun_anggaran_id', $tahun->id)->pluck('id');
+        RencanaAksiIndikator::whereIn('rencana_aksi_id', $raIds)->delete();
+        RencanaAksi::where('tahun_anggaran_id', $tahun->id)->delete();
+        PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->delete();
 
-        // --- Perjanjian Kinerja Awal ---
-        $pk = PerjanjianKinerja::firstOrCreate(
-            [
+        // Seed periode pengukuran (TW1–TW4, TW1 aktif sebagai default)
+        foreach (['TW1' => true, 'TW2' => false, 'TW3' => false, 'TW4' => false] as $tw => $aktif) {
+            PeriodePengukuran::updateOrCreate(
+                ['tahun_anggaran_id' => $tahun->id, 'triwulan' => $tw],
+                ['is_active' => $aktif]
+            );
+        }
+
+        $sasaranNamas = $this->getSasaranNamas();
+        $ikuMaster    = $this->getIkuMaster();
+        $twMaster     = $this->getTwMaster();
+
+        // Seed master sasaran (sumber tunggal untuk dropdown di halaman Penyusunan)
+        foreach ($sasaranNamas as $kode => $nama) {
+            MasterSasaran::create([
                 'tahun_anggaran_id' => $tahun->id,
-                'tim_kerja_id'      => $timPKU->id,
-                'jenis'             => 'awal',
-            ],
-            [
-                'status'     => 'draft',
-                'created_by' => $ketuaPKU->id,
-            ]
-        );
+                'kode'              => $kode,
+                'nama'              => $nama,
+                'urutan'            => (int) str_replace('S ', '', $kode),
+            ]);
+        }
 
-        foreach ($sasaranData as $urutan => $s) {
-            $sasaran = Sasaran::firstOrCreate(
-                ['perjanjian_kinerja_id' => $pk->id, 'kode' => $s['kode']],
-                ['nama' => $s['nama'], 'urutan' => $urutan + 1]
+        // Mapping: kode_tim_kerja (BARU) => [ 'S x' => ['IKU x.y', ...] ]
+        $tkIkuMap = $this->getTkIkuMap();
+
+        // Co-PIC mapping: kode_iku => [kode_tim_kerja_co, ...]
+        $coPicMap = $this->getCoPicMap();
+
+        // Seed setiap tim kerja
+        foreach ($tkIkuMap as $tkKode => $sasaranMap) {
+            $timKerja = TimKerja::where('kode', $tkKode)->first();
+            if (! $timKerja) continue;
+
+            $ketua = User::where('tim_kerja_id', $timKerja->id)
+                ->where('role', 'ketua_tim_kerja')
+                ->first();
+            $createdBy = $ketua?->id ?? 1;
+
+            // ── PK Awal ─────────────────────────────────────────────────────
+            $pk = PerjanjianKinerja::firstOrCreate(
+                ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id, 'jenis' => 'awal'],
+                ['status' => 'draft', 'created_by' => $createdBy]
             );
 
-            foreach ($s['indikators'] as $ikuUrutan => $iku) {
-                IndikatorKinerja::firstOrCreate(
-                    ['sasaran_id' => $sasaran->id, 'kode' => $iku['kode']],
-                    [
-                        'nama'    => $iku['nama'],
-                        'satuan'  => $iku['satuan'],
-                        'target'  => $iku['target'],
-                        'urutan'  => $ikuUrutan + 1,
-                    ]
+            $ikuRecords = []; // kode_iku => IndikatorKinerja
+
+            foreach ($sasaranMap as $sasKode => $ikuKodes) {
+                $sasaran = Sasaran::firstOrCreate(
+                    ['perjanjian_kinerja_id' => $pk->id, 'kode' => $sasKode],
+                    ['nama' => $sasaranNamas[$sasKode], 'urutan' => (int) str_replace('S ', '', $sasKode)]
                 );
+
+                foreach ($ikuKodes as $ikuUrutan => $ikuKode) {
+                    $ikuData = $ikuMaster[$ikuKode];
+                    $tw      = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
+                    $iku = IndikatorKinerja::firstOrCreate(
+                        ['sasaran_id' => $sasaran->id, 'kode' => $ikuKode],
+                        [
+                            'nama'             => $ikuData['nama'],
+                            'satuan'           => $ikuData['satuan'],
+                            'target'           => $ikuData['target'],
+                            'target_tw1'       => $tw['tw1'],
+                            'target_tw2'       => $tw['tw2'],
+                            'target_tw3'       => $tw['tw3'],
+                            'target_tw4'       => $tw['tw4'],
+                            'urutan'           => $ikuUrutan + 1,
+                            'pic_tim_kerja_id' => $timKerja->id,
+                        ]
+                    );
+
+                    // Pastikan primary PIC ada di pivot
+                    $iku->picTimKerjas()->syncWithoutDetaching([$timKerja->id]);
+                    $ikuRecords[$ikuKode] = $iku;
+                }
+            }
+
+            // Tambah co-PICs ke pivot
+            foreach ($ikuRecords as $ikuKode => $iku) {
+                if (isset($coPicMap[$ikuKode])) {
+                    foreach ($coPicMap[$ikuKode] as $coPicKode) {
+                        $coPic = TimKerja::where('kode', $coPicKode)->first();
+                        if ($coPic) {
+                            $iku->picTimKerjas()->syncWithoutDetaching([$coPic->id]);
+                        }
+                    }
+                }
+            }
+
+            // ── PK Revisi (copy langsung dari PK Awal — single source of truth) ──
+            $pkRevisi = PerjanjianKinerja::firstOrCreate(
+                ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id, 'jenis' => 'revisi'],
+                ['status' => 'draft', 'created_by' => $createdBy]
+            );
+
+            $pkAwalSasaransLoaded = Sasaran::where('perjanjian_kinerja_id', $pk->id)
+                ->with(['indikators.picTimKerjas'])
+                ->get();
+
+            foreach ($pkAwalSasaransLoaded as $sasAwal) {
+                $sasRevisi = Sasaran::firstOrCreate(
+                    ['perjanjian_kinerja_id' => $pkRevisi->id, 'kode' => $sasAwal->kode],
+                    ['nama' => $sasAwal->nama, 'urutan' => $sasAwal->urutan]
+                );
+
+                foreach ($sasAwal->indikators as $ikuAwal) {
+                    $ikuRevisi = IndikatorKinerja::firstOrCreate(
+                        ['sasaran_id' => $sasRevisi->id, 'kode' => $ikuAwal->kode],
+                        [
+                            'nama'             => $ikuAwal->nama,
+                            'satuan'           => $ikuAwal->satuan,
+                            'target'           => $ikuAwal->target,
+                            'target_tw1'       => $ikuAwal->target_tw1,
+                            'target_tw2'       => $ikuAwal->target_tw2,
+                            'target_tw3'       => $ikuAwal->target_tw3,
+                            'target_tw4'       => $ikuAwal->target_tw4,
+                            'urutan'           => $ikuAwal->urutan,
+                            'pic_tim_kerja_id' => $ikuAwal->pic_tim_kerja_id,
+                        ]
+                    );
+                    // Copy semua PIC (primary + co-PIC) dari PK Awal
+                    $ikuRevisi->picTimKerjas()->syncWithoutDetaching(
+                        $ikuAwal->picTimKerjas->pluck('id')->all()
+                    );
+                }
+            }
+
+            // ── Rencana Aksi ─────────────────────────────────────────────────
+            $pkAwalSasarans = Sasaran::where('perjanjian_kinerja_id', $pk->id)
+                ->pluck('id', 'kode');
+
+            $ra = RencanaAksi::firstOrCreate(
+                ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id],
+                ['status' => 'draft', 'created_by' => $createdBy]
+            );
+
+            $raUrutan = 1;
+            foreach ($sasaranMap as $sasKode => $ikuKodes) {
+                $sasaranId = $pkAwalSasarans->get($sasKode);
+                foreach ($ikuKodes as $ikuKode) {
+                    $ikuData = $ikuMaster[$ikuKode];
+                    $tw      = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
+
+                    RencanaAksiIndikator::updateOrCreate(
+                        ['rencana_aksi_id' => $ra->id, 'kode' => $ikuKode],
+                        [
+                            'sasaran_id' => $sasaranId,
+                            'nama'       => $ikuData['nama'],
+                            'satuan'     => $ikuData['satuan'],
+                            'target'     => $ikuData['target'],
+                            'target_tw1' => $tw['tw1'],
+                            'target_tw2' => $tw['tw2'],
+                            'target_tw3' => $tw['tw3'],
+                            'target_tw4' => $tw['tw4'],
+                            'urutan'     => $raUrutan++,
+                        ]
+                    );
+                }
             }
         }
 
-        // --- Perjanjian Kinerja Revisi ---
-        $pkRevisi = PerjanjianKinerja::firstOrCreate(
-            [
-                'tahun_anggaran_id' => $tahun->id,
-                'tim_kerja_id'      => $timPKU->id,
-                'jenis'             => 'revisi',
-            ],
-            [
-                'status'     => 'draft',
-                'created_by' => $ketuaPKU->id,
-            ]
-        );
+        // ── Seed RealisasiKinerja TW1 (demo data — cascadeOnDelete handles cleanup) ──
+        $periodeTw1 = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+            ->where('triwulan', 'TW1')
+            ->first();
 
-        foreach ($sasaranData as $urutan => $s) {
-            $sasaran = Sasaran::firstOrCreate(
-                ['perjanjian_kinerja_id' => $pkRevisi->id, 'kode' => $s['kode']],
-                ['nama' => $s['nama'], 'urutan' => $urutan + 1]
-            );
+        if ($periodeTw1) {
+            $realisasiMaster = $this->getRealisasiTw1Master();
 
-            foreach ($s['indikators'] as $ikuUrutan => $iku) {
-                IndikatorKinerja::firstOrCreate(
-                    ['sasaran_id' => $sasaran->id, 'kode' => $iku['kode']],
-                    [
-                        'nama'    => $iku['nama'],
-                        'satuan'  => $iku['satuan'],
-                        'target'  => $iku['target'],
-                        'urutan'  => $ikuUrutan + 1,
-                    ]
-                );
+            foreach ($tkIkuMap as $tkKode => $sasaranMap) {
+                $timKerja = TimKerja::where('kode', $tkKode)->first();
+                if (! $timKerja) continue;
+
+                $ketua = User::where('tim_kerja_id', $timKerja->id)
+                    ->where('role', 'ketua_tim_kerja')
+                    ->first();
+                $createdBy = $ketua?->id ?? 1;
+
+                $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+                    ->where('tim_kerja_id', $timKerja->id)
+                    ->where('jenis', 'awal')
+                    ->first();
+                if (! $pk) continue;
+
+                foreach ($sasaranMap as $sasKode => $ikuKodes) {
+                    $sasaran = Sasaran::where('perjanjian_kinerja_id', $pk->id)
+                        ->where('kode', $sasKode)
+                        ->first();
+                    if (! $sasaran) continue;
+
+                    foreach ($ikuKodes as $ikuKode) {
+                        $iku  = IndikatorKinerja::where('sasaran_id', $sasaran->id)
+                            ->where('kode', $ikuKode)
+                            ->first();
+                        $data = $realisasiMaster[$ikuKode] ?? null;
+                        if (! $iku || ! $data) continue;
+
+                        RealisasiKinerja::updateOrCreate(
+                            [
+                                'indikator_kinerja_id' => $iku->id,
+                                'periode_pengukuran_id' => $periodeTw1->id,
+                            ],
+                            [
+                                'input_by_tim_kerja_id'  => $timKerja->id,
+                                'realisasi'              => $data['realisasi'],
+                                'progress_kegiatan'      => $data['progress_kegiatan'],
+                                'kendala'                => $data['kendala'],
+                                'strategi_tindak_lanjut' => $data['strategi_tindak_lanjut'],
+                                'catatan'                => null,
+                                'created_by'             => $createdBy,
+                            ]
+                        );
+                    }
+                }
             }
-        }
-
-        // --- Rencana Aksi ---
-        $ra = RencanaAksi::firstOrCreate(
-            [
-                'tahun_anggaran_id' => $tahun->id,
-                'tim_kerja_id'      => $timPKU->id,
-            ],
-            [
-                'status'     => 'draft',
-                'created_by' => $ketuaPKU->id,
-            ]
-        );
-
-        // Ambil sasaran dari PK Awal untuk di-link ke RA indikator
-        $pkSasarans = Sasaran::where('perjanjian_kinerja_id', $pk->id)
-            ->pluck('id', 'kode');
-
-        $urutan = 1;
-        foreach ($this->getRaIndikatorData() as $iku) {
-            // Cari sasaran yang sesuai berdasarkan prefix kode indikator (IKU 1.x → S 1, dll.)
-            preg_match('/IKU (\d+)/', $iku['kode'], $m);
-            $sasaranKode = isset($m[1]) ? "S {$m[1]}" : null;
-            $sasaranId   = $sasaranKode ? ($pkSasarans->get($sasaranKode)) : null;
-
-            // updateOrCreate agar sasaran_id diperbarui di record yang sudah ada
-            RencanaAksiIndikator::updateOrCreate(
-                ['rencana_aksi_id' => $ra->id, 'kode' => $iku['kode']],
-                [
-                    'sasaran_id' => $sasaranId,
-                    'nama'       => $iku['nama'],
-                    'satuan'     => $iku['satuan'],
-                    'target'     => $iku['target'],
-                    'target_tw1' => $iku['tw1'],
-                    'target_tw2' => $iku['tw2'],
-                    'target_tw3' => $iku['tw3'],
-                    'target_tw4' => $iku['tw4'],
-                    'urutan'     => $urutan++,
-                ]
-            );
         }
     }
 
-    private function getSasaranData(): array
+    // ─── Data Masters ────────────────────────────────────────────────────────────
+
+    private function getSasaranNamas(): array
     {
         return [
-            [
-                'kode' => 'S 1',
-                'nama' => 'Meningkatnya kualitas layanan Lembaga Layanan Pendidikan Tinggi (LLDIKTI)',
-                'indikators' => [
-                    ['kode' => 'IKU 1.1', 'nama' => 'Kepuasan pengguna terhadap layanan utama LLDIKTI', 'satuan' => '%', 'target' => '89,75'],
-                    ['kode' => 'IKU 1.2', 'nama' => 'Persentase PTS yang terakreditasi atau meningkatkan mutu dengan cara penggabungan dengan PTS lain', 'satuan' => '%', 'target' => '90,43'],
-                ],
+            'S 1' => 'Meningkatnya kualitas layanan Lembaga Layanan Pendidikan Tinggi (LLDIKTI)',
+            'S 2' => 'Meningkatnya efektivitas sosialisasi kebijakan pendidikan tinggi',
+            'S 3' => 'Meningkatnya inovasi perguruan tinggi dalam rangka meningkatkan mutu pendidikan',
+            'S 4' => 'Meningkatnya tata kelola Lembaga Layanan Pendidikan Tinggi (LLDIKTI)',
+        ];
+    }
+
+    private function getIkuMaster(): array
+    {
+        return [
+            'IKU 1.1' => ['nama' => 'Kepuasan pengguna terhadap layanan utama LLDIKTI',                                                                                                          'satuan' => '%',        'target' => '89,75'],
+            'IKU 1.2' => ['nama' => 'Persentase PTS yang terakreditasi atau meningkatkan mutu dengan cara penggabungan dengan PTS lain',                                                          'satuan' => '%',        'target' => '90,43'],
+            'IKU 2.1' => ['nama' => 'Persentase PTS yang menyelenggarakan kegiatan pembelajaran di luar program studi',                                                                           'satuan' => '%',        'target' => '70,55'],
+            'IKU 2.2' => ['nama' => 'Persentase mahasiswa S1 atau D4/D3/D2/D1 PTS yang menjalankan kegiatan pembelajaran di luar program studi atau meraih prestasi',                            'satuan' => '%',        'target' => '11'],
+            'IKU 2.3' => ['nama' => 'Persentase PTS yang mengimplementasikan kebijakan antiintoleransi, antikekerasan seksual, antiperundungan, antinarkoba, dan antikorupsi',                   'satuan' => '%',        'target' => '71,88'],
+            'IKU 3.1' => ['nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah dosen yang berkegiatan di luar kampus',                                        'satuan' => '%',        'target' => '62,6'],
+            'IKU 3.2' => ['nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah program studi yang bekerja sama dengan mitra',                                 'satuan' => '%',        'target' => '48,5'],
+            'IKU 4.1' => ['nama' => 'Predikat SAKIP',                                                                                                                                           'satuan' => 'Predikat', 'target' => 'A'],
+            'IKU 4.2' => ['nama' => 'Nilai Kinerja Anggaran atas Pelaksanaan RKA-K/L',                                                                                                          'satuan' => 'Nilai',    'target' => '98,7'],
+        ];
+    }
+
+    private function getTwMaster(): array
+    {
+        return [
+            'IKU 1.1' => ['tw1' => '89,75', 'tw2' => '89,75', 'tw3' => '89,75', 'tw4' => '89,75'],
+            'IKU 1.2' => ['tw1' => '88,00', 'tw2' => '88,13', 'tw3' => '89,00', 'tw4' => '90,43'],
+            'IKU 2.1' => ['tw1' => '70,52', 'tw2' => '70,53', 'tw3' => '70,54', 'tw4' => '70,55'],
+            'IKU 2.2' => ['tw1' => '10,99', 'tw2' => '10,99', 'tw3' => '11',    'tw4' => '11'],
+            'IKU 2.3' => ['tw1' => '70,90', 'tw2' => '71,00', 'tw3' => '71,40', 'tw4' => '71,88'],
+            'IKU 3.1' => ['tw1' => '61,00', 'tw2' => '61,50', 'tw3' => '62,00', 'tw4' => '62,6'],
+            'IKU 3.2' => ['tw1' => '48,00', 'tw2' => '48,00', 'tw3' => '48,30', 'tw4' => '48,5'],
+            'IKU 4.1' => ['tw1' => '-',     'tw2' => '-',     'tw3' => '-',     'tw4' => 'A'],
+            'IKU 4.2' => ['tw1' => '0',     'tw2' => '0',     'tw3' => '0',     'tw4' => '98,7'],
+        ];
+    }
+
+    /**
+     * Mapping Tim Kerja → Sasaran → IKU (primary PIC)
+     * Berdasarkan Lembar Kerja Penyusunan Target Kinerja 2025-2029 (358_M_KEP_2025)
+     */
+    private function getTkIkuMap(): array
+    {
+        return [
+            // S1: Kualitas Layanan → PIC: Humas & Kerja Sama
+            'TK-HMK' => [
+                'S 1' => ['IKU 1.1'],
             ],
-            [
-                'kode' => 'S 2',
-                'nama' => 'Meningkatnya efektivitas sosialisasi kebijakan pendidikan tinggi',
-                'indikators' => [
-                    ['kode' => 'IKU 2.1', 'nama' => 'Persentase PTS yang menyelenggarakan kegiatan pembelajaran di luar program studi', 'satuan' => '%', 'target' => '70,55'],
-                    ['kode' => 'IKU 2.2', 'nama' => 'Persentase mahasiswa S1 atau D4/D3/D2/D1 PTS yang menjalankan kegiatan pembelajaran di luar program studi atau meraih prestasi', 'satuan' => '%', 'target' => '11'],
-                    ['kode' => 'IKU 2.3', 'nama' => 'Persentase PTS yang mengimplementasikan kebijakan antiintoleransi, antikekerasan seksual, antiperundungan, antinarkoba, dan antikorupsi', 'satuan' => '%', 'target' => '71,88'],
-                ],
+            // S1: Arsitektur PTS → PIC primer: Penjaminan Mutu
+            // S2: Fasilitasi Mutu Pembelajaran → PIC primer: Penjaminan Mutu
+            'TK-PENJAMU' => [
+                'S 1' => ['IKU 1.2'],
+                'S 2' => ['IKU 2.1'],
             ],
-            [
-                'kode' => 'S 3',
-                'nama' => 'Meningkatnya inovasi perguruan tinggi dalam rangka meningkatkan mutu pendidikan',
-                'indikators' => [
-                    ['kode' => 'IKU 3.1', 'nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah dosen yang berkegiatan di luar kampus', 'satuan' => '%', 'target' => '62,6'],
-                    ['kode' => 'IKU 3.2', 'nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah program studi yang bekerja sama dengan mitra', 'satuan' => '%', 'target' => '48,5'],
-                ],
+            // S2: Mahasiswa MBKM → PIC: Pembelajaran, Kemahasiswaan & Prestasi
+            'TK-BELMAWA' => [
+                'S 2' => ['IKU 2.2'],
             ],
-            [
-                'kode' => 'S 4',
-                'nama' => 'Meningkatnya tata kelola Lembaga Layanan Pendidikan Tinggi (LLDIKTI)',
-                'indikators' => [
-                    ['kode' => 'IKU 4.1', 'nama' => 'Predikat SAKIP', 'satuan' => 'Predikat', 'target' => 'A'],
-                    ['kode' => 'IKU 4.2', 'nama' => 'Nilai Kinerja Anggaran atas Pelaksanaan RKA-K/L', 'satuan' => 'Nilai', 'target' => '98,7'],
-                ],
+            // S2: Anti Intoleransi → PIC: Anti Dosa Pendidikan & Integritas Akademik
+            'TK-ADIA' => [
+                'S 2' => ['IKU 2.3'],
+            ],
+            // S3: Dosen Berkegiatan → PIC: Sumber Daya
+            'TK-SD' => [
+                'S 3' => ['IKU 3.1'],
+            ],
+            // S3: Prodi Bekerja Sama → PIC primer: Riset & Pengabdian Masyarakat
+            'TK-RPM' => [
+                'S 3' => ['IKU 3.2'],
+            ],
+            // S4: SAKIP + Kinerja Anggaran → PIC primer: Perencanaan & Keuangan
+            'TK-PK' => [
+                'S 4' => ['IKU 4.1', 'IKU 4.2'],
             ],
         ];
     }
 
-    private function getRaIndikatorData(): array
+    /**
+     * Co-PIC tambahan per IKU (selain primary PIC)
+     * Berdasarkan kolom "PIC IKU" di Excel (nama dipisah titik koma)
+     */
+    private function getCoPicMap(): array
     {
         return [
-            ['kode' => 'IKU 1.1', 'nama' => 'Kepuasan pengguna terhadap layanan utama LLDIKTI',                                                                                                             'satuan' => '%',        'target' => '89,75', 'tw1' => '89,75', 'tw2' => '89,75', 'tw3' => '89,75', 'tw4' => '89,75'],
-            ['kode' => 'IKU 1.2', 'nama' => 'Persentase PTS yang terakreditasi atau meningkatkan mutu dengan cara penggabungan dengan PTS lain',                                                             'satuan' => '%',        'target' => '90,43', 'tw1' => '88,00', 'tw2' => '88,13', 'tw3' => '89,00', 'tw4' => '90,43'],
-            ['kode' => 'IKU 2.1', 'nama' => 'Persentase PTS yang menyelenggarakan kegiatan pembelajaran di luar program studi',                                                                              'satuan' => '%',        'target' => '70,55', 'tw1' => '70,52', 'tw2' => '70,53', 'tw3' => '70,54', 'tw4' => '70,55'],
-            ['kode' => 'IKU 2.2', 'nama' => 'Persentase mahasiswa S1 atau D4/D3/D2/D1 PTS yang menjalankan kegiatan pembelajaran di luar program studi atau meraih prestasi',                               'satuan' => '%',        'target' => '11',    'tw1' => '10,99', 'tw2' => '10,99', 'tw3' => '11',    'tw4' => '11'],
-            ['kode' => 'IKU 2.3', 'nama' => 'Persentase PTS yang mengimplementasikan kebijakan antiintoleransi, antikekerasan seksual, antiperundungan, antinarkoba, dan antikorupsi',                      'satuan' => '%',        'target' => '71,88', 'tw1' => '70,90', 'tw2' => '71,00', 'tw3' => '71,40', 'tw4' => '71,88'],
-            ['kode' => 'IKU 3.1', 'nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah dosen yang berkegiatan di luar kampus',                                           'satuan' => '%',        'target' => '62,6',  'tw1' => '61,00', 'tw2' => '61,50', 'tw3' => '62,00', 'tw4' => '62,6'],
-            ['kode' => 'IKU 3.2', 'nama' => 'Persentase PTS yang berhasil meningkatkan kinerja dengan meningkatkan jumlah program studi yang bekerja sama dengan mitra',                                    'satuan' => '%',        'target' => '48,5',  'tw1' => '48,00', 'tw2' => '48,00', 'tw3' => '48,30', 'tw4' => '48,5'],
-            ['kode' => 'IKU 4.1', 'nama' => 'Predikat SAKIP',                                                                                                                                               'satuan' => 'Predikat', 'target' => 'A',     'tw1' => '-',     'tw2' => '-',     'tw3' => '-',     'tw4' => 'A'],
-            ['kode' => 'IKU 4.2', 'nama' => 'Nilai Kinerja Anggaran atas Pelaksanaan RKA-K/L',                                                                                                              'satuan' => 'Nilai',    'target' => '98,7',  'tw1' => '0',     'tw2' => '0',     'tw3' => '0',     'tw4' => '98,7'],
+            'IKU 1.2' => ['TK-KK'],           // Kelembagaan & Kemitraan juga PIC
+            'IKU 2.1' => ['TK-BELMAWA'],      // Belmawa juga co-PIC fasilitasi mutu
+            'IKU 3.2' => ['TK-KK'],           // Kelembagaan & Kemitraan co-PIC penelitian
+            'IKU 4.1' => ['TK-HKT'],          // HKT co-PIC SAKIP
+            'IKU 4.2' => ['TK-HKT'],          // HKT co-PIC Kinerja Anggaran
+        ];
+    }
+
+    /** Demo realisasi TW1 untuk modul Pengukuran */
+    private function getRealisasiTw1Master(): array
+    {
+        return [
+            'IKU 1.1' => [
+                'realisasi'              => '89,50',
+                'progress_kegiatan'      => 'Survei kepuasan pengguna telah dilaksanakan pada triwulan pertama dengan tingkat respons yang baik.',
+                'kendala'                => 'Tingkat respons survei dari beberapa PTS masih perlu ditingkatkan.',
+                'strategi_tindak_lanjut' => 'Follow-up kepada responden yang belum mengisi survei melalui koordinasi langsung.',
+            ],
+            'IKU 1.2' => [
+                'realisasi'              => '87,75',
+                'progress_kegiatan'      => 'Monitoring proses akreditasi dan reakreditasi PTS berjalan sesuai jadwal. Pendampingan administratif terus dilakukan.',
+                'kendala'                => 'Beberapa PTS terkendala administrasi pengajuan akreditasi ke BAN-PT.',
+                'strategi_tindak_lanjut' => 'Pendampingan intensif kepada PTS yang mengalami hambatan, termasuk konsultasi daring.',
+            ],
+            'IKU 2.1' => [
+                'realisasi'              => '70,50',
+                'progress_kegiatan'      => 'Fasilitasi implementasi program pembelajaran di luar prodi (MBKM) di PTS terus berjalan.',
+                'kendala'                => 'Sebagian PTS masih dalam tahap penyesuaian kurikulum agar sesuai standar MBKM.',
+                'strategi_tindak_lanjut' => 'Bimbingan teknis penyusunan kurikulum berbasis MBKM dijadwalkan bulan berikutnya.',
+            ],
+            'IKU 2.2' => [
+                'realisasi'              => '10,50',
+                'progress_kegiatan'      => 'Jumlah mahasiswa S1/D4/D3 yang mengikuti kegiatan di luar prodi terus bertambah.',
+                'kendala'                => 'Masih ada PTS yang belum memahami mekanisme pelaporan peserta MBKM di PDDikti.',
+                'strategi_tindak_lanjut' => 'Sosialisasi dan workshop mekanisme pelaporan MBKM kepada operator PTS.',
+            ],
+            'IKU 2.3' => [
+                'realisasi'              => '70,75',
+                'progress_kegiatan'      => 'Sosialisasi kebijakan antiintoleransi, antikekerasan seksual, dan antiperundungan telah dilaksanakan kepada PTS.',
+                'kendala'                => 'Komitmen implementasi kebijakan di tingkat PTS masih bervariasi.',
+                'strategi_tindak_lanjut' => 'Monitoring dan evaluasi berkala melalui form pelaporan implementasi kebijakan.',
+            ],
+            'IKU 3.1' => [
+                'realisasi'              => '60,80',
+                'progress_kegiatan'      => 'Program mobilisasi dosen ke industri dan perguruan tinggi mitra sedang berjalan.',
+                'kendala'                => 'Keterbatasan jumlah mitra yang bersedia menerima dosen tamu dalam jangka pendek.',
+                'strategi_tindak_lanjut' => 'Perluasan jejaring mitra industri dan akademisi untuk program dosen berkegiatan.',
+            ],
+            'IKU 3.2' => [
+                'realisasi'              => '47,50',
+                'progress_kegiatan'      => 'Fasilitasi penandatanganan MoU antara prodi PTS dengan mitra nasional dan internasional sedang berjalan.',
+                'kendala'                => 'Proses negosiasi MoU memerlukan waktu lebih lama dari yang direncanakan.',
+                'strategi_tindak_lanjut' => 'Penyederhanaan prosedur administratif dan pendampingan negosiasi kerja sama.',
+            ],
+            'IKU 4.1' => [
+                'realisasi'              => '-',
+                'progress_kegiatan'      => 'Penyusunan dokumen SAKIP triwulan I sedang berlangsung, termasuk penyusunan laporan kinerja interim.',
+                'kendala'                => 'Pengumpulan data kinerja dari seluruh unit memerlukan koordinasi yang intensif.',
+                'strategi_tindak_lanjut' => 'Rapat koordinasi rutin penyusunan dokumen SAKIP dijadwalkan setiap dua minggu.',
+            ],
+            'IKU 4.2' => [
+                'realisasi'              => '0',
+                'progress_kegiatan'      => 'Pelaksanaan anggaran baru dimulai, serapan masih dalam tahap awal (proses pengadaan).',
+                'kendala'                => 'Proses pengadaan barang dan jasa memerlukan waktu lebih lama dari yang direncanakan.',
+                'strategi_tindak_lanjut' => 'Percepatan proses pengadaan dan penyelesaian administrasi keuangan sesuai jadwal RKA.',
+            ],
         ];
     }
 }

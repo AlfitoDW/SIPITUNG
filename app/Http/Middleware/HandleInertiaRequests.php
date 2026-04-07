@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
             'tahun_anggaran' => fn () => session('tahun_anggaran_id')
                 ? TahunAnggaran::find(session('tahun_anggaran_id'), ['id', 'tahun', 'label'])
                 : null,
+            'tahun_anggaran_list' => fn () => TahunAnggaran::active()->orderBy('tahun', 'desc')->get(['id', 'tahun', 'label']),
         ];
     }
 }

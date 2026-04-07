@@ -1,11 +1,14 @@
-import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { BookOpen, CalendarDays, Check, ChevronDown, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -32,10 +35,10 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { cn, toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import tahunAnggaranRoutes from '@/routes/tahun-anggaran';
 import type { BreadcrumbItem, NavItem, SharedData } from '@/types';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
-import { Badge } from '@/components/ui/badge';
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -67,7 +70,7 @@ const activeItemStyles =
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage<SharedData>();
-    const { auth, tahun_anggaran } = page.props;
+    const { auth, tahun_anggaran, tahun_anggaran_list } = page.props;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
     return (
@@ -216,10 +219,44 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 ))}
                             </div>
                         </div>
-                        {tahun_anggaran && (
-                            <Badge variant="outline" className="hidden sm:inline-flex">
-                                {tahun_anggaran.tahun}
-                            </Badge>
+                        {tahun_anggaran_list.length > 0 && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="hidden h-8 gap-1.5 text-xs sm:flex"
+                                    >
+                                        <CalendarDays className="size-3.5" />
+                                        <span>{tahun_anggaran ? tahun_anggaran.tahun : 'Pilih Tahun'}</span>
+                                        <ChevronDown className="size-3" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                        Tahun Anggaran
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {tahun_anggaran_list.map((item) => (
+                                        <DropdownMenuItem
+                                            key={item.id}
+                                            className="cursor-pointer"
+                                            onSelect={() =>
+                                                router.post(
+                                                    tahunAnggaranRoutes.switch.url(),
+                                                    { tahun_anggaran_id: item.id },
+                                                    { preserveScroll: true },
+                                                )
+                                            }
+                                        >
+                                            <span className="flex-1">{item.label}</span>
+                                            {tahun_anggaran?.id === item.id && (
+                                                <Check className="size-3.5 text-primary" />
+                                            )}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         )}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
