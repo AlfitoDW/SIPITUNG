@@ -13,11 +13,9 @@ use Inertia\Response;
 
 class PerencanaanController extends Controller
 {
-    private function statusForRole(): string
+    private function isPpk(): bool
     {
-        return auth()->user()->pimpinan_type === 'kabag_umum'
-        ? 'submitted'
-        : 'kabag_approved';
+        return auth()->user()->pimpinan_type === 'ppk';
     }
 
     // views
@@ -25,50 +23,61 @@ class PerencanaanController extends Controller
     public function pkAwal(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $status = $this->statusForRole();
+        $user  = auth()->user();
 
-        $pks = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
+        $query = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where('jenis', 'awal')
-            ->where('status', $status)
-            ->get();
+            ->where('jenis', 'awal');
 
-            return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
-                'tahun' => $tahun,
-                'pks'   => $pks,
-                "role"  => auth()->user()->pimpinan_type,
-            ]);
+        // Kabag Umum hanya lihat yang submitted; PPK lihat semua
+        if (! $this->isPpk()) {
+            $query->where('status', 'submitted');
+        }
+
+        $pks = $query->get();
+
+        return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
+            'tahun' => $tahun,
+            'pks'   => $pks,
+            'role'  => $user->pimpinan_type,
+        ]);
     }
-
 
     public function pkRevisi(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $status = $this->statusForRole();
+        $user  = auth()->user();
 
-        
-          $pks = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
-              ->where('tahun_anggaran_id', $tahun->id)
-              ->where('jenis', 'revisi')
-              ->where('status', $status)
-              ->get();
+        $query = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'revisi');
 
-          return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
-              'tahun' => $tahun,
-              'pks'   => $pks,
-              'role'  => auth()->user()->pimpinan_type,
-          ]);
-      }
+        if (! $this->isPpk()) {
+            $query->where('status', 'submitted');
+        }
+
+        $pks = $query->get();
+
+        return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
+            'tahun' => $tahun,
+            'pks'   => $pks,
+            'role'  => $user->pimpinan_type,
+        ]);
+    }
 
     public function rencanaAksi(): Response
     {
-        $tahun  = TahunAnggaran::forSession();
-        $status = $this->statusForRole();
+        $tahun = TahunAnggaran::forSession();
+        $user  = auth()->user();
 
-        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
-            ->where('tahun_anggaran_id', $tahun->id)
-            ->where('status', $status)
-            ->get()
+        $raQuery = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
+            ->where('tahun_anggaran_id', $tahun->id);
+
+        if (! $this->isPpk()) {
+            $raQuery->where('status', 'submitted');
+        }
+
+        $ras = $raQuery->get()
             ->map(function ($ra) {
                 $grouped = $ra->indikators->groupBy('sasaran_id');
 
@@ -92,7 +101,7 @@ class PerencanaanController extends Controller
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,
             'ras'   => $ras,
-            'role'  => auth()->user()->pimpinan_type,
+            'role'  => $user->pimpinan_type,
         ]);
     }
 

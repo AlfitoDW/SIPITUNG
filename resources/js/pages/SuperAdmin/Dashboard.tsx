@@ -25,7 +25,7 @@ type Props = {
 };
 
 const PERENCANAAN_ROWS = [
-    { key: 'draft',          label: 'Draft',          dot: 'bg-slate-300',  text: 'text-slate-500',  spinner: false },
+    { key: 'draft',          label: 'Draft',          dot: 'bg-yellow-400', text: 'text-yellow-600', spinner: false },
     { key: 'submitted',      label: 'Menunggu Kabag', dot: 'bg-blue-400',   text: 'text-blue-600',   spinner: true,  spinnerColor: 'text-blue-400' },
     { key: 'kabag_approved', label: 'Menunggu PPK',   dot: 'bg-amber-400',  text: 'text-amber-600',  spinner: true,  spinnerColor: 'text-amber-400' },
     { key: 'ppk_approved',   label: 'Terkunci',       dot: 'bg-green-400',  text: 'text-green-600',  spinner: false },
@@ -33,7 +33,7 @@ const PERENCANAAN_ROWS = [
 ] as const;
 
 const PD_ROWS = [
-    { key: 'draft',              label: 'Draft',               dot: 'bg-slate-300',  text: 'text-slate-500',  spinner: false },
+    { key: 'draft',              label: 'Draft',               dot: 'bg-yellow-400', text: 'text-yellow-600', spinner: false },
     { key: 'submitted',          label: 'Menunggu Kabag',      dot: 'bg-blue-400',   text: 'text-blue-600',   spinner: true,  spinnerColor: 'text-blue-400' },
     { key: 'kabag_approved',     label: 'Menunggu Bendahara',  dot: 'bg-sky-400',    text: 'text-sky-600',    spinner: true,  spinnerColor: 'text-sky-400' },
     { key: 'bendahara_checked',  label: 'Menunggu Katimku',    dot: 'bg-violet-400', text: 'text-violet-600', spinner: true,  spinnerColor: 'text-violet-400' },

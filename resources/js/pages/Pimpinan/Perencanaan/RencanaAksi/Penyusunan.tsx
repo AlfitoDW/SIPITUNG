@@ -23,11 +23,11 @@ type Tahun        = { id: number; tahun: number; label: string };
 type Props        = { tahun: Tahun; ras: RA[]; role: 'kabag_umum' | 'ppk' };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
+    draft:          { label: 'Draft',          className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
+    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-800 border-green-400' },
+    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-800 border-red-400' },
 };
 
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
@@ -69,7 +69,74 @@ export default function Penyusunan({ tahun, ras, role }: Props) {
 
                 {ras.length === 0 ? (
                     <p className="text-muted-foreground">Tidak ada dokumen yang perlu direview saat ini.</p>
+                ) : role === 'ppk' ? (
+                    // PPK: flat table — semua IKU dari semua tim dalam satu tabel
+                    <div className="rounded-xl border shadow-sm overflow-x-auto">
+                        <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-32">Tim Kerja</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-28">Status</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-52">Sasaran</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Satuan</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
+                                    <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
+                                </TableRow>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
+                                        <TableHead key={tw} className={`text-center font-semibold text-white w-16${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {ras.flatMap((ra) => {
+                                    const statusCfg = STATUS_CONFIG[ra.status] ?? STATUS_CONFIG['draft'];
+                                    const totalIkus = ra.sasarans.reduce((s, sa) => s + sa.indikators.length, 0);
+                                    let raFirst = true;
+                                    return ra.sasarans.flatMap((sasaran) => {
+                                        const color = getColor(sasaran.kode);
+                                        return sasaran.indikators.map((iku, idx) => {
+                                            const showRa = raFirst && idx === 0;
+                                            if (showRa) raFirst = false;
+                                            return (
+                                                <TableRow key={`${ra.id}-${sasaran.kode}-${iku.id}`} className="align-top hover:bg-muted/30">
+                                                    {showRa && (
+                                                        <TableCell rowSpan={totalIkus} className="align-middle text-sm font-semibold text-center">
+                                                            {ra.tim_kerja.nama_singkat}
+                                                        </TableCell>
+                                                    )}
+                                                    {showRa && (
+                                                        <TableCell rowSpan={totalIkus} className="align-middle text-center">
+                                                            <Badge variant="outline" className={statusCfg.className}>{statusCfg.label}</Badge>
+                                                        </TableCell>
+                                                    )}
+                                                    {idx === 0 && (
+                                                        <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                            <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                            <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                        </TableCell>
+                                                    )}
+                                                    <TableCell className="text-sm align-top">
+                                                        <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                        <p className="leading-snug">{iku.nama}</p>
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
+                                                    <TableCell className="text-center text-sm font-semibold align-middle">{iku.target}</TableCell>
+                                                    <TableCell className="text-center text-sm align-middle">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                    <TableCell className="text-center text-sm align-middle">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                    <TableCell className="text-center text-sm align-middle">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                    <TableCell className="text-center text-sm align-middle">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                                </TableRow>
+                                            );
+                                        });
+                                    });
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
                 ) : (
+                    // Kabag Umum: accordion per tim
                     <Accordion type="multiple" className="flex flex-col gap-2">
                         {ras.map((ra) => {
                             const statusCfg = STATUS_CONFIG[ra.status] ?? STATUS_CONFIG['draft'];

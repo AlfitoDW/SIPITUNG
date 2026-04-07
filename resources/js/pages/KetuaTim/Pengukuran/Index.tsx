@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
-import { Pencil, Users } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Pencil, Users, Send, CheckCircle2, Circle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran Kinerja', href: '/ketua-tim/pengukuran' },
@@ -32,13 +34,16 @@ type IKUItem = {
     input_by_tim_kerja_id: number | null;
     input_by_tim_kerja_nama: string | null;
 };
-type Tahun = { id: number; tahun: number; label: string };
+type Tahun   = { id: number; tahun: number; label: string };
+type Laporan = { id: number; status: string; submitted_at: string | null };
 type Props = {
     tahun: Tahun;
     periodes: Periode[];
     periode: Periode | null;
     ikuList: IKUItem[];
     timKerjaId: number;
+    laporan: Laporan | null;
+    collaboratorSubmittedBy: string | null;
 };
 
 const TW_LABELS: Record<string, string> = {
@@ -53,49 +58,37 @@ const sasaranColors: Record<string, { bg: string; badge: string; accent: string 
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-// ─── Koordinasi Banner ────────────────────────────────────────────────────────
-// Tampilkan IKU-IKU yang punya lebih dari 1 PIC (kolaborasi antar tim)
+// ─── Kerja Sama Banner ────────────────────────────────────────────────────────
 
-function KoordinasiBanner({ ikuList, timKerjaId }: { ikuList: IKUItem[]; timKerjaId: number }) {
+function KerjaSamaBanner({ ikuList }: { ikuList: IKUItem[] }) {
     const sharedIkus = ikuList.filter(i => i.pic_tim_kerjas.length > 1);
     if (sharedIkus.length === 0) return null;
 
     return (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3">
+        <div className="rounded-lg border bg-muted/40 px-4 py-3">
             <div className="flex items-start gap-2">
-                <Users className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <Users className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex flex-col gap-1.5">
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        IKU Kolaborasi Tim — Semua PIC dapat mengisi &amp; mengedit data
+                    <p className="text-sm font-semibold text-foreground">
+                        IKU Kerja Sama Antar Tim
                     </p>
+                    <p className="text-xs text-muted-foreground">Semua PIC dapat mengisi &amp; mengedit data realisasi berikut:</p>
                     <div className="flex flex-col gap-1">
                         {sharedIkus.map(iku => (
                             <div key={iku.iku_id} className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 shrink-0">
-                                    {iku.iku_kode}
-                                </span>
-                                <span className="text-xs text-blue-600 dark:text-blue-400">
-                                    {iku.iku_nama}
-                                </span>
-                                <span className="text-xs text-blue-500">—</span>
+                                <span className="text-xs font-semibold text-foreground shrink-0">{iku.iku_kode}</span>
+                                <span className="text-xs text-muted-foreground">{iku.iku_nama}</span>
+                                <span className="text-xs text-muted-foreground">·</span>
                                 <div className="flex gap-1 flex-wrap">
                                     {iku.pic_tim_kerjas.map(t => (
-                                        <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium leading-tight ${
-                                            t.id === timKerjaId
-                                                ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
-                                                : 'bg-white/70 text-blue-700 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-300'
-                                        }`}>
+                                        <span key={t.id} className="inline-block rounded px-1.5 py-0.5 text-xs font-semibold bg-background border text-foreground">
                                             {t.nama_singkat ?? t.kode}
-                                            {t.id === timKerjaId && ' (Tim Anda)'}
                                         </span>
                                     ))}
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <p className="text-xs text-blue-500 dark:text-blue-400 italic">
-                        Data terakhir yang disimpan akan menjadi realisasi aktif. Gunakan catatan koordinasi untuk mencatat kesepakatan antar tim.
-                    </p>
                 </div>
             </div>
         </div>
@@ -223,24 +216,41 @@ function groupBySasaran(rows: IKUItem[]) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function PengukuranIndex({ tahun, periodes, periode, ikuList, timKerjaId }: Props) {
-    const [editing, setEditing] = useState<IKUItem | null>(null);
+export default function PengukuranIndex({ tahun, periodes, periode, ikuList, timKerjaId, laporan, collaboratorSubmittedBy }: Props) {
+    const [editing, setEditing]       = useState<IKUItem | null>(null);
+    const [submitDialog, setSubmitDialog] = useState(false);
 
     function changePeriode(id: string) {
         router.get('/ketua-tim/pengukuran', { periode_id: id }, { preserveState: false });
     }
 
-    const grouped = groupBySasaran(ikuList);
-    const filled  = ikuList.filter(i => i.realisasi).length;
+    function doSubmit() {
+        if (!periode) return;
+        router.post('/ketua-tim/pengukuran/submit', { periode_pengukuran_id: periode.id }, {
+            onSuccess: () => setSubmitDialog(false),
+        });
+    }
+
+    const grouped   = groupBySasaran(ikuList);
+    const filled    = ikuList.filter(i => i.realisasi).length;
+    const isSubmitted = laporan?.status === 'submitted';
+    const canSubmit   = periode?.is_active && filled > 0 && !isSubmitted;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pengukuran Kinerja" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
 
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Pengukuran Kinerja</h1>
-                    <p className="text-muted-foreground text-sm">Realisasi IKU tim Anda — {tahun.label}</p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-2xl font-bold tracking-tight">Pengukuran Kinerja</h1>
+                        <p className="text-muted-foreground text-sm">Realisasi IKU tim Anda — {tahun.label}</p>
+                    </div>
+                    {canSubmit && (
+                        <Button onClick={() => setSubmitDialog(true)} className="gap-1.5">
+                            <Send className="h-4 w-4" /> Submit ke Kabag Umum
+                        </Button>
+                    )}
                 </div>
 
                 {/* Periode selector */}
@@ -267,10 +277,39 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                             {periode.is_active ? 'Aktif — Dapat Diisi' : 'Ditutup'}
                         </Badge>
                     )}
-                    {ikuList.length > 0 && (
-                        <span className="text-xs text-muted-foreground">{filled}/{ikuList.length} terisi</span>
-                    )}
                 </div>
+
+                {/* Laporan status banner */}
+                {isSubmitted && (
+                    <div className="rounded-xl border bg-muted/30 p-4 flex gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-foreground">Laporan Telah Disubmit</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Disubmit ke Kabag Umum{laporan?.submitted_at ? ` pada ${laporan.submitted_at}` : ''}. Data realisasi tidak dapat diubah.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Collaborator already submitted banner */}
+                {collaboratorSubmittedBy && (
+                    <div className="rounded-xl border bg-muted/30 p-4">
+                        <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
+                                <CheckCircle2 className="h-4 w-4 text-yellow-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">Kolaborator Sudah Submit</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    <span className="font-medium">{collaboratorSubmittedBy}</span> telah mengajukan laporan pengukuran untuk IKU bersama periode ini. Tim Anda tetap dapat submit laporan secara mandiri.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Status messages */}
                 {!periode ? (
@@ -283,9 +322,38 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                     <p className="text-muted-foreground">Tim Anda belum ditugaskan sebagai PIC IKU manapun. Hubungi SuperAdmin.</p>
                 ) : null}
 
-                {/* Koordinasi banner — hanya tampil jika ada IKU kolaborasi */}
-                {ikuList.length > 0 && (
-                    <KoordinasiBanner ikuList={ikuList} timKerjaId={timKerjaId} />
+                {/* Kerja sama banner */}
+                {ikuList.length > 0 && <KerjaSamaBanner ikuList={ikuList} />}
+
+                {/* Progress card */}
+                {periode && ikuList.length > 0 && (
+                    <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Progres Pengukuran</span>
+                            <span className="text-sm text-muted-foreground">
+                                {isSubmitted ? 100 : filled === ikuList.length ? 75 : Math.round((filled / ikuList.length) * 60 + 10)}%
+                            </span>
+                        </div>
+                        <Progress
+                            value={isSubmitted ? 100 : filled === ikuList.length ? 75 : Math.round((filled / ikuList.length) * 60 + 10)}
+                            className="h-2"
+                        />
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
+                            {[
+                                { done: periode.is_active,                                label: 'Periode aktif' },
+                                { done: ikuList.length > 0,                               label: `IKU tersedia (${ikuList.length})` },
+                                { done: filled === ikuList.length && ikuList.length > 0,  label: `Realisasi diisi (${filled}/${ikuList.length})` },
+                                { done: isSubmitted,                                      label: 'Laporan disubmit' },
+                            ].map(({ done, label }) => (
+                                <div key={label} className="flex items-center gap-1.5">
+                                    {done
+                                        ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                                        : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
+                                    <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 )}
 
                 {ikuList.length > 0 && (
@@ -379,7 +447,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                                             <td className="border border-border px-2 py-2 text-center align-middle">
                                                 {row.input_by_tim_kerja_nama ? (
                                                     <div className="flex flex-col items-center gap-0.5">
-                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[10px]">
+                                                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400 text-[10px]">
                                                             {row.input_by_tim_kerja_nama}
                                                         </Badge>
                                                         {row.catatan && (
@@ -397,13 +465,17 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
 
                                             {periode?.is_active && (
                                                 <td className="border border-border px-2 py-2 text-center align-middle">
-                                                    <Button size="sm"
-                                                        variant={hasData ? 'outline' : 'default'}
-                                                        className="h-6 px-2 text-xs gap-1"
-                                                        onClick={() => setEditing(row)}>
-                                                        <Pencil className="h-2.5 w-2.5" />
-                                                        {hasData ? 'Edit' : 'Isi'}
-                                                    </Button>
+                                                    {!isSubmitted ? (
+                                                        <Button size="sm"
+                                                            variant={hasData ? 'outline' : 'default'}
+                                                            className="h-6 px-2 text-xs gap-1"
+                                                            onClick={() => setEditing(row)}>
+                                                            <Pencil className="h-2.5 w-2.5" />
+                                                            {hasData ? 'Edit' : 'Isi'}
+                                                        </Button>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>
@@ -418,6 +490,22 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
             {editing && periode && (
                 <RealisasiDialog iku={editing} periode={periode} onClose={() => setEditing(null)} />
             )}
+
+            <AlertDialog open={submitDialog} onOpenChange={setSubmitDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Submit Laporan Pengukuran?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Laporan {periode ? TW_LABELS[periode.triwulan] ?? periode.triwulan : ''} akan dikirim ke Kabag Umum.
+                            Setelah disubmit, data realisasi tidak dapat diubah lagi.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={doSubmit}>Ya, Submit</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AppLayout>
     );
 }

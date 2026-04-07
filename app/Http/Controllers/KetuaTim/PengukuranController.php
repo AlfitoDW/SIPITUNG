@@ -4,12 +4,14 @@ namespace App\Http\Controllers\KetuaTim;
 
 use App\Http\Controllers\Controller;
 use App\Models\IndikatorKinerja;
+use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RealisasiKinerja;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -81,12 +83,27 @@ class PengukuranController extends Controller
             }
         }
 
+        // Cek status laporan untuk periode aktif
+        $laporan = $periode ? LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
+            ->where('periode_pengukuran_id', $periode->id)
+            ->first() : null;
+
+        $collaboratorSubmittedBy = $periode
+            ? $this->findCollaboratorSubmittedLaporan($periode->id, $timKerjaId)
+            : null;
+
         return Inertia::render('KetuaTim/Pengukuran/Index', [
-            'tahun'       => $tahun,
-            'periodes'    => $periodes,
-            'periode'     => $periode,
-            'ikuList'     => $ikuList,
-            'timKerjaId'  => $timKerjaId,
+            'tahun'                  => $tahun,
+            'periodes'               => $periodes,
+            'periode'                => $periode,
+            'ikuList'                => $ikuList,
+            'timKerjaId'             => $timKerjaId,
+            'laporan'                => $laporan ? [
+                'id'           => $laporan->id,
+                'status'       => $laporan->status,
+                'submitted_at' => $laporan->submitted_at?->format('d M Y H:i'),
+            ] : null,
+            'collaboratorSubmittedBy'=> $collaboratorSubmittedBy,
         ]);
     }
 
@@ -132,5 +149,67 @@ class PengukuranController extends Controller
         );
 
         return back()->with('success', 'Realisasi berhasil disimpan.');
+    }
+
+    public function submit(Request $request): RedirectResponse
+    {
+        $tahun      = TahunAnggaran::forSession();
+        $timKerjaId = $request->user()->tim_kerja_id;
+
+        $periodeId = $request->integer('periode_pengukuran_id');
+        $periode   = PeriodePengukuran::where('id', $periodeId)
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        // Pastikan tim ini punya IKU di periode ini
+        $hasIku = RealisasiKinerja::whereHas('indikatorKinerja.picTimKerjas', fn ($q) =>
+            $q->where('tim_kerja.id', $timKerjaId)
+        )->where('periode_pengukuran_id', $periode->id)->exists();
+
+        abort_if(! $hasIku, 422, 'Tidak ada realisasi untuk disubmit.');
+
+        $laporan = LaporanPengukuran::updateOrCreate(
+            ['tim_kerja_id' => $timKerjaId, 'periode_pengukuran_id' => $periode->id],
+            [
+                'status'       => 'submitted',
+                'submitted_at' => now(),
+                'submitted_by' => $request->user()->id,
+                'created_by'   => $request->user()->id,
+            ]
+        );
+
+        return back()->with('success', 'Laporan pengukuran berhasil disubmit ke Kabag Umum.');
+    }
+
+    /**
+     * Cek apakah ada tim lain (co-PIC pada IKU yang sama) yang sudah submit laporan periode ini.
+     * Mengembalikan nama_singkat tim tersebut, atau null.
+     */
+    private function findCollaboratorSubmittedLaporan(int $periodeId, int $timKerjaId): ?string
+    {
+        // IKU yang melibatkan tim ini sebagai PIC (primary atau co-PIC)
+        $sharedIkuIds = IndikatorKinerja::whereHas('picTimKerjas', fn ($q) =>
+            $q->where('tim_kerja.id', $timKerjaId)
+        )->pluck('id');
+
+        if ($sharedIkuIds->isEmpty()) return null;
+
+        // Tim lain yang juga PIC pada IKU yang sama
+        $otherTeamIds = DB::table('indikator_kinerja_pic')
+            ->whereIn('indikator_kinerja_id', $sharedIkuIds)
+            ->where('tim_kerja_id', '!=', $timKerjaId)
+            ->pluck('tim_kerja_id')
+            ->unique();
+
+        if ($otherTeamIds->isEmpty()) return null;
+
+        $laporan = LaporanPengukuran::with('timKerja:id,nama_singkat,nama')
+            ->where('periode_pengukuran_id', $periodeId)
+            ->whereIn('tim_kerja_id', $otherTeamIds)
+            ->where('status', 'submitted')
+            ->first();
+
+        return $laporan ? ($laporan->timKerja?->nama_singkat ?? $laporan->timKerja?->nama) : null;
     }
 }

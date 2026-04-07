@@ -200,7 +200,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                         </Select>
                     )}
                     {periode && (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
                             Aktif
                         </Badge>
                     )}
@@ -317,12 +317,10 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                                             </td>
 
                                             <td className="border border-border px-2 py-2 text-center align-middle">
-                                                {hasData && (
-                                                    <Button size="icon" variant="ghost" className="h-6 w-6"
-                                                        onClick={() => setDetail(row)}>
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                )}
+                                                <Button size="icon" variant="ghost" className="h-6 w-6"
+                                                    onClick={() => setDetail(row)}>
+                                                    <Eye className={`h-3.5 w-3.5 ${hasData ? '' : 'black'}`} />
+                                                </Button>
                                             </td>
                                         </tr>
                                     );

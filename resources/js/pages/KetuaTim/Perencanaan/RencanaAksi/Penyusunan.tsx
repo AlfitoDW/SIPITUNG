@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { Pencil, Send, CheckCircle2, Circle, FileText, Lock, Loader2, PlusCircle, Users } from 'lucide-react';
+import { Pencil, Send, CheckCircle2, Circle, Lock, Loader2 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/ketua-tim/perencanaan' },
@@ -25,14 +25,14 @@ type Indikator = {
 type Sasaran = { id: number; kode: string; nama: string; indikators: Indikator[] };
 type RA      = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; rekomendasi_kabag: string | null; rekomendasi_ppk: string | null; rejected_by: 'kabag_umum' | 'ppk' | null };
 type Tahun   = { id: number; tahun: number; label: string };
-type Props   = { tahun: Tahun; ra: RA | null; sasarans: Sasaran[] };
+type Props   = { tahun: Tahun; ra: RA | null; sasarans: Sasaran[]; ownRaIndCount: number; ownRaFilledCount: number; collaboratorSubmittedBy: string | null };
 
 const STATUS_CONFIG = {
-    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
+    draft:          { label: 'Draft',          className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
+    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-800 border-green-400' },
+    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-800 border-red-400' },
 };
 
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
@@ -43,24 +43,24 @@ const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; acce
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-function calcProgress(ra: RA | null, sasarans: Sasaran[]): number {
-    if (!ra) return 0;
+function calcProgress(ra: RA | null, totalIndikator: number, twFilled: number, collaboratorSubmittedBy: string | null): number {
+    if (collaboratorSubmittedBy) return 80;
+    if (!ra) return totalIndikator > 0 ? Math.round((twFilled / totalIndikator) * 50 + 10) : 10;
     if (ra.status === 'ppk_approved') return 100;
     if (ra.status === 'kabag_approved') return 90;
     if (ra.status === 'submitted') return 80;
-    const total = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
-    if (total === 0) return 10;
-    const twFilled = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length, 0);
-    return twFilled === total ? 60 : 35;
+    if (totalIndikator === 0) return 10;
+    return twFilled === totalIndikator ? 60 : 35;
 }
 
 type TwForm = { target: string; target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
 const EMPTY_TW: TwForm = { target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
 
-export default function Penyusunan({ tahun, ra, sasarans }: Props) {
-    const isEditable  = !ra || ra.status === 'draft' || ra.status === 'rejected';
-    const isCoPicMode = !ra && sasarans.length > 0;
-    const progress    = calcProgress(ra, sasarans);
+export default function Penyusunan({ tahun, ra, sasarans, ownRaIndCount, ownRaFilledCount, collaboratorSubmittedBy }: Props) {
+    const isEditable     = !ra || ra.status === 'draft' || ra.status === 'rejected';
+    const totalIndikator = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
+    const twFilled       = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length, 0);
+    const progress       = calcProgress(ra, totalIndikator, twFilled, collaboratorSubmittedBy);
 
     const [editDialog, setEditDialog] = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
     const [form, setForm]             = useState<TwForm>(EMPTY_TW);
@@ -95,9 +95,6 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
         router.patch('/ketua-tim/perencanaan/rencana-aksi/submit', {}, { onSuccess: () => setSubmitDialog(false) });
     }
 
-    const totalIndikator = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
-    const twFilled       = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length, 0);
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyusunan — Rencana Aksi" />
@@ -109,24 +106,17 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
                             {ra && <Badge variant="outline" className={STATUS_CONFIG[ra.status].className}>{STATUS_CONFIG[ra.status].label}</Badge>}
-                            {isCoPicMode && <Badge variant="outline" className="bg-sky-100 text-sky-700 border-sky-200">Co-PIC</Badge>}
                         </div>
                         <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
                     </div>
-                    {ra && isEditable && twFilled === totalIndikator && totalIndikator > 0 && (
+                    {ra && isEditable && totalIndikator > 0 &&
+                     (ownRaIndCount === 0 ? true : ownRaFilledCount === ownRaIndCount) && (
                         <Button onClick={() => setSubmitDialog(true)}>
                             <Send className="h-4 w-4" />Submit ke Kabag Umum
                         </Button>
                     )}
                 </div>
 
-                {/* Co-PIC info banner */}
-                {isCoPicMode && (
-                    <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-900 flex items-start gap-2">
-                        <Users className="h-4 w-4 mt-0.5 shrink-0" />
-                        <p>Tim Anda adalah <span className="font-semibold">co-PIC</span> untuk IKU berikut. Anda dapat mengisi target triwulan, namun submit dilakukan oleh tim pemilik dokumen RA.</p>
-                    </div>
-                )}
 
                 {/* Progress */}
                 <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
@@ -136,31 +126,40 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                     </div>
                     <Progress value={progress} className="h-2" />
                     <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
-                        <div className="flex items-center gap-1.5 text-sm">
-                            {!!ra ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                            <span className={!!ra ? 'text-foreground' : 'text-muted-foreground'}>Dokumen dibuat</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm">
-                            {totalIndikator > 0 ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                            <span className={totalIndikator > 0 ? 'text-foreground' : 'text-muted-foreground'}>IKU tersedia ({totalIndikator})</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm">
-                            {twFilled === totalIndikator && totalIndikator > 0 ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                            <span className={twFilled === totalIndikator && totalIndikator > 0 ? 'text-foreground' : 'text-muted-foreground'}>Target TW diisi ({twFilled}/{totalIndikator})</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm">
-                            {!!ra && ra.status !== 'draft' && ra.status !== 'rejected' ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                            <span className={!!ra && ra.status !== 'draft' && ra.status !== 'rejected' ? 'text-foreground' : 'text-muted-foreground'}>Disubmit</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm">
-                            {!!ra && ra.status === 'ppk_approved' ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                            <span className={!!ra && ra.status === 'ppk_approved' ? 'text-foreground' : 'text-muted-foreground'}>Disetujui</span>
-                        </div>
+                        {[
+                            { done: !!ra,                                                                                       label: 'Dokumen dibuat' },
+                            { done: totalIndikator > 0,                                                                        label: `IKU tersedia (${totalIndikator})` },
+                            { done: twFilled === totalIndikator && totalIndikator > 0,                                         label: `Target TW diisi (${twFilled}/${totalIndikator})` },
+                            { done: (!!ra && ra.status !== 'draft' && ra.status !== 'rejected') || !!collaboratorSubmittedBy, label: 'Disubmit' },
+                            { done: !!ra && ra.status === 'ppk_approved',                                                      label: 'Disetujui' },
+                        ].map(({ done, label }) => (
+                            <div key={label} className="flex items-center gap-1.5">
+                                {done ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
+                                <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
+                {/* Collaborator already submitted banner */}
+                {collaboratorSubmittedBy && (
+                    <div className="rounded-xl border bg-muted/30 p-4">
+                        <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
+                                <CheckCircle2 className="h-4 w-4 text-yellow-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">Sudah Disubmit oleh Kolaborator</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    <span className="font-medium">{collaboratorSubmittedBy}</span> telah mengajukan Rencana Aksi yang mencakup IKU bersama. Submit oleh tim Anda tidak diperlukan.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {ra?.status === 'rejected' && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 space-y-1">
+                    <div className="rounded-lg border border-red-400 bg-red-100 px-4 py-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 space-y-1">
                         <p className="font-medium">Dokumen ditolak oleh {ra.rejected_by === 'kabag_umum' ? 'Kabag Umum' : 'PPK'}. Silakan perbaiki dan submit ulang.</p>
                         {(ra.rejected_by === 'kabag_umum' ? ra.rekomendasi_kabag : ra.rekomendasi_ppk) && (
                             <p><span className="font-medium">Rekomendasi: </span>{ra.rejected_by === 'kabag_umum' ? ra.rekomendasi_kabag : ra.rekomendasi_ppk}</p>
@@ -193,31 +192,24 @@ export default function Penyusunan({ tahun, ra, sasarans }: Props) {
                         </div>
                         {(ra.status === 'kabag_approved' || ra.status === 'ppk_approved') && ra.rekomendasi_kabag && (
                             <div className="mt-3 pt-3 border-t border-border/60">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan Kabag Umum</p>
-                                <p className="text-sm leading-relaxed pl-3 border-l-2 border-l-border italic text-muted-foreground">{ra.rekomendasi_kabag}</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1.5">📋 Catatan Kabag Umum</p>
+                                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 dark:bg-amber-950/30 dark:border-amber-800">
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">{ra.rekomendasi_kabag}</p>
+                                </div>
                             </div>
                         )}
                         {ra.status === 'ppk_approved' && ra.rekomendasi_ppk && (
                             <div className="mt-3 pt-3 border-t border-border/60">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan PPK</p>
-                                <p className="text-sm leading-relaxed pl-3 border-l-2 border-l-border italic text-muted-foreground">{ra.rekomendasi_ppk}</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1.5">📋 Catatan PPK</p>
+                                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5 dark:bg-blue-950/30 dark:border-blue-800">
+                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">{ra.rekomendasi_ppk}</p>
+                                </div>
                             </div>
                         )}
                     </div>
                 )}
 
-                {!ra && sasarans.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 gap-4 text-center">
-                        <FileText className="h-12 w-12 text-muted-foreground/40" />
-                        <div>
-                            <p className="font-medium">Belum ada dokumen Rencana Aksi</p>
-                            <p className="text-sm text-muted-foreground mt-1">Mulai dengan membuat dokumen baru untuk tahun {tahun.label}</p>
-                        </div>
-                        <Button onClick={() => router.post('/ketua-tim/perencanaan/rencana-aksi/init', {})}>
-                            <PlusCircle className="h-4 w-4" />Buat Dokumen Rencana Aksi
-                        </Button>
-                    </div>
-                ) : sasarans.length === 0 ? (
+                {sasarans.length === 0 ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900">
                         Belum ada sasaran. Buat Perjanjian Kinerja Awal terlebih dahulu agar sasaran dapat digunakan di sini.
                     </div>

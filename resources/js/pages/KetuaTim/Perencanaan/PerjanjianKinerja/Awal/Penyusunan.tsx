@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { Pencil, Send, CheckCircle2, Circle, FileText, Lock, Loader2, PlusCircle, Users } from 'lucide-react';
+import { Pencil, Send, CheckCircle2, Circle, FileText, Lock, Loader2, PlusCircle } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/ketua-tim/perencanaan' },
@@ -25,14 +25,14 @@ type Indikator   = { id: number; kode: string; nama: string; satuan: string; tar
 type Sasaran     = { id: number; kode: string; nama: string; indikators: Indikator[] };
 type PK          = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'ppk_approved' | 'rejected'; rekomendasi_kabag: string | null; rekomendasi_ppk: string | null; rejected_by: 'kabag_umum' | 'ppk' | null };
 type Tahun       = { id: number; tahun: number; label: string };
-type Props       = { tahun: Tahun; pk: PK | null; sasarans: Sasaran[] };
+type Props       = { tahun: Tahun; pk: PK | null; sasarans: Sasaran[]; ownIkuCount: number; ownFilledCount: number; collaboratorSubmittedBy: string | null };
 
 const STATUS_CONFIG = {
-    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-700 border-green-200' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-700 border-red-200' },
+    draft:          { label: 'Draft',          className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
+    kabag_approved: { label: 'Menunggu PPK',   className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    ppk_approved:   { label: 'Terkunci',       className: 'bg-green-100 text-green-800 border-green-400' },
+    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-800 border-red-400' },
 };
 
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
@@ -43,23 +43,22 @@ const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; acce
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-function calcProgress(pk: PK | null, sasarans: Sasaran[]): number {
-    if (!pk) return 0;
+function calcProgress(pk: PK | null, ownIkuCount: number, ownFilledCount: number, collaboratorSubmittedBy: string | null, totalIndikator: number, filledTarget: number): number {
+    if (collaboratorSubmittedBy) return 80;
+    if (!pk) return totalIndikator > 0 ? Math.round((filledTarget / totalIndikator) * 50 + 10) : 10;
     if (pk.status === 'ppk_approved') return 100;
     if (pk.status === 'kabag_approved') return 90;
     if (pk.status === 'submitted') return 80;
-    const total  = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
-    const filled = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target).length, 0);
-    if (total === 0) return 10;
-    return filled === total ? 60 : 35;
+    if (ownIkuCount === 0) return totalIndikator > 0 ? Math.round((filledTarget / totalIndikator) * 50 + 10) : 10;
+    return ownFilledCount === ownIkuCount ? 60 : 35;
 }
 
-export default function Penyusunan({ tahun, pk, sasarans }: Props) {
-    const isEditable     = !pk || pk.status === 'draft' || pk.status === 'rejected';
-    const isCoPicMode    = !pk && sasarans.length > 0;
-    const progress       = calcProgress(pk, sasarans);
+export default function Penyusunan({ tahun, pk, sasarans, ownIkuCount, ownFilledCount, collaboratorSubmittedBy }: Props) {
+    const isEditable = !pk || pk.status === 'draft' || pk.status === 'rejected';
+    // Untuk display progress card — gunakan total semua IKU yang ditampilkan
     const totalIndikator = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
     const filledTarget   = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target).length, 0);
+    const progress       = calcProgress(pk, ownIkuCount, ownFilledCount, collaboratorSubmittedBy, totalIndikator, filledTarget);
 
     const [targetDialog, setTargetDialog] = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
     const [targetVal, setTargetVal]       = useState('');
@@ -94,27 +93,19 @@ export default function Penyusunan({ tahun, pk, sasarans }: Props) {
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-bold tracking-tight">Penyusunan Awal</h1>
                             {pk && <Badge variant="outline" className={STATUS_CONFIG[pk.status].className}>{STATUS_CONFIG[pk.status].label}</Badge>}
-                            {isCoPicMode && <Badge variant="outline" className="bg-sky-100 text-sky-700 border-sky-200">Co-PIC</Badge>}
                         </div>
                         <p className="text-muted-foreground">Perjanjian Kinerja — {tahun.label}</p>
                     </div>
-                    {pk && isEditable && totalIndikator > 0 && filledTarget === totalIndikator && (
+                    {pk && isEditable && totalIndikator > 0 &&
+                     (ownIkuCount === 0 ? filledTarget === totalIndikator : ownFilledCount === ownIkuCount) && (
                         <Button onClick={() => setSubmitDialog(true)}>
                             <Send className="h-4 w-4" /> Submit ke Kabag Umum
                         </Button>
                     )}
                 </div>
 
-                {/* Co-PIC info banner */}
-                {isCoPicMode && (
-                    <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-900 flex items-start gap-2">
-                        <Users className="h-4 w-4 mt-0.5 shrink-0" />
-                        <p>Tim Anda adalah <span className="font-semibold">co-PIC</span> untuk IKU berikut. Anda dapat mengisi target, namun submit dilakukan oleh tim pemilik dokumen PK.</p>
-                    </div>
-                )}
-
-                {/* Progress (only for doc owners) */}
-                {pk && (
+                {/* Progress */}
+                {totalIndikator > 0 && (
                     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Kesiapan Dokumen</span>
@@ -123,24 +114,41 @@ export default function Penyusunan({ tahun, pk, sasarans }: Props) {
                         <Progress value={progress} className="h-2" />
                         <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
                             {[
-                                { done: !!pk,                                                        label: 'Dokumen dibuat' },
-                                { done: totalIndikator > 0,                                          label: `IKU tersedia (${totalIndikator})` },
-                                { done: filledTarget === totalIndikator && totalIndikator > 0,        label: `Target diisi (${filledTarget}/${totalIndikator})` },
-                                { done: !!pk && pk.status !== 'draft' && pk.status !== 'rejected',   label: 'Disubmit' },
-                                { done: !!pk && pk.status === 'ppk_approved',                        label: 'Disetujui' },
+                                { done: !!pk,                                                                         label: 'Dokumen dibuat' },
+                                { done: totalIndikator > 0,                                                           label: `IKU tersedia (${totalIndikator})` },
+                                { done: filledTarget === totalIndikator && totalIndikator > 0,                        label: `Target diisi (${filledTarget}/${totalIndikator})` },
+                                { done: (!!pk && pk.status !== 'draft' && pk.status !== 'rejected') || !!collaboratorSubmittedBy, label: 'Disubmit' },
+                                { done: !!pk && pk.status === 'ppk_approved',                                         label: 'Disetujui' },
                             ].map(({ done, label }) => (
-                                <div key={label} className="flex items-center gap-1.5 text-sm">
-                                    {done ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                                    <span className={done ? 'text-foreground' : 'text-muted-foreground'}>{label}</span>
+                                <div key={label} className="flex items-center gap-1.5">
+                                    {done ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
+                                    <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
+                {/* Collaborator already submitted banner */}
+                {collaboratorSubmittedBy && (
+                    <div className="rounded-xl border bg-muted/30 p-4">
+                        <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
+                                <CheckCircle2 className="h-4 w-4 text-yellow-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">Sudah Disubmit oleh Kolaborator</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    <span className="font-medium">{collaboratorSubmittedBy}</span> telah mengajukan PK yang mencakup IKU bersama. Submit oleh tim Anda tidak diperlukan.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Rejected banner */}
                 {pk?.status === 'rejected' && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 space-y-1">
+                    <div className="rounded-lg border border-red-400 bg-red-100 px-4 py-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 space-y-1">
                         <p className="font-medium">Dokumen ditolak oleh {pk.rejected_by === 'kabag_umum' ? 'Kabag Umum' : 'PPK'}. Silakan perbaiki dan submit ulang.</p>
                         {(pk.rejected_by === 'kabag_umum' ? pk.rekomendasi_kabag : pk.rekomendasi_ppk) && (
                             <p><span className="font-medium">Rekomendasi: </span>{pk.rejected_by === 'kabag_umum' ? pk.rekomendasi_kabag : pk.rekomendasi_ppk}</p>
@@ -172,14 +180,18 @@ export default function Penyusunan({ tahun, pk, sasarans }: Props) {
                         </div>
                         {(pk.status === 'kabag_approved' || pk.status === 'ppk_approved') && pk.rekomendasi_kabag && (
                             <div className="mt-3 pt-3 border-t border-border/60">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan Kabag Umum</p>
-                                <p className="text-sm pl-3 border-l-2 border-l-border italic text-muted-foreground">{pk.rekomendasi_kabag}</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1.5">📋 Catatan Kabag Umum</p>
+                                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 dark:bg-amber-950/30 dark:border-amber-800">
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">{pk.rekomendasi_kabag}</p>
+                                </div>
                             </div>
                         )}
                         {pk.status === 'ppk_approved' && pk.rekomendasi_ppk && (
                             <div className="mt-3 pt-3 border-t border-border/60">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 mb-1.5">Catatan PPK</p>
-                                <p className="text-sm pl-3 border-l-2 border-l-border italic text-muted-foreground">{pk.rekomendasi_ppk}</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1.5">📋 Catatan PPK</p>
+                                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5 dark:bg-blue-950/30 dark:border-blue-800">
+                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">{pk.rekomendasi_ppk}</p>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -197,6 +209,53 @@ export default function Penyusunan({ tahun, pk, sasarans }: Props) {
                             <PlusCircle className="h-4 w-4" /> Buat Dokumen PK Awal
                         </Button>
                     </div>
+                ) : !pk && sasarans.length > 0 ? (
+                    <>
+                        <div className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                            <p className="text-sm text-muted-foreground">
+                                Anda adalah co-PIC untuk IKU berikut. Buat dokumen PK untuk dapat mengajukan ke Kabag Umum.
+                            </p>
+                            <Button size="sm" onClick={() => router.post('/ketua-tim/perencanaan/perjanjian-kinerja/awal/init', {})}>
+                                <PlusCircle className="h-4 w-4" /> Buat Dokumen PK Awal
+                            </Button>
+                        </div>
+                        <div className="rounded-xl border shadow-sm overflow-hidden">
+                            <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                        <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-60">Sasaran</TableHead>
+                                        <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator Kinerja Utama</TableHead>
+                                        <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
+                                        <TableHead className="text-center align-middle font-semibold text-white w-28">Target</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sasarans.flatMap((sasaran) => {
+                                        const color = getColor(sasaran.kode);
+                                        const count = sasaran.indikators.length;
+                                        return sasaran.indikators.map((iku, idx) => (
+                                            <TableRow key={iku.id} className="align-top hover:bg-muted/30">
+                                                {idx === 0 && (
+                                                    <TableCell rowSpan={Math.max(count, 1)} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                        <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                        <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                    </TableCell>
+                                                )}
+                                                <TableCell className="text-sm align-top">
+                                                    <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                    <p className="leading-snug">{iku.nama}</p>
+                                                </TableCell>
+                                                <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
+                                                <TableCell className="text-center align-middle">
+                                                    <span className="text-sm font-semibold">{iku.target || '-'}</span>
+                                                </TableCell>
+                                            </TableRow>
+                                        ));
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </>
                 ) : sasarans.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic">Belum ada data IKU. Hubungi SuperAdmin.</p>
                 ) : (
@@ -231,18 +290,8 @@ export default function Penyusunan({ tahun, pk, sasarans }: Props) {
                                                 </TableCell>
                                             )}
                                             <TableCell className="text-sm align-top">
-                                                <div className="flex items-start gap-1.5">
-                                                    <div className="flex-1 min-w-0">
-                                                        <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                        <p className="leading-snug">{iku.nama}</p>
-                                                    </div>
-                                                    {iku.pic_tim_kerjas.length > 1 && (
-                                                        <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                                                            <Users className="h-3.5 w-3.5 text-sky-500" />
-                                                            <span className="text-xs text-sky-600">{iku.pic_tim_kerjas.map(t => t.nama_singkat).join(', ')}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <span className="inline-block mb-0.5 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                <p className="leading-snug">{iku.nama}</p>
                                             </TableCell>
                                             <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
                                             <TableCell className="text-center align-middle">

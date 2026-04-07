@@ -155,7 +155,7 @@ export default function Index({ tahun, pencairan, timKerjaList }: Props) {
                                                     {fmt(pd.total_anggaran)}
                                                 </TableCell>
                                                 <TableCell className="text-center">
-                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
                                                         Sudah Dicairkan
                                                     </Badge>
                                                 </TableCell>

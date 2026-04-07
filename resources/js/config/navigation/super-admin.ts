@@ -7,9 +7,12 @@ import {
     Database,
     BellRingIcon,
     Users,
+    Group,
+    UserCog,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import type { NavGroup } from '@/types';
+import { title } from 'process';
 
 const superAdminNav: NavGroup[] = [
     {
@@ -101,6 +104,11 @@ const superAdminNav: NavGroup[] = [
                 title: 'Tim Kerja',
                 href: '/super-admin/master/tim-kerja',
                 icon: Users,
+            },
+            {
+                title: 'Refrensi Nama',
+                href: '#',
+                icon: UserCog,
             },
             {
                 title: 'Data Master',

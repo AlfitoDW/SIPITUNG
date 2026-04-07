@@ -55,8 +55,9 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
 
     // Pengukuran Kinerja
     Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
-        Route::get('/',       [PengukuranController::class, 'index'])->name('index');
-        Route::post('store',  [PengukuranController::class, 'store'])->name('store');
+        Route::get('/',        [PengukuranController::class, 'index'])->name('index');
+        Route::post('store',   [PengukuranController::class, 'store'])->name('store');
+        Route::post('submit',  [PengukuranController::class, 'submit'])->name('submit');
     });
 
     Route::get('/lpj', fn() => Inertia::render('KetuaTim/LPJ'))->name('lpj');

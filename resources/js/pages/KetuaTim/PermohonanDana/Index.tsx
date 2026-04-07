@@ -19,14 +19,14 @@ const fmt = (n: number | string) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(n));
 
 const STATUS: Record<string, { label: string; className: string }> = {
-    draft:              { label: 'Draft',                         className: 'bg-zinc-100 text-zinc-500 border-zinc-200' },
-    submitted:          { label: 'Menunggu Kabag Umum',           className: 'bg-blue-50 text-blue-600 border-blue-100' },
-    kabag_approved:     { label: 'Menunggu Verifikasi Bendahara', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-    bendahara_checked:  { label: 'Menunggu Ketua Tim Perencanaan',className: 'bg-blue-100 text-blue-800 border-blue-200' },
-    katimku_approved:   { label: 'Menunggu PPK',                  className: 'bg-blue-100 text-blue-900 border-blue-300' },
-    ppk_approved:       { label: 'Siap Dicairkan',                className: 'bg-blue-200 text-[#003580] border-blue-300' },
-    dicairkan:          { label: 'Sudah Dicairkan',               className: 'bg-green-50 text-green-700 border-green-200' },
-    rejected:           { label: 'Ditolak',                       className: 'bg-red-50 text-red-600 border-red-200' },
+    draft:              { label: 'Draft',                         className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
+    submitted:          { label: 'Menunggu Kabag Umum',           className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
+    kabag_approved:     { label: 'Menunggu Verifikasi Bendahara', className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    bendahara_checked:  { label: 'Menunggu Ketua Tim Perencanaan',className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    katimku_approved:   { label: 'Menunggu PPK',                  className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    ppk_approved:       { label: 'Siap Dicairkan',                className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    dicairkan:          { label: 'Sudah Dicairkan',               className: 'bg-green-100 text-green-800 border-green-400' },
+    rejected:           { label: 'Ditolak',                       className: 'bg-red-100 text-red-800 border-red-400' },
 };
 
 type Item = { id: number; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string };

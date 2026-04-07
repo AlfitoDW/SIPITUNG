@@ -11,7 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Settings2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Settings2, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Perencanaan', href: '/super-admin/perencanaan' },
@@ -276,14 +277,22 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                         <h1 className="text-2xl font-bold tracking-tight">Perjanjian Kinerja Revisi</h1>
                         <p className="text-muted-foreground">{tahun.label} — Penyusunan &amp; Monitoring</p>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" className="gap-1.5" onClick={() => setMasterDlg(true)}>
-                            <Settings2 className="h-4 w-4" /> Kelola Sasaran
-                        </Button>
-                        <Button className="gap-1.5" onClick={() => setIkuDlg({ open: true })}>
-                            <Plus className="h-4 w-4" /> Tambah IKU
-                        </Button>
-                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button className="gap-1.5">
+                                <Plus className="h-4 w-4" /> Tambah <ChevronDown className="h-3.5 w-3.5 ml-0.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setIkuDlg({ open: true })}>
+                                <Plus className="h-4 w-4 mr-2" /> Tambah IKU
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setMasterDlg(true)}>
+                                <Settings2 className="h-4 w-4 mr-2" /> Kelola Sasaran
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Summary */}

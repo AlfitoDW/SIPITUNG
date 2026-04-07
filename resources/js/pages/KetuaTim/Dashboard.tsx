@@ -26,7 +26,7 @@ const PK_STATUS_CONFIG: Record<string, {
     label: string; dot: string; text: string; pillBg: string; accentBg: string;
     spinner?: boolean; spinnerColor?: string;
 }> = {
-    draft:          { label: 'Draft',          dot: 'bg-slate-300',  text: 'text-slate-600',  pillBg: 'bg-slate-100',  accentBg: 'bg-slate-300' },
+    draft:          { label: 'Draft',          dot: 'bg-yellow-400', text: 'text-yellow-700', pillBg: 'bg-yellow-50',  accentBg: 'bg-yellow-300' },
     submitted:      { label: 'Menunggu Kabag', dot: 'bg-blue-400',   text: 'text-blue-700',   pillBg: 'bg-blue-50',    accentBg: 'bg-blue-400',  spinner: true, spinnerColor: 'text-blue-400' },
     kabag_approved: { label: 'Menunggu PPK',   dot: 'bg-amber-400',  text: 'text-amber-700',  pillBg: 'bg-amber-50',   accentBg: 'bg-amber-400', spinner: true, spinnerColor: 'text-amber-400' },
     ppk_approved:   { label: 'Terkunci',       dot: 'bg-green-400',  text: 'text-green-700',  pillBg: 'bg-green-50',   accentBg: 'bg-green-400' },
@@ -34,7 +34,7 @@ const PK_STATUS_CONFIG: Record<string, {
 };
 
 const PD_STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; spinner?: boolean; spinnerColor?: string }> = {
-    draft:              { label: 'Draft',                dot: 'bg-slate-300', text: 'text-slate-500' },
+    draft:              { label: 'Draft',                dot: 'bg-yellow-400', text: 'text-yellow-600' },
     submitted:          { label: 'Menunggu Kabag',       dot: 'bg-blue-400',  text: 'text-blue-600',  spinner: true, spinnerColor: 'text-blue-400' },
     kabag_approved:     { label: 'Menunggu Bendahara',   dot: 'bg-sky-400',   text: 'text-sky-600',   spinner: true, spinnerColor: 'text-sky-400' },
     bendahara_checked:  { label: 'Menunggu Katimku',     dot: 'bg-violet-400',text: 'text-violet-600',spinner: true, spinnerColor: 'text-violet-400' },
