@@ -99,9 +99,11 @@ class PengukuranController extends Controller
             'ikuList'                => $ikuList,
             'timKerjaId'             => $timKerjaId,
             'laporan'                => $laporan ? [
-                'id'           => $laporan->id,
-                'status'       => $laporan->status,
-                'submitted_at' => $laporan->submitted_at?->format('d M Y H:i'),
+                'id'                => $laporan->id,
+                'status'            => $laporan->status,
+                'submitted_at'      => $laporan->submitted_at?->format('d M Y H:i'),
+                'rekomendasi_kabag' => $laporan->rekomendasi_kabag,
+                'approved_at'       => $laporan->approved_at?->format('d M Y H:i'),
             ] : null,
             'collaboratorSubmittedBy'=> $collaboratorSubmittedBy,
         ]);
@@ -169,13 +171,27 @@ class PengukuranController extends Controller
 
         abort_if(! $hasIku, 422, 'Tidak ada realisasi untuk disubmit.');
 
-        $laporan = LaporanPengukuran::updateOrCreate(
+        // Izinkan re-submit jika sebelumnya rejected
+        $existing = LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
+            ->where('periode_pengukuran_id', $periode->id)
+            ->first();
+
+        abort_if(
+            $existing && in_array($existing->status, ['submitted', 'kabag_approved']),
+            422,
+            'Laporan sudah disubmit atau sudah disetujui.'
+        );
+
+        LaporanPengukuran::updateOrCreate(
             ['tim_kerja_id' => $timKerjaId, 'periode_pengukuran_id' => $periode->id],
             [
-                'status'       => 'submitted',
-                'submitted_at' => now(),
-                'submitted_by' => $request->user()->id,
-                'created_by'   => $request->user()->id,
+                'status'            => 'submitted',
+                'submitted_at'      => now(),
+                'submitted_by'      => $request->user()->id,
+                'rekomendasi_kabag' => null,
+                'approved_at'       => null,
+                'approved_by'       => null,
+                'created_by'        => $request->user()->id,
             ]
         );
 

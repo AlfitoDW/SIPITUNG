@@ -90,7 +90,7 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
                                         </TableCell>
                                         <TableCell>
                                             {item.is_active
-                                                ? <Badge variant="default" className="bg-green-500"><CheckCircle2 className="mr-1 h-3 w-3" />Aktif</Badge>
+                                                ? <Badge variant="default" className="bg-green-500 text-white"><CheckCircle2 className="mr-1 h-3 w-3" />Aktif</Badge>
                                                 : <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300"><XCircle className="mr-1 h-3 w-3" />Nonaktif</Badge>
                                             }
                                         </TableCell>

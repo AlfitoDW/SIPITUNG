@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\TahunAnggaran;
@@ -450,6 +451,79 @@ class PengukuranController extends Controller
         return Inertia::render('SuperAdmin/Pengukuran/ExportPdf', [
             'tahun'  => $tahun,
             'matrix' => $matrix,
+        ]);
+    }
+
+    // ─── Export PDF per Triwulan ──────────────────────────────────────────────────
+
+    public function exportTwPdf(Request $request): Response
+    {
+        $tahun = TahunAnggaran::forSession();
+
+        $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->get();
+
+        $periodeId = $request->integer('periode_id');
+        $periode   = $periodeId
+            ? $periodes->firstWhere('id', $periodeId)
+            : $periodes->first();
+
+        abort_if(! $periode, 404, 'Periode tidak ditemukan.');
+
+        $twKey = strtolower($periode->triwulan);
+
+        $pks = PerjanjianKinerja::with([
+            'sasarans'                         => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators'              => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators.picTimKerjas',
+            'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+                ->where('periode_pengukuran_id', $periode->id),
+        ])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'awal')
+            ->orderBy('id')
+            ->get();
+
+        $matrix = [];
+        foreach ($pks as $pk) {
+            foreach ($pk->sasarans as $sasaran) {
+                foreach ($sasaran->indikators as $iku) {
+                    $r        = $iku->realisasis->first();
+                    $matrix[] = [
+                        'sasaran_kode'           => $sasaran->kode,
+                        'sasaran_nama'           => $sasaran->nama,
+                        'iku_kode'               => $iku->kode,
+                        'iku_nama'               => $iku->nama,
+                        'iku_satuan'             => $iku->satuan,
+                        'iku_target'             => $iku->target,
+                        'iku_target_tw'          => $iku->{"target_{$twKey}"},
+                        'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
+                        'realisasi'              => $r?->realisasi,
+                        'progress_kegiatan'      => $r?->progress_kegiatan,
+                        'kendala'                => $r?->kendala,
+                        'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
+                        'input_by_tim_kerja'     => $r?->inputByTimKerja?->only(['id', 'nama']),
+                    ];
+                }
+            }
+        }
+
+        $laporans = LaporanPengukuran::with('timKerja:id,nama,kode')
+            ->where('periode_pengukuran_id', $periode->id)
+            ->get()
+            ->map(fn ($l) => [
+                'tim_kerja_nama'    => $l->timKerja?->nama ?? '',
+                'status'            => $l->status,
+                'rekomendasi_kabag' => $l->rekomendasi_kabag,
+                'approved_at'       => $l->approved_at?->format('d M Y'),
+            ]);
+
+        return Inertia::render('Pimpinan/Pengukuran/ExportPdf', [
+            'tahun'    => $tahun,
+            'periode'  => $periode,
+            'matrix'   => $matrix,
+            'laporans' => $laporans,
         ]);
     }
 }

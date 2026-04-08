@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Pencil, Users, Send, CheckCircle2, Circle } from 'lucide-react';
+import { Pencil, Users, Send, CheckCircle2, Circle, XCircle, AlertCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -35,7 +35,13 @@ type IKUItem = {
     input_by_tim_kerja_nama: string | null;
 };
 type Tahun   = { id: number; tahun: number; label: string };
-type Laporan = { id: number; status: string; submitted_at: string | null };
+type Laporan = {
+    id: number;
+    status: string;
+    submitted_at: string | null;
+    rekomendasi_kabag: string | null;
+    approved_at: string | null;
+};
 type Props = {
     tahun: Tahun;
     periodes: Periode[];
@@ -231,10 +237,12 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
         });
     }
 
-    const grouped   = groupBySasaran(ikuList);
-    const filled    = ikuList.filter(i => i.realisasi).length;
-    const isSubmitted = laporan?.status === 'submitted';
-    const canSubmit   = periode?.is_active && filled > 0 && !isSubmitted;
+    const grouped         = groupBySasaran(ikuList);
+    const filled          = ikuList.filter(i => i.realisasi).length;
+    const isSubmitted     = laporan?.status === 'submitted';
+    const isKabagApproved = laporan?.status === 'kabag_approved';
+    const isRejected      = laporan?.status === 'rejected';
+    const canSubmit       = periode?.is_active && filled > 0 && !isSubmitted && !isKabagApproved;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -248,7 +256,8 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                     </div>
                     {canSubmit && (
                         <Button onClick={() => setSubmitDialog(true)} className="gap-1.5">
-                            <Send className="h-4 w-4" /> Submit ke Kabag Umum
+                            <Send className="h-4 w-4" />
+                            {isRejected ? 'Submit Ulang ke Kabag Umum' : 'Submit ke Kabag Umum'}
                         </Button>
                     )}
                 </div>
@@ -279,7 +288,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                     )}
                 </div>
 
-                {/* Laporan status banner */}
+                {/* Laporan status banners */}
                 {isSubmitted && (
                     <div className="rounded-xl border bg-muted/30 p-4 flex gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border">
@@ -288,8 +297,48 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                         <div className="flex-1">
                             <p className="text-sm font-semibold text-foreground">Laporan Telah Disubmit</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                Disubmit ke Kabag Umum{laporan?.submitted_at ? ` pada ${laporan.submitted_at}` : ''}. Data realisasi tidak dapat diubah.
+                                Menunggu persetujuan Kabag Umum{laporan?.submitted_at ? ` · ${laporan.submitted_at}` : ''}. Data realisasi tidak dapat diubah.
                             </p>
+                        </div>
+                    </div>
+                )}
+
+                {isKabagApproved && (
+                    <div className="rounded-xl border border-green-300 bg-green-50 dark:bg-green-950/30 p-4 flex gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-background border border-green-300">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-green-800 dark:text-green-300">Laporan Disetujui Kabag Umum</p>
+                            <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
+                                {laporan?.approved_at ? `Disetujui pada ${laporan.approved_at}. ` : ''}
+                                Data pengukuran telah final.
+                            </p>
+                            {laporan?.rekomendasi_kabag && (
+                                <p className="text-xs text-green-700 dark:text-green-400 mt-1 italic">
+                                    Catatan: "{laporan.rekomendasi_kabag}"
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {isRejected && (
+                    <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 p-4 flex gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-background border border-red-300">
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">Laporan Dikembalikan oleh Kabag Umum</p>
+                            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
+                                Silakan perbaiki realisasi dan submit ulang.
+                            </p>
+                            {laporan?.rekomendasi_kabag && (
+                                <div className="mt-1.5 rounded bg-red-100 dark:bg-red-900/40 px-2.5 py-1.5 text-xs text-red-800 dark:text-red-300">
+                                    <span className="font-semibold">Rekomendasi Kabag: </span>
+                                    {laporan.rekomendasi_kabag}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -331,24 +380,25 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Progres Pengukuran</span>
                             <span className="text-sm text-muted-foreground">
-                                {isSubmitted ? 100 : filled === ikuList.length ? 75 : Math.round((filled / ikuList.length) * 60 + 10)}%
+                                {isKabagApproved ? 100 : isSubmitted ? 80 : filled === ikuList.length ? 60 : Math.round((filled / ikuList.length) * 50 + 10)}%
                             </span>
                         </div>
                         <Progress
-                            value={isSubmitted ? 100 : filled === ikuList.length ? 75 : Math.round((filled / ikuList.length) * 60 + 10)}
+                            value={isKabagApproved ? 100 : isSubmitted ? 80 : filled === ikuList.length ? 60 : Math.round((filled / ikuList.length) * 50 + 10)}
                             className="h-2"
                         />
                         <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
                             {[
-                                { done: periode.is_active,                                label: 'Periode aktif' },
-                                { done: ikuList.length > 0,                               label: `IKU tersedia (${ikuList.length})` },
-                                { done: filled === ikuList.length && ikuList.length > 0,  label: `Realisasi diisi (${filled}/${ikuList.length})` },
-                                { done: isSubmitted,                                      label: 'Laporan disubmit' },
+                                { done: periode.is_active,                               label: 'Periode aktif' },
+                                { done: ikuList.length > 0,                              label: `IKU tersedia (${ikuList.length})` },
+                                { done: filled === ikuList.length && ikuList.length > 0, label: `Realisasi diisi (${filled}/${ikuList.length})` },
+                                { done: isSubmitted || isKabagApproved,                  label: 'Laporan disubmit' },
+                                { done: isKabagApproved,                                 label: 'Disetujui Kabag' },
                             ].map(({ done, label }) => (
                                 <div key={label} className="flex items-center gap-1.5">
                                     {done
                                         ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                                        : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
+                                        : <Circle className="h-5 w-5 text-muted-foreground/40 shrink-0" />}
                                     <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
                                 </div>
                             ))}
@@ -465,7 +515,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
 
                                             {periode?.is_active && (
                                                 <td className="border border-border px-2 py-2 text-center align-middle">
-                                                    {!isSubmitted ? (
+                                                    {(!isSubmitted && !isKabagApproved) ? (
                                                         <Button size="sm"
                                                             variant={hasData ? 'outline' : 'default'}
                                                             className="h-6 px-2 text-xs gap-1"

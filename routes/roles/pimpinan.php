@@ -5,6 +5,8 @@ use Inertia\Inertia;
 use App\Http\Controllers\Pimpinan\DashboardController;
 use App\Http\Controllers\Pimpinan\PerencanaanController;
 use App\Http\Controllers\Pimpinan\PermohonanDanaController;
+use App\Http\Controllers\Pimpinan\PengukuranController;
+use App\Http\Controllers\Pimpinan\PersetujuanController;
 
 Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group(function () {
 
@@ -12,6 +14,9 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
     Route::get('/approval', fn() => Inertia::render('Pimpinan/Approval'))->name('approval');
     Route::get('/validasi', fn() => Inertia::render('Pimpinan/Validasi'))->name('validasi');
     Route::get('/laporan', fn() => Inertia::render('Pimpinan/Laporan'))->name('laporan');
+
+    // ─── Persetujuan Hub ─────────────────────────────────────────────────────────
+    Route::get('/persetujuan', [PersetujuanController::class, 'index'])->name('persetujuan.index');
 
     // ─── Perencanaan ─────────────────────────────────────────────────────────────
     Route::prefix('perencanaan')->name('perencanaan.')->group(function () {
@@ -28,6 +33,14 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
         Route::get('/rencana-aksi', [PerencanaanController::class, 'rencanaAksi'])->name('ra');
         Route::post('/rencana-aksi/{ra}/approve', [PerencanaanController::class, 'raApprove'])->name('ra.approve');
         Route::post('/rencana-aksi/{ra}/reject', [PerencanaanController::class, 'raReject'])->name('ra.reject');
+    });
+
+    // ─── Pengukuran ───────────────────────────────────────────────────────────────
+    Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
+        Route::get('/kinerja',              [PengukuranController::class, 'kinerja'])->name('kinerja');
+        Route::post('/{laporan}/approve',   [PengukuranController::class, 'approve'])->name('approve');
+        Route::post('/{laporan}/reject',    [PengukuranController::class, 'reject'])->name('reject');
+        Route::get('/export/pdf',           [PengukuranController::class, 'exportPdf'])->name('export.pdf');
     });
 
     // ─── Keuangan ─────────────────────────────────────────────────────────────────

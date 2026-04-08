@@ -2,8 +2,6 @@ import {
     LayoutDashboard,
     ClipboardList,
     ShieldCheck,
-    Scale,
-    ChartColumnIncreasing,
     BellRingIcon,
     HandCoins,
 } from 'lucide-react';
@@ -37,6 +35,26 @@ const pimpinanNav: NavGroup[] = [
                 title: 'Rencana Aksi',
                 href: '/pimpinan/perencanaan/rencana-aksi',
                 icon: ClipboardList,
+            },
+        ],
+    },
+    {
+        label: 'Pengukuran',
+        items: [
+            {
+                title: 'Pengukuran Kinerja',
+                href: '/pimpinan/pengukuran/kinerja',
+                icon: ClipboardList,
+            }
+        ]
+    },
+    {
+        label: 'Persetujuan',
+        items: [
+            {
+                title: 'Hub Persetujuan',
+                href: '/pimpinan/persetujuan',
+                icon: ShieldCheck,
             },
         ],
     },

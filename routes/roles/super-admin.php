@@ -62,6 +62,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::get('realisasi',                  [PengukuranController::class, 'realisasi'])->name('realisasi');
         Route::get('export/xls',                 [PengukuranController::class, 'exportXls'])->name('export.xls');
         Route::get('export/pdf',                 [PengukuranController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('export/tw-pdf',              [PengukuranController::class, 'exportTwPdf'])->name('export.tw-pdf');
     });
 
     Route::get('/pertanggungjawaban', fn() => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');

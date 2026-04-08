@@ -15,11 +15,15 @@ class LaporanPengukuran extends Model
         'status',
         'submitted_at',
         'submitted_by',
+        'rekomendasi_kabag',
+        'approved_at',
+        'approved_by',
         'created_by',
     ];
 
     protected $casts = [
         'submitted_at' => 'datetime',
+        'approved_at'  => 'datetime',
     ];
 
     public function timKerja(): BelongsTo
@@ -32,8 +36,28 @@ class LaporanPengukuran extends Model
         return $this->belongsTo(PeriodePengukuran::class, 'periode_pengukuran_id');
     }
 
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function isSubmitted(): bool
     {
         return $this->status === 'submitted';
+    }
+
+    public function isKabagApproved(): bool
+    {
+        return $this->status === 'kabag_approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
     }
 }

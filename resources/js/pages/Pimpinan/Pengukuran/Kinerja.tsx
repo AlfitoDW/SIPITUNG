@@ -6,15 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
-import { FileSpreadsheet, FileText, Eye } from 'lucide-react';
+import { Eye, FileText } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Pengukuran', href: '/super-admin/pengukuran' },
-    { title: 'Realisasi Kinerja', href: '/super-admin/pengukuran/realisasi' },
+    { title: 'Pengukuran', href: '#' },
+    { title: 'Pengukuran Kinerja', href: '/pimpinan/pengukuran/kinerja' },
 ];
 
 type Periode  = { id: number; triwulan: string; is_active: boolean };
-type TimKerja = { id: number; nama: string; kode: string };
+type TimKerja = { id: number; nama: string; kode: string; nama_singkat?: string };
 type MatrixRow = {
     sasaran_kode: string; sasaran_nama: string;
     iku_id: number; iku_kode: string; iku_nama: string;
@@ -28,7 +28,13 @@ type MatrixRow = {
     catatan: string | null;
 };
 type Tahun = { id: number; tahun: number; label: string };
-type Props = { tahun: Tahun; periodes: Periode[]; periode: Periode | null; matrix: MatrixRow[] };
+type Props = {
+    tahun: Tahun;
+    periodes: Periode[];
+    periode: Periode | null;
+    matrix: MatrixRow[];
+    // laporans & role still passed from controller but not used here — approval moved to hub
+};
 
 const TW_LABELS: Record<string, string> = {
     TW1: 'Triwulan I', TW2: 'Triwulan II', TW3: 'Triwulan III', TW4: 'Triwulan IV',
@@ -42,7 +48,7 @@ const sasaranColors: Record<string, { bg: string; badge: string; accent: string 
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-// ─── Detail Dialog ────────────────────────────────────────────────────────────
+// ─── Detail Dialog ─────────────────────────────────────────────────────────────
 
 function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClose: () => void }) {
     return (
@@ -73,7 +79,6 @@ function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClos
                         </div>
                     </div>
 
-                    {/* PIC & Diisi Oleh */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">PIC Tim Kerja</p>
@@ -81,9 +86,7 @@ function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClos
                                 {row.pic_tim_kerjas.length > 0
                                     ? row.pic_tim_kerjas.map((t, idx) => (
                                         <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs ${
-                                            idx === 0
-                                                ? 'bg-blue-100 text-blue-800 font-medium'
-                                                : 'border border-slate-300 text-slate-500'
+                                            idx === 0 ? 'bg-blue-100 text-blue-800 font-medium' : 'border border-slate-300 text-slate-500'
                                         }`}>
                                             {t.nama}
                                         </span>
@@ -112,16 +115,16 @@ function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClos
 
                     <hr />
                     <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Progress/Kegiatan</p>
-                        <p className="whitespace-pre-wrap">{row.progress_kegiatan || '—'}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Progress / Kegiatan</p>
+                        <p className="whitespace-pre-wrap text-sm">{row.progress_kegiatan || <span className="italic text-muted-foreground">—</span>}</p>
                     </div>
                     <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Kendala/Permasalahan</p>
-                        <p className="whitespace-pre-wrap">{row.kendala || '—'}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Kendala / Permasalahan</p>
+                        <p className="whitespace-pre-wrap text-sm">{row.kendala || <span className="italic text-muted-foreground">—</span>}</p>
                     </div>
                     <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Strategi/Tindak Lanjut</p>
-                        <p className="whitespace-pre-wrap">{row.strategi_tindak_lanjut || '—'}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Strategi / Tindak Lanjut</p>
+                        <p className="whitespace-pre-wrap text-sm">{row.strategi_tindak_lanjut || <span className="italic text-muted-foreground">—</span>}</p>
                     </div>
                 </div>
             </DialogContent>
@@ -129,7 +132,7 @@ function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClos
     );
 }
 
-// ─── Group by sasaran for rowspan ─────────────────────────────────────────────
+// ─── Group by sasaran for rowspan ──────────────────────────────────────────────
 
 function groupBySasaran(rows: MatrixRow[]) {
     return rows.map((row, i) => {
@@ -140,54 +143,42 @@ function groupBySasaran(rows: MatrixRow[]) {
     });
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Main ──────────────────────────────────────────────────────────────────────
 
-export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
+export default function Kinerja({ tahun, periodes, periode, matrix }: Props) {
     const [detail, setDetail] = useState<MatrixRow | null>(null);
 
     function changePeriode(id: string) {
-        router.get('/super-admin/pengukuran/realisasi', { periode_id: id }, { preserveState: false });
+        router.get('/pimpinan/pengukuran/kinerja', { periode_id: id }, { preserveState: false });
     }
 
-    const grouped  = groupBySasaran(matrix);
-    const filled   = matrix.filter(r => r.realisasi).length;
-    const twLabel  = periode ? (TW_LABELS[periode.triwulan] ?? periode.triwulan) : '';
+    const grouped = groupBySasaran(matrix);
+    const filled  = matrix.filter(r => r.realisasi).length;
+    const twLabel = periode ? (TW_LABELS[periode.triwulan] ?? periode.triwulan) : '';
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Realisasi Kinerja" />
+            <Head title="Pengukuran Kinerja" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
 
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Realisasi Kinerja</h1>
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-2xl font-bold tracking-tight">Pengukuran Kinerja</h1>
                         <p className="text-muted-foreground text-sm">{tahun.label}</p>
                     </div>
                     {periode && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
-                                <a href={`/super-admin/pengukuran/export/xls?periode_id=${periode.id}`}>
-                                    <FileSpreadsheet className="h-3.5 w-3.5" /> Export XLSX
-                                </a>
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
-                                <a href={`/super-admin/pengukuran/export/tw-pdf?periode_id=${periode.id}`} target="_blank">
-                                    <FileText className="h-3.5 w-3.5" /> Export PDF {TW_LABELS[periode.triwulan] ?? periode.triwulan}
-                                </a>
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
-                                <a href={`/super-admin/pengukuran/export/pdf`} target="_blank">
-                                    <FileText className="h-3.5 w-3.5" /> PDF Semua TW
-                                </a>
-                            </Button>
-                        </div>
+                        <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
+                            <a href={`/pimpinan/pengukuran/export/pdf?periode_id=${periode.id}`} target="_blank">
+                                <FileText className="h-3.5 w-3.5" /> Export PDF {twLabel}
+                            </a>
+                        </Button>
                     )}
                 </div>
 
-                {/* Periode selector — hanya periode aktif */}
+                {/* Periode selector */}
                 <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm text-muted-foreground">Periode Aktif:</span>
+                    <span className="text-sm text-muted-foreground">Periode:</span>
                     {periodes.length === 0 ? (
                         <span className="text-sm text-amber-600">Belum ada periode yang aktif.</span>
                     ) : (
@@ -216,8 +207,9 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                     )}
                 </div>
 
+                {/* ─── Matrix Table ─────────────────────────────────────────────── */}
                 {!periode ? (
-                    <p className="text-muted-foreground">Belum ada periode yang aktif. Aktifkan periode di halaman Kelola Periode.</p>
+                    <p className="text-muted-foreground">Belum ada periode yang aktif saat ini.</p>
                 ) : matrix.length === 0 ? (
                     <p className="text-muted-foreground">Belum ada data IKU.</p>
                 ) : (
@@ -262,7 +254,6 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                                                 <p className="text-xs leading-snug">{row.iku_nama}</p>
                                             </td>
 
-                                            {/* Multi-PIC: primary solid, co-PIC outline */}
                                             <td className="border border-border px-2 py-2 text-center align-middle">
                                                 <div className="flex flex-col gap-0.5 items-center">
                                                     {row.pic_tim_kerjas.length > 0
@@ -272,7 +263,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                                                                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium'
                                                                     : 'border border-slate-300 text-slate-500 text-[10px]'
                                                             }`}>
-                                                                {t.nama}
+                                                                {t.nama_singkat ?? t.nama}
                                                             </span>
                                                         ))
                                                         : <span className="text-xs text-muted-foreground">—</span>
@@ -288,21 +279,17 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                                                 {row.iku_target}
                                             </td>
 
-                                            <td className="border border-border px-2 py-2 text-center text-xs align-middle bg-slate-50 dark:bg-slate-900/40 w-20">
-                                                {row.iku_target_tw
-                                                    ? <span className="font-medium">{row.iku_target_tw}</span>
-                                                    : <span className="text-muted-foreground">—</span>
-                                                }
+                                            <td className="border border-border px-2 py-2 text-center text-xs align-middle text-muted-foreground">
+                                                {row.iku_target_tw ?? '—'}
                                             </td>
 
-                                            <td className="border border-border px-2 py-2 text-center text-xs align-middle w-20">
+                                            <td className="border border-border px-2 py-2 text-center align-middle">
                                                 {hasData
-                                                    ? <span className="font-semibold text-green-700 dark:text-green-400">{row.realisasi}</span>
-                                                    : <span className="text-muted-foreground">—</span>
+                                                    ? <span className="text-xs font-semibold text-green-700 dark:text-green-400">{row.realisasi}</span>
+                                                    : <span className="text-xs text-muted-foreground italic">—</span>
                                                 }
                                             </td>
 
-                                            {/* Diisi oleh */}
                                             <td className="border border-border px-2 py-2 text-center align-middle">
                                                 {row.input_by_tim_kerja
                                                     ? <span className="inline-block rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
@@ -313,18 +300,16 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                                             </td>
 
                                             <td className="border border-border px-2 py-2 text-center align-middle">
-                                                <Badge variant="outline" className={hasData
-                                                    ? 'bg-green-50 text-green-700 border-green-200 text-xs'
-                                                    : 'bg-slate-50 text-slate-500 border-slate-200 text-xs'
-                                                }>
-                                                    {hasData ? 'Terisi' : 'Kosong'}
-                                                </Badge>
+                                                {hasData
+                                                    ? <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 text-xs">Terisi</Badge>
+                                                    : <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-300 text-xs">Kosong</Badge>
+                                                }
                                             </td>
 
                                             <td className="border border-border px-2 py-2 text-center align-middle">
-                                                <Button size="icon" variant="ghost" className="h-6 w-6"
+                                                <Button size="icon" variant="ghost" className="h-7 w-7"
                                                     onClick={() => setDetail(row)}>
-                                                    <Eye className={`h-3.5 w-3.5 ${hasData ? '' : 'black'}`} />
+                                                    <Eye className="h-3.5 w-3.5" />
                                                 </Button>
                                             </td>
                                         </tr>
@@ -336,8 +321,12 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                 )}
             </div>
 
-            {detail && periode && (
-                <DetailDialog row={detail} tw={periode.triwulan} onClose={() => setDetail(null)} />
+            {detail && (
+                <DetailDialog
+                    row={detail}
+                    tw={periode?.triwulan ?? ''}
+                    onClose={() => setDetail(null)}
+                />
             )}
         </AppLayout>
     );

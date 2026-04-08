@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Pimpinan;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use App\Models\IndikatorKinerja;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
 use App\Models\TahunAnggaran;
@@ -25,16 +26,10 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        $query = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
+        $pks = PerjanjianKinerja::with(['sasarans.indikators.picTimKerjas', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where('jenis', 'awal');
-
-        // Kabag Umum hanya lihat yang submitted; PPK lihat semua
-        if (! $this->isPpk()) {
-            $query->where('status', 'submitted');
-        }
-
-        $pks = $query->get();
+            ->where('jenis', 'awal')
+            ->get();
 
         return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
             'tahun' => $tahun,
@@ -48,15 +43,10 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        $query = PerjanjianKinerja::with(['sasarans.indikators', 'timKerja'])
+        $pks = PerjanjianKinerja::with(['sasarans.indikators.picTimKerjas', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where('jenis', 'revisi');
-
-        if (! $this->isPpk()) {
-            $query->where('status', 'submitted');
-        }
-
-        $pks = $query->get();
+            ->where('jenis', 'revisi')
+            ->get();
 
         return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
             'tahun' => $tahun,
@@ -70,31 +60,47 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        $raQuery = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
-            ->where('tahun_anggaran_id', $tahun->id);
+        // Build PIC lookup: [sasaran_id][kode] → picTimKerjas
+        // Hanya dari PK Awal milik tahun ini
+        $ikuPics = IndikatorKinerja::with('picTimKerjas')
+            ->whereHas('sasaran.perjanjianKinerja', fn ($q) => $q
+                ->where('tahun_anggaran_id', $tahun->id)
+                ->where('jenis', 'awal')
+            )
+            ->get()
+            ->groupBy('sasaran_id')
+            ->map(fn ($ikus) => $ikus->keyBy('kode'));
 
-        if (! $this->isPpk()) {
-            $raQuery->where('status', 'submitted');
-        }
-
-        $ras = $raQuery->get()
-            ->map(function ($ra) {
+        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->get()
+            ->map(function ($ra) use ($ikuPics) {
                 $grouped = $ra->indikators->groupBy('sasaran_id');
 
-                $sasarans = $grouped->map(function ($indikators) {
-                    $s = $indikators->first()->sasaran;
+                $sasarans = $grouped->map(function ($indikators) use ($ikuPics) {
+                    $s         = $indikators->first()->sasaran;
+                    $sasaranId = $indikators->first()->sasaran_id;
+                    $ikusMap   = $ikuPics->get($sasaranId, collect());
+
                     return [
                         'kode'       => $s?->kode ?? '-',
                         'nama'       => $s?->nama ?? 'Tanpa Sasaran',
-                        'indikators' => $indikators->toArray(),
+                        'indikators' => $indikators->map(function ($iku) use ($ikusMap) {
+                            $pkIku = $ikusMap->get($iku->kode);
+                            $arr   = $iku->toArray();
+                            $arr['pic_tim_kerjas'] = $pkIku
+                                ? $pkIku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode']))->values()->toArray()
+                                : [];
+                            return $arr;
+                        })->values()->toArray(),
                     ];
                 })->values();
 
                 return [
-                    'id'       => $ra->id,
-                    'status'   => $ra->status,
+                    'id'        => $ra->id,
+                    'status'    => $ra->status,
                     'tim_kerja' => $ra->timKerja,
-                    'sasarans' => $sasarans,
+                    'sasarans'  => $sasarans,
                 ];
             });
 
