@@ -72,19 +72,24 @@ class PengukuranController extends Controller
                 }
             }
 
-            $laporans = LaporanPengukuran::with('timKerja:id,nama,kode,nama_singkat')
+            $laporans = LaporanPengukuran::with([
+                'timKerja:id,nama,kode,nama_singkat',
+                'peerTimKerja:id,nama,kode,nama_singkat',
+            ])
                 ->where('periode_pengukuran_id', $periode->id)
                 ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
                 ->get()
                 ->map(fn ($l) => [
-                    'id'                => $l->id,
-                    'tim_kerja_id'      => $l->tim_kerja_id,
-                    'tim_kerja_nama'    => $l->timKerja?->nama ?? '',
-                    'tim_kerja_kode'    => $l->timKerja?->kode ?? '',
-                    'status'            => $l->status,
-                    'submitted_at'      => $l->submitted_at?->format('d M Y H:i'),
-                    'rekomendasi_kabag' => $l->rekomendasi_kabag,
-                    'approved_at'       => $l->approved_at?->format('d M Y H:i'),
+                    'id'                   => $l->id,
+                    'tim_kerja_id'         => $l->tim_kerja_id,
+                    'tim_kerja_nama'       => $l->timKerja?->nama ?? '',
+                    'tim_kerja_kode'       => $l->timKerja?->kode ?? '',
+                    'peer_tim_kerja_id'    => $l->peer_tim_kerja_id,
+                    'peer_tim_kerja_nama'  => $l->peerTimKerja?->nama_singkat ?? $l->peerTimKerja?->nama,
+                    'status'               => $l->status,
+                    'submitted_at'         => $l->submitted_at?->format('d M Y H:i'),
+                    'rekomendasi_kabag'    => $l->rekomendasi_kabag,
+                    'approved_at'          => $l->approved_at?->format('d M Y H:i'),
                 ]);
         }
 
@@ -95,8 +100,34 @@ class PengukuranController extends Controller
             'matrix'   => $matrix,
             'laporans' => $laporans,
             'role'     => $user->pimpinan_type,
+            'rekomendasi_pimpinan' => $periode?->rekomendasi_pimpinan,
         ]);
     }
+
+    public function saveRekomendasi(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless(auth()->user()->pimpinan_type === 'kabag_umum', 403);
+
+        $request->validate(['rekomendasi_pimpinan' => 'nullable|string|max:5000']);
+
+        $tahun = TahunAnggaran::forSession();
+
+        $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->get();
+
+        $periodeId = $request->integer('periode_id');
+        $periode   = $periodeId
+            ? $periodes->firstWhere('id', $periodeId)
+            : $periodes->first();
+
+        abort_if(! $periode, 404, 'Periode tidak ditemukan.');
+
+        $periode->update(['rekomendasi_pimpinan' => $request->rekomendasi_pimpinan]);
+
+        return back()->with('success', 'Rekomendasi pimpinan berhasil disimpan.');
+    }
+
 
     public function approve(Request $request, LaporanPengukuran $laporan): RedirectResponse
     {
@@ -107,7 +138,7 @@ class PengukuranController extends Controller
 
         $laporan->update([
             'status'            => 'kabag_approved',
-            'rekomendasi_kabag' => $request->rekomendasi,
+            'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
             'approved_at'       => now(),
             'approved_by'       => $request->user()->id,
         ]);
@@ -194,10 +225,11 @@ class PengukuranController extends Controller
             ]);
 
         return Inertia::render('Pimpinan/Pengukuran/ExportPdf', [
-            'tahun'    => $tahun,
-            'periode'  => $periode,
-            'matrix'   => $matrix,
-            'laporans' => $laporans,
+            'tahun'                  => $tahun,
+            'periode'                => $periode,
+            'matrix'                 => $matrix,
+            'laporans'               => $laporans,
+            'rekomendasi_pimpinan'   => $periode->rekomendasi_pimpinan,
         ]);
     }
 }

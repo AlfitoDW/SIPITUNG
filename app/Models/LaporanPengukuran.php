@@ -12,6 +12,7 @@ class LaporanPengukuran extends Model
     protected $fillable = [
         'tim_kerja_id',
         'periode_pengukuran_id',
+        'peer_tim_kerja_id',
         'status',
         'submitted_at',
         'submitted_by',
@@ -29,6 +30,12 @@ class LaporanPengukuran extends Model
     public function timKerja(): BelongsTo
     {
         return $this->belongsTo(TimKerja::class);
+    }
+
+    /** Tim kolaborator (partner) untuk laporan ini. Null = laporan solo. */
+    public function peerTimKerja(): BelongsTo
+    {
+        return $this->belongsTo(TimKerja::class, 'peer_tim_kerja_id');
     }
 
     public function periode(): BelongsTo

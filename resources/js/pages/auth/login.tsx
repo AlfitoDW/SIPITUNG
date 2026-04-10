@@ -50,12 +50,12 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
 
                 <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-12 py-16 text-white">
 
-                    {/* Logo LLDIKTI */}
+                    {/* Logo LLDIKTI (Vector SVG Resmi) */}
                     <div className="flex items-center justify-center mb-10">
                         <img
-                            src="/TeksPutih-removebg-preview.png"
-                            alt="Logo LLDIKTI Wilayah III"
-                            className="h-20 object-contain drop-shadow-lg"
+                            src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
+                            alt="Logo Kemendikbudristek"
+                            className="h-24 w-auto drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                         />
                     </div>
 
@@ -105,17 +105,23 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-gray-50 px-8 py-12">
 
                 {/* Header mobile */}
-                <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
-                    <div className="flex items-center gap-4">
-                        <img
-                            src="/TeksPutih-removebg-preview.png"
-                            alt="Logo LLDIKTI Wilayah III"
-                            className="h-12 object-contain"
-                        />
+                <div className="lg:hidden flex flex-col items-center gap-3 mb-8 text-center mt-2">
+                    <img
+                        src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
+                        alt="Logo Kemendikbudristek"
+                        className="h-16 w-auto drop-shadow-sm mb-1"
+                    />
+                    <div>
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                            Kementerian Pendidikan Tinggi, Sains, & Teknologi
+                        </p>
+                        <p className="text-lg font-extrabold text-gray-800 leading-tight">
+                            SIPITUNG
+                        </p>
+                        <p className="text-xs font-medium text-gray-600">
+                            LLDIKTI Wilayah III
+                        </p>
                     </div>
-                    <p className="text-sm font-semibold text-gray-700 text-center">
-                        SIPITUNG<br />LLDIKTI Wilayah III
-                    </p>
                 </div>
 
                 <div className="w-full max-w-md">

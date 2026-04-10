@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Settings2, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Settings2, ChevronDown, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,12 +20,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Revisi — Penyusunan', href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/penyusunan' },
 ];
 
-type TimKerja      = { id: number; nama: string; kode: string };
+type TimKerja      = { id: number; nama: string; kode: string; nama_singkat?: string };
 type Indikator     = { id: number; kode: string; nama: string; satuan: string; target: string | null; sasaran_id: number; pic_tim_kerjas: TimKerja[] };
 type Sasaran       = { kode: string; nama: string; indikators: Indikator[] };
 type MasterSasaran = { id: number; kode: string; nama: string };
 type Tahun         = { id: number; tahun: number; label: string };
-type Props         = { tahun: Tahun; jenis: string; sasarans: Sasaran[]; masterSasarans: MasterSasaran[]; timKerjas: TimKerja[] };
+type PkStatus      = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'rejected'; rekomendasi_kabag: string | null; tim_kerja: TimKerja | null };
+type Props         = { tahun: Tahun; jenis: string; sasarans: Sasaran[]; masterSasarans: MasterSasaran[]; timKerjas: TimKerja[]; pks: PkStatus[] };
 
 const sasaranColors: Record<string, { bg: string; badge: string; accent: string }> = {
     'S 1': { bg: 'bg-blue-50 dark:bg-blue-950/40',       badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
@@ -34,6 +35,116 @@ const sasaranColors: Record<string, { bg: string; badge: string; accent: string 
     'S 4': { bg: 'bg-amber-50 dark:bg-amber-950/40',     badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
+
+const STATUS_CONFIG = {
+    draft:          { label: 'Draft',           icon: FileEdit,      className: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300' },
+    submitted:      { label: 'Menunggu Kabag',  icon: Clock,         className: 'bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/40 dark:text-yellow-400' },
+    kabag_approved: { label: 'Disetujui',       icon: CheckCircle2,  className: 'bg-green-50 text-green-700 border-green-300 dark:bg-green-950/40 dark:text-green-400' },
+    rejected:       { label: 'Ditolak',         icon: XCircle,       className: 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400' },
+} as const;
+
+// ─── PK Status Panel ──────────────────────────────────────────────────────────
+
+function PkStatusPanel({ pks }: { pks: PkStatus[] }) {
+    const [reopenTarget, setReopenTarget] = useState<PkStatus | null>(null);
+
+    if (pks.length === 0) return null;
+
+    function doReopen() {
+        if (!reopenTarget) return;
+        router.patch(`/super-admin/perencanaan/perjanjian-kinerja/${reopenTarget.id}/reopen`, {}, {
+            onSuccess: () => setReopenTarget(null),
+            preserveScroll: true,
+        });
+    }
+
+    const canReopen = (pk: PkStatus) => pk.status === 'submitted' || pk.status === 'kabag_approved';
+
+    return (
+        <>
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <h2 className="text-sm font-semibold">Status Pengajuan PK per Tim Kerja</h2>
+                    <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali dokumen yang terkunci</span>
+                </div>
+                <div className="divide-y">
+                    {pks.map(pk => {
+                        const cfg = STATUS_CONFIG[pk.status];
+                        const Icon = cfg.icon;
+                        const reopenable = canReopen(pk);
+                        return (
+                            <div key={pk.id} className={`flex items-center gap-3 px-4 py-3 ${pk.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : pk.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-semibold truncate">
+                                            {pk.tim_kerja?.nama ?? '—'}
+                                        </span>
+                                        {pk.tim_kerja?.kode && (
+                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">
+                                                {pk.tim_kerja.kode}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {pk.rekomendasi_kabag && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                            Catatan: {pk.rekomendasi_kabag}
+                                        </p>
+                                    )}
+                                </div>
+                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
+                                    <Icon className="h-3 w-3" />
+                                    {cfg.label}
+                                </Badge>
+                                {reopenable && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                        onClick={() => setReopenTarget(pk)}
+                                    >
+                                        <LockOpen className="h-3 w-3" />
+                                        Buka Kembali
+                                    </Button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Confirm Reopen Dialog */}
+            <AlertDialog open={reopenTarget !== null} onOpenChange={v => !v && setReopenTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Buka kembali PK ini?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2">
+                                <p>
+                                    Dokumen PK milik <span className="font-semibold">{reopenTarget?.tim_kerja?.nama ?? '—'}</span> akan kembali ke status <span className="font-semibold">Draft</span> dan dapat diedit ulang oleh tim terkait.
+                                </p>
+                                {reopenTarget?.status === 'kabag_approved' && (
+                                    <div className="rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                                        ⚠️ Dokumen ini sudah <strong>disetujui</strong> oleh Kabag Umum. Membuka kembali akan membatalkan persetujuan tersebut.
+                                    </div>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-amber-600 text-white hover:bg-amber-700"
+                            onClick={doReopen}
+                        >
+                            Ya, Buka Kembali
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    );
+}
 
 // ─── Kelola Master Sasaran Dialog ─────────────────────────────────────────────
 
@@ -127,6 +238,13 @@ function MasterSasaranDialog({ open, onClose, masterSasarans }: {
 type IkuForm = { master_sasaran_id: string; kode: string; nama: string; satuan: string; target: string; target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string; pic_tim_kerja_ids: number[] };
 const EMPTY: IkuForm = { master_sasaran_id: '', kode: '', nama: '', satuan: '', target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '', pic_tim_kerja_ids: [] };
 
+/** Menghasilkan teks placeholder yang sesuai dengan satuan IKU */
+function targetPlaceholder(satuan: string): string {
+    const s = satuan.trim().toLowerCase();
+    if (s === '%' || s === 'persen') return 'Contoh: 89,75';
+    return 'Masukkan nilai target';
+}
+
 function IkuDialog({ open, onClose, jenis, timKerjas, masterSasarans, indikator }: {
     open: boolean; onClose: () => void; jenis: string;
     timKerjas: TimKerja[]; masterSasarans: MasterSasaran[]; indikator?: Indikator;
@@ -163,10 +281,14 @@ function IkuDialog({ open, onClose, jenis, timKerjas, masterSasarans, indikator 
 
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
+        // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
+        const norm = (v: string) => v.replace(',', '.');
         const payload = {
-            kode: form.kode, nama: form.nama, satuan: form.satuan, target: form.target,
-            target_tw1: form.target_tw1 || null, target_tw2: form.target_tw2 || null,
-            target_tw3: form.target_tw3 || null, target_tw4: form.target_tw4 || null,
+            kode: form.kode, nama: form.nama, satuan: form.satuan, target: norm(form.target),
+            target_tw1: form.target_tw1 ? norm(form.target_tw1) : null,
+            target_tw2: form.target_tw2 ? norm(form.target_tw2) : null,
+            target_tw3: form.target_tw3 ? norm(form.target_tw3) : null,
+            target_tw4: form.target_tw4 ? norm(form.target_tw4) : null,
             pic_tim_kerja_ids: form.pic_tim_kerja_ids,
         };
         if (isEdit) {
@@ -215,7 +337,11 @@ function IkuDialog({ open, onClose, jenis, timKerjas, masterSasarans, indikator 
                         </div>
                         <div className="grid gap-1.5">
                             <Label>Target Tahunan</Label>
-                            <Input placeholder="—" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} />
+                            <Input
+                                placeholder={targetPlaceholder(form.satuan)}
+                                value={form.target}
+                                onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                            />
                         </div>
                     </div>
                     <div>
@@ -224,7 +350,8 @@ function IkuDialog({ open, onClose, jenis, timKerjas, masterSasarans, indikator 
                             {(['tw1','tw2','tw3','tw4'] as const).map(tw => (
                                 <div key={tw} className="grid gap-1">
                                     <Label className="text-xs">TW {tw.slice(-1)}</Label>
-                                    <Input className="h-8 text-xs" placeholder="—"
+                                    <Input className="h-8 text-xs"
+                                        placeholder={targetPlaceholder(form.satuan)}
                                         value={form[`target_${tw}`]}
                                         onChange={e => setForm(f => ({ ...f, [`target_${tw}`]: e.target.value }))} />
                                 </div>
@@ -258,7 +385,7 @@ function IkuDialog({ open, onClose, jenis, timKerjas, masterSasarans, indikator 
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, timKerjas }: Props) {
+export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, timKerjas, pks }: Props) {
     const [ikuDlg,      setIkuDlg]      = useState<{ open: boolean; indikator?: Indikator }>({ open: false });
     const [masterDlg,   setMasterDlg]   = useState(false);
     const [deleteDlg,   setDeleteDlg]   = useState<{ open: boolean; id: number | null; label: string }>({ open: false, id: null, label: '' });
@@ -310,6 +437,9 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                         <span className={`font-bold ${filledTgt === totalIku ? 'text-green-600' : 'text-amber-600'}`}>{filledTgt}/{totalIku}</span>
                     </div>
                 </div>
+
+                {/* PK Status Panel */}
+                <PkStatusPanel pks={pks} />
 
                 {/* Main Table */}
                 <div className="rounded-xl border shadow-sm overflow-hidden">

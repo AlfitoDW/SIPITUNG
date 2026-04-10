@@ -6,6 +6,7 @@ import {
     HandCoins,
     FolderOpen,
     BellRingIcon,
+    Activity,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -17,6 +18,11 @@ const ketuaTimNav: NavGroup[] = [
                 title: 'Dashboard',
                 href: '/ketua-tim/dashboard',
                 icon: LayoutDashboard,
+            },
+            {
+                title: 'Monitoring',
+                href: '/ketua-tim/monitoring',
+                icon: Activity,
             },
         ],
     },
@@ -31,14 +37,12 @@ const ketuaTimNav: NavGroup[] = [
                         title: 'Awal',
                         children: [
                             { title: 'Penyusunan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/persiapan' },
-                            { title: 'Progress',   href: '/ketua-tim/perencanaan/perjanjian-kinerja/awal/progress'  },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
                             { title: 'Penyusunan', href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/persiapan' },
-                            { title: 'Progress',   href: '/ketua-tim/perencanaan/perjanjian-kinerja/revisi/progress'  },
                         ],
                     },
                 ],
@@ -49,11 +53,7 @@ const ketuaTimNav: NavGroup[] = [
                 children: [
                     {
                         title: 'Penyusunan',
-                        href : '/ketua-tim/perencanaan/rencana-aksi/penyusunan',
-                    },
-                    {
-                        title: 'Progress',
-                        href : '/ketua-tim/perencanaan/rencana-aksi/progress',
+                        href: '/ketua-tim/perencanaan/rencana-aksi/penyusunan',
                     },
                 ],
             },
@@ -82,16 +82,16 @@ const ketuaTimNav: NavGroup[] = [
     {
         label: 'Lainnya',
         items: [
-            {
-                title: 'Dokumen',
-                href: '/ketua-tim/dokumen',
-                icon: FolderOpen,
-            },
-            {
-                title: 'Notifikasi',
-                href: '/ketua-tim/notifikasi',
-                icon: BellRingIcon,
-            }
+            // {
+            //     title: 'Dokumen',
+            //     href: '/ketua-tim/dokumen',
+            //     icon: FolderOpen,
+            // },
+            // {
+            //     title: 'Notifikasi',
+            //     href: '/ketua-tim/notifikasi',
+            //     icon: BellRingIcon,
+            // }
         ],
     },
 ];

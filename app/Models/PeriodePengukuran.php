@@ -16,6 +16,7 @@ class PeriodePengukuran extends Model
         'tanggal_mulai',
         'tanggal_selesai',
         'is_active',
+        'rekomendasi_pimpinan',
     ];
 
     protected function casts(): array

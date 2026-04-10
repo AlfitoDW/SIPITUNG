@@ -71,14 +71,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 const STATUS_LABELS: Record<string, string> = {
     submitted:      'Menunggu Review',
     kabag_approved: 'Disetujui Kabag',
-    ppk_approved:   'Selesai',
+    ppk_approved:   'Disetujui PPK',
     rejected:       'Dikembalikan',
 };
 
 const STATUS_CLASSES: Record<string, string> = {
     submitted:      'bg-amber-50 text-amber-700 border-amber-300',
-    kabag_approved: 'bg-blue-50 text-blue-700 border-blue-300',
-    ppk_approved:   'bg-green-50 text-green-700 border-green-300',
+    kabag_approved: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+    ppk_approved:   'bg-teal-50 text-teal-700 border-teal-300',
     rejected:       'bg-red-50 text-red-700 border-red-300',
 };
 
@@ -98,6 +98,10 @@ function rejectUrl(type: string, id: number): string {
     if (type === 'pk_awal' || type === 'pk_revisi') return `/pimpinan/perencanaan/perjanjian-kinerja/${id}/reject`;
     if (type === 'ra') return `/pimpinan/perencanaan/rencana-aksi/${id}/reject`;
     return `/pimpinan/pengukuran/${id}/reject`;
+}
+
+function rejectedCount(items: { status: string }[]): number {
+    return items.filter(i => i.status === 'rejected').length;
 }
 
 function pendingCount(items: { status: string }[], role: Role): number {
@@ -122,12 +126,20 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-function TabCount({ count }: { count: number }) {
-    if (count === 0) return null;
+function TabCount({ count, rejCount }: { count: number; rejCount?: number }) {
     return (
-        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
-            {count}
-        </span>
+        <>
+            {count > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
+                    {count}
+                </span>
+            )}
+            {(rejCount ?? 0) > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                    {rejCount}
+                </span>
+            )}
+        </>
     );
 }
 
@@ -363,30 +375,54 @@ function ItemsTable<T extends AnyItem>({
                         <TableHead>Tim Kerja</TableHead>
                         {extraCol && <TableHead>Periode</TableHead>}
                         <TableHead className="w-40">Status</TableHead>
+                        <TableHead>Catatan Penolakan</TableHead>
                         <TableHead className="w-40">Terakhir Diupdate</TableHead>
                         <TableHead className="w-36 text-center">Aksi</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {items.map((item, idx) => (
-                        <TableRow key={item.id} className={item.status === (role === 'kabag_umum' ? 'submitted' : 'kabag_approved') ? 'bg-amber-50/40' : ''}>
-                            <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{item.tim_kerja_nama}</TableCell>
-                            {extraCol && <TableCell>{extraCol(item)}</TableCell>}
-                            <TableCell><StatusBadge status={item.status} /></TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                                {'submitted_at' in item
-                                    ? (item as unknown as LaporanItem).submitted_at ?? '—'
-                                    : (item as unknown as PkItem | RaItem).updated_at}
-                            </TableCell>
-                            <TableCell className="text-center">
-                                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onOpen(item)}>
-                                    <Eye className="h-3.5 w-3.5" />
-                                    {canAct(item.status, type, role) ? 'Review' : 'Detail'}
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                    {items.map((item, idx) => {
+                        const isRejected = item.status === 'rejected';
+                        const catatan = ('rekomendasi_kabag' in item ? (item as unknown as RaItem).rekomendasi_kabag : null);
+                        return (
+                            <TableRow
+                                key={item.id}
+                                className={isRejected
+                                    ? 'bg-red-50/50 dark:bg-red-950/10'
+                                    : item.status === (role === 'kabag_umum' ? 'submitted' : 'kabag_approved')
+                                        ? 'bg-amber-50/40'
+                                        : ''}
+                            >
+                                <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
+                                <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                        {isRejected && <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+                                        {item.tim_kerja_nama}
+                                    </div>
+                                </TableCell>
+                                {extraCol && <TableCell>{extraCol(item)}</TableCell>}
+                                <TableCell><StatusBadge status={item.status} /></TableCell>
+                                <TableCell className="max-w-[200px]">
+                                    {isRejected && catatan ? (
+                                        <span className="text-xs text-red-700 dark:text-red-400 line-clamp-2">{catatan}</span>
+                                    ) : (
+                                        <span className="text-muted-foreground/40 text-xs">—</span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                    {'submitted_at' in item
+                                        ? (item as unknown as LaporanItem).submitted_at ?? '—'
+                                        : (item as unknown as PkItem | RaItem).updated_at}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onOpen(item)}>
+                                        <Eye className="h-3.5 w-3.5" />
+                                        {canAct(item.status, type, role) ? 'Review' : 'Detail'}
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
                 </TableBody>
             </Table>
         </div>
@@ -421,11 +457,16 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
         });
     }
 
-    const pkAwalPending   = pendingCount(pks_awal, role);
-    const pkRevisiPending = pendingCount(pks_revisi, role);
-    const raPending       = pendingCount(ras, role);
-    const laporanPending  = role === 'kabag_umum' ? laporans.filter(l => l.status === 'submitted').length : 0;
-    const totalPending    = pkAwalPending + pkRevisiPending + raPending + laporanPending;
+    const pkAwalPending    = pendingCount(pks_awal, role);
+    const pkRevisiPending  = pendingCount(pks_revisi, role);
+    const raPending        = pendingCount(ras, role);
+    const laporanPending   = role === 'kabag_umum' ? laporans.filter(l => l.status === 'submitted').length : 0;
+    const totalPending     = pkAwalPending + pkRevisiPending + raPending + laporanPending;
+
+    const pkAwalRej    = rejectedCount(pks_awal);
+    const pkRevisiRej  = rejectedCount(pks_revisi);
+    const raRej        = rejectedCount(ras);
+    const laporanRej   = rejectedCount(laporans);
 
     const typeLabel: Record<string, string> = {
         pk_awal:  'Perjanjian Kinerja Awal',
@@ -459,16 +500,16 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                 <Tabs defaultValue="pk_awal">
                     <TabsList className="mb-4">
                         <TabsTrigger value="pk_awal">
-                            PK Awal <TabCount count={pkAwalPending} />
+                            PK Awal <TabCount count={pkAwalPending} rejCount={pkAwalRej} />
                         </TabsTrigger>
                         <TabsTrigger value="pk_revisi">
-                            PK Revisi <TabCount count={pkRevisiPending} />
+                            PK Revisi <TabCount count={pkRevisiPending} rejCount={pkRevisiRej} />
                         </TabsTrigger>
                         <TabsTrigger value="ra">
-                            Rencana Aksi <TabCount count={raPending} />
+                            Rencana Aksi <TabCount count={raPending} rejCount={raRej} />
                         </TabsTrigger>
                         <TabsTrigger value="laporan">
-                            Pengukuran <TabCount count={laporanPending} />
+                            Pengukuran <TabCount count={laporanPending} rejCount={laporanRej} />
                         </TabsTrigger>
                     </TabsList>
 

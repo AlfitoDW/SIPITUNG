@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\KetuaTim;
 
 use App\Http\Controllers\Controller;
+use App\Models\LaporanPengukuran;
+use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\PermohonanDana;
 use App\Models\RencanaAksi;
@@ -19,18 +21,46 @@ class DashboardController extends Controller
         $tahun      = TahunAnggaran::forSession();
 
         // ── Perencanaan ───────────────────────────────────────────────────────────
+        // PK adalah dokumen global milik TK-PK — semua tim bisa lihat statusnya
         $pkAwal = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)->where('jenis', 'awal')
-            ->select('id', 'status')->first() : null;
+            ->where('jenis', 'awal')
+            ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
         $pkRevisi = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)->where('jenis', 'revisi')
-            ->select('id', 'status')->first() : null;
+            ->where('jenis', 'revisi')
+            ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
+        // Ambil RA dengan status TERBAIK untuk tim ini agar card dashboard selalu akurat.
+        // Tanpa ordering, ->first() bisa mengembalikan RA Draft meskipun ada yang Submitted.
         $ra = $tahun ? RencanaAksi::withCount('indikators')
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $timKerjaId)
-            ->select('id', 'status')->first() : null;
+            ->select('id', 'status')
+            ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
+            ->first() : null;
+
+        // ── Pengukuran Kinerja — laporan triwulan aktif ───────────────────────────
+        $pengukuran = null;
+        if ($tahun) {
+            $periodeAktif = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+                ->where('is_active', true)
+                ->orderByRaw("FIELD(triwulan,'TW1','TW2','TW3','TW4')")
+                ->first();
+
+            if ($periodeAktif) {
+                // Ambil laporan terbaik tim ini untuk periode aktif
+                $myLaporan = LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
+                    ->where('periode_pengukuran_id', $periodeAktif->id)
+                    ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
+                    ->first();
+
+                $pengukuran = [
+                    'status'      => $myLaporan?->status,
+                    'triwulan'    => $periodeAktif->triwulan,
+                    'approved_at' => $myLaporan?->approved_at?->format('d M Y'),
+                ];
+            }
+        }
 
         // ── Keuangan — Permohonan Dana ─────────────────────────────────────────
         $pdCounts = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
@@ -51,13 +81,14 @@ class DashboardController extends Controller
             : 0;
 
         return Inertia::render('KetuaTim/Dashboard', [
-            'user'     => $user,
-            'timKerja' => $user->timkerja,
-            'tahun'    => $tahun,
-            'pkAwal'   => $pkAwal,
-            'pkRevisi' => $pkRevisi,
-            'ra'       => $ra,
-            'permohonan' => [
+            'user'        => $user,
+            'timKerja'    => $user->timkerja,
+            'tahun'       => $tahun,
+            'pkAwal'      => $pkAwal,
+            'pkRevisi'    => $pkRevisi,
+            'ra'          => $ra,
+            'pengukuran'  => $pengukuran,
+            'permohonan'  => [
                 'draft'             => $pdCounts->get('draft', 0),
                 'submitted'         => $pdCounts->get('submitted', 0),
                 'kabag_approved'    => $pdCounts->get('kabag_approved', 0),

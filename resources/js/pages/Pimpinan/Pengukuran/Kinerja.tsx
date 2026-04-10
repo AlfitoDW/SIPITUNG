@@ -1,12 +1,14 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { Eye, FileText } from 'lucide-react';
+import { Eye, FileText, Save, MessageSquareText } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran', href: '#' },
@@ -33,6 +35,8 @@ type Props = {
     periodes: Periode[];
     periode: Periode | null;
     matrix: MatrixRow[];
+    role: string | null;
+    rekomendasi_pimpinan: string | null;
     // laporans & role still passed from controller but not used here — approval moved to hub
 };
 
@@ -145,8 +149,15 @@ function groupBySasaran(rows: MatrixRow[]) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 
-export default function Kinerja({ tahun, periodes, periode, matrix }: Props) {
+export default function Kinerja({ tahun, periodes, periode, matrix, role, rekomendasi_pimpinan }: Props) {
     const [detail, setDetail] = useState<MatrixRow | null>(null);
+
+    const rekForm = useForm({
+        periode_id:           periode?.id?.toString() ?? '',
+        rekomendasi_pimpinan: rekomendasi_pimpinan ?? '',
+    });
+
+    const isKabagUmum = role === 'kabag_umum';
 
     function changePeriode(id: string) {
         router.get('/pimpinan/pengukuran/kinerja', { periode_id: id }, { preserveState: false });
@@ -327,6 +338,68 @@ export default function Kinerja({ tahun, periodes, periode, matrix }: Props) {
                     tw={periode?.triwulan ?? ''}
                     onClose={() => setDetail(null)}
                 />
+            )}
+
+            {/* ─── Rekomendasi Pimpinan Form (Kabag Umum only) ─────────────────── */}
+            {isKabagUmum && periode && (
+                <div className="px-4 md:px-6 pb-6">
+                    <div className="rounded-xl border bg-card shadow-sm">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-5 py-4 border-b bg-muted/30 rounded-t-xl">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                                <MessageSquareText className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold">Rekomendasi Pimpinan</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Isi rekomendasi untuk {TW_LABELS[periode.triwulan] ?? periode.triwulan}. Akan otomatis tampil saat export PDF.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Form */}
+                        <form
+                            onSubmit={e => {
+                                e.preventDefault();
+                                rekForm.post('/pimpinan/pengukuran/rekomendasi');
+                            }}
+                            className="p-5 flex flex-col gap-4"
+                        >
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="rekomendasi-pimpinan" className="text-sm">
+                                    Rekomendasi {TW_LABELS[periode.triwulan] ?? periode.triwulan}
+                                </Label>
+                                <Textarea
+                                    id="rekomendasi-pimpinan"
+                                    rows={5}
+                                    placeholder={`Tuliskan rekomendasi pimpinan untuk ${TW_LABELS[periode.triwulan] ?? periode.triwulan} di sini...`}
+                                    value={rekForm.data.rekomendasi_pimpinan}
+                                    onChange={e => rekForm.setData('rekomendasi_pimpinan', e.target.value)}
+                                    className="resize-none text-sm"
+                                />
+                                {rekForm.errors.rekomendasi_pimpinan && (
+                                    <p className="text-xs text-destructive">{rekForm.errors.rekomendasi_pimpinan}</p>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                {(rekForm as any).recentlySuccessful && (
+                                    <p className="text-xs text-green-600 font-medium">✓ Rekomendasi berhasil disimpan.</p>
+                                )}
+                                {!((rekForm as any).recentlySuccessful) && <span />}
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={rekForm.processing}
+                                    className="gap-1.5"
+                                >
+                                    <Save className="h-3.5 w-3.5" />
+                                    Simpan Rekomendasi
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
         </AppLayout>
     );

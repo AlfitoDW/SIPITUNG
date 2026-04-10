@@ -1,8 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Printer } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
 
 type TimKerja  = { id: number; nama: string };
 type MatrixRow = {
@@ -29,6 +28,7 @@ type Props   = {
     periode: Periode;
     matrix: MatrixRow[];
     laporans: LaporanItem[];
+    rekomendasi_pimpinan: string | null;
 };
 
 const TW_LABELS: Record<string, string> = {
@@ -89,9 +89,7 @@ function PicNumbered({ pics }: { pics: TimKerja[] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function ExportPdf({ tahun, periode, matrix, laporans }: Props) {
-    const [rekomendasiPimpinan, setRekomendasiPimpinan] = useState('');
-
+export default function ExportPdf({ tahun, periode, matrix, laporans, rekomendasi_pimpinan }: Props) {
     const groups   = groupBySasaran(matrix);
     const twLabel  = TW_LABELS[periode.triwulan] ?? periode.triwulan;
     let no = 1;
@@ -101,14 +99,25 @@ export default function ExportPdf({ tahun, periode, matrix, laporans }: Props) {
             <Head title={`Laporan Kinerja ${twLabel} ${tahun.tahun}`} />
 
             {/* ─── Screen toolbar ───────────────────────────────────── */}
-            <div className="flex justify-end gap-2 p-4 print:hidden">
-                <Button onClick={() => window.print()} className="gap-2">
+            <div className="flex flex-col items-end gap-2 p-4 print:hidden">
+                <Button
+                    onClick={() => {
+                        const prev = document.title;
+                        document.title = '';
+                        window.print();
+                        document.title = prev;
+                    }}
+                    className="gap-2"
+                >
                     <Printer className="h-4 w-4" /> Cetak / Simpan PDF
                 </Button>
+                <p className="text-muted-foreground text-xs">
+                    Jika masih muncul URL di header/footer, nonaktifkan opsi <strong>Headers and footers</strong> di dialog cetak browser.
+                </p>
             </div>
 
             {/* ─── Document ─────────────────────────────────────────── */}
-            <div style={{ ...docFont, maxWidth: '794px', margin: '0 auto', padding: '24px 32px', backgroundColor: '#fff' }}>
+            <div id="print-wrapper" style={{ ...docFont, maxWidth: '794px', margin: '0 auto', padding: '24px 32px', backgroundColor: '#fff' }}>
 
                 {/* ── Kop Surat ──────────────────────────────────────── */}
                 <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '3px solid #000' }}>
@@ -257,40 +266,26 @@ export default function ExportPdf({ tahun, periode, matrix, laporans }: Props) {
                 <div style={{ marginTop: '24px' }}>
                     <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '8px' }}>C. Rekomendasi Pimpinan</p>
 
-                    {/* Screen: editable textarea */}
-                    <div className="print:hidden mb-2">
-                        <p className="text-xs text-muted-foreground mb-1">
-                            Isi rekomendasi pimpinan sebelum mencetak:
-                        </p>
-                        <Textarea
-                            rows={5}
-                            placeholder="Tuliskan rekomendasi pimpinan di sini..."
-                            value={rekomendasiPimpinan}
-                            onChange={e => setRekomendasiPimpinan(e.target.value)}
-                            className="font-serif text-sm"
-                        />
-                    </div>
-
-                    {/* Print: show text */}
+                    {/* Display rekomendasi from server */}
                     <div style={{ ...docFont, paddingLeft: '8px', minHeight: '80px' }}>
-                        {rekomendasiPimpinan
-                            ? rekomendasiPimpinan.split('\n').map((line, i) => (
+                        {rekomendasi_pimpinan
+                            ? rekomendasi_pimpinan.split('\n').map((line, i) => (
                                 <p key={i} style={{ margin: '0 0 4px' }}>{line || <br />}</p>
                             ))
                             : (
-                                // Show placeholder lines for manual fill-in when printed without input
-                                <p style={{ color: '#9ca3af', fontStyle: 'italic' }} className="print:hidden">
-                                    (belum diisi)
-                                </p>
+                                // When not yet filled: show placeholder on screen, dotted lines for print
+                                <>
+                                    <p style={{ color: '#9ca3af', fontStyle: 'italic' }} className="print:hidden">
+                                        (belum diisi — isi di halaman Pengukuran Kinerja)
+                                    </p>
+                                    <div className="hidden print:block">
+                                        {[1, 2, 3, 4, 5].map(i => (
+                                            <p key={i} style={{ margin: '0 0 14px', borderBottom: '1px dotted #999', width: '100%' }}>&nbsp;</p>
+                                        ))}
+                                    </div>
+                                </>
                             )
                         }
-                        {!rekomendasiPimpinan && (
-                            <div className="hidden print:block">
-                                {[1, 2, 3, 4, 5].map(i => (
-                                    <p key={i} style={{ margin: '0 0 14px', borderBottom: '1px dotted #999', width: '100%' }}>&nbsp;</p>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -301,14 +296,13 @@ export default function ExportPdf({ tahun, periode, matrix, laporans }: Props) {
                     <tbody>
                         <tr>
                             <td style={{ ...docFont, width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '4px' }}>
-                                <p style={{ margin: 0 }}>Mengetahui,</p>
-                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Kepala Bagian Umum</p>
+                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Kepala LLDIKTI Wilayah III</p>
                                 <div style={{ height: '64px' }}></div>
                                 <p style={{ margin: 0 }}>(__________________________)</p>
                             </td>
                             <td style={{ ...docFont, width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '4px' }}>
                                 <p style={{ margin: 0 }}>Jakarta, ___________________</p>
-                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Kepala LLDIKTI Wilayah III</p>
+                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Mengetahui</p>
                                 <div style={{ height: '64px' }}></div>
                                 <p style={{ margin: 0 }}>(__________________________)</p>
                             </td>
@@ -319,8 +313,18 @@ export default function ExportPdf({ tahun, periode, matrix, laporans }: Props) {
 
             <style>{`
                 @media print {
-                    @page { size: A4 portrait; margin: 1.5cm; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    @page {
+                        size: A4 portrait;
+                        margin: 0;
+                    }
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    /* Beri padding pada konten agar tidak mepet tepi */
+                    #print-wrapper {
+                        padding: 1.5cm 1.8cm;
+                    }
                     .print\\:hidden { display: none !important; }
                     .hidden.print\\:block { display: block !important; }
                 }

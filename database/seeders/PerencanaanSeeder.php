@@ -28,7 +28,7 @@ class PerencanaanSeeder extends Seeder
 
         // Bersihkan data lama untuk tahun ini agar re-seed tidak nabrak
         MasterSasaran::where('tahun_anggaran_id', $tahun->id)->delete();
-        $pkIds = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->pluck('id');
+        $pkIds      = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->pluck('id');
         $sasaranIds = Sasaran::whereIn('perjanjian_kinerja_id', $pkIds)->pluck('id');
         \DB::table('indikator_kinerja_pic')->whereIn('indikator_kinerja_id',
             IndikatorKinerja::whereIn('sasaran_id', $sasaranIds)->pluck('id')
@@ -51,8 +51,10 @@ class PerencanaanSeeder extends Seeder
         $sasaranNamas = $this->getSasaranNamas();
         $ikuMaster    = $this->getIkuMaster();
         $twMaster     = $this->getTwMaster();
+        $picPrimerMap = $this->getPicPrimerMap();
+        $coPicMap     = $this->getCoPicMap();
 
-        // Seed master sasaran (sumber tunggal untuk dropdown di halaman Penyusunan)
+        // Seed master sasaran
         foreach ($sasaranNamas as $kode => $nama) {
             MasterSasaran::create([
                 'tahun_anggaran_id' => $tahun->id,
@@ -62,117 +64,114 @@ class PerencanaanSeeder extends Seeder
             ]);
         }
 
-        // Mapping: kode_tim_kerja (BARU) => [ 'S x' => ['IKU x.y', ...] ]
-        $tkIkuMap = $this->getTkIkuMap();
+        // ── PK Awal & Revisi: SATU PK milik TK-PK, berisi SEMUA IKU ────────────
+        $tkPk  = TimKerja::where('kode', 'TK-PK')->firstOrFail();
+        $ketua = User::where('tim_kerja_id', $tkPk->id)->where('role', 'ketua_tim_kerja')->first();
+        $createdBy = $ketua?->id ?? 1;
 
-        // Co-PIC mapping: kode_iku => [kode_tim_kerja_co, ...]
-        $coPicMap = $this->getCoPicMap();
+        $pkAwal = PerjanjianKinerja::firstOrCreate(
+            ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $tkPk->id, 'jenis' => 'awal'],
+            ['status' => 'draft', 'created_by' => $createdBy]
+        );
 
-        // Seed setiap tim kerja
-        foreach ($tkIkuMap as $tkKode => $sasaranMap) {
-            $timKerja = TimKerja::where('kode', $tkKode)->first();
-            if (! $timKerja) continue;
+        // Mapping sasaran → IKU untuk PK (semua IKU, diurutkan kode sasaran → kode IKU)
+        $pkIkuMap = $this->getPkIkuMap();
+        $ikuRecords = []; // kode_iku => IndikatorKinerja (dari PK Awal)
 
-            $ketua = User::where('tim_kerja_id', $timKerja->id)
-                ->where('role', 'ketua_tim_kerja')
-                ->first();
-            $createdBy = $ketua?->id ?? 1;
-
-            // ── PK Awal ─────────────────────────────────────────────────────
-            $pk = PerjanjianKinerja::firstOrCreate(
-                ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id, 'jenis' => 'awal'],
-                ['status' => 'draft', 'created_by' => $createdBy]
+        foreach ($pkIkuMap as $sasKode => $ikuKodes) {
+            $sasaran = Sasaran::firstOrCreate(
+                ['perjanjian_kinerja_id' => $pkAwal->id, 'kode' => $sasKode],
+                ['nama' => $sasaranNamas[$sasKode], 'urutan' => (int) str_replace('S ', '', $sasKode)]
             );
 
-            $ikuRecords = []; // kode_iku => IndikatorKinerja
+            foreach ($ikuKodes as $urutan => $ikuKode) {
+                $ikuData      = $ikuMaster[$ikuKode];
+                $tw           = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
+                $picPrimer    = TimKerja::where('kode', $picPrimerMap[$ikuKode])->first();
 
-            foreach ($sasaranMap as $sasKode => $ikuKodes) {
-                $sasaran = Sasaran::firstOrCreate(
-                    ['perjanjian_kinerja_id' => $pk->id, 'kode' => $sasKode],
-                    ['nama' => $sasaranNamas[$sasKode], 'urutan' => (int) str_replace('S ', '', $sasKode)]
+                $iku = IndikatorKinerja::firstOrCreate(
+                    ['sasaran_id' => $sasaran->id, 'kode' => $ikuKode],
+                    [
+                        'nama'             => $ikuData['nama'],
+                        'satuan'           => $ikuData['satuan'],
+                        'target'           => $ikuData['target'],
+                        'target_tw1'       => $tw['tw1'],
+                        'target_tw2'       => $tw['tw2'],
+                        'target_tw3'       => $tw['tw3'],
+                        'target_tw4'       => $tw['tw4'],
+                        'urutan'           => $urutan + 1,
+                        'pic_tim_kerja_id' => $picPrimer?->id,
+                    ]
                 );
 
-                foreach ($ikuKodes as $ikuUrutan => $ikuKode) {
-                    $ikuData = $ikuMaster[$ikuKode];
-                    $tw      = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
-                    $iku = IndikatorKinerja::firstOrCreate(
-                        ['sasaran_id' => $sasaran->id, 'kode' => $ikuKode],
-                        [
-                            'nama'             => $ikuData['nama'],
-                            'satuan'           => $ikuData['satuan'],
-                            'target'           => $ikuData['target'],
-                            'target_tw1'       => $tw['tw1'],
-                            'target_tw2'       => $tw['tw2'],
-                            'target_tw3'       => $tw['tw3'],
-                            'target_tw4'       => $tw['tw4'],
-                            'urutan'           => $ikuUrutan + 1,
-                            'pic_tim_kerja_id' => $timKerja->id,
-                        ]
-                    );
-
-                    // Pastikan primary PIC ada di pivot
-                    $iku->picTimKerjas()->syncWithoutDetaching([$timKerja->id]);
-                    $ikuRecords[$ikuKode] = $iku;
+                // Primary PIC di pivot
+                if ($picPrimer) {
+                    $iku->picTimKerjas()->syncWithoutDetaching([$picPrimer->id]);
                 }
-            }
-
-            // Tambah co-PICs ke pivot
-            foreach ($ikuRecords as $ikuKode => $iku) {
-                if (isset($coPicMap[$ikuKode])) {
-                    foreach ($coPicMap[$ikuKode] as $coPicKode) {
-                        $coPic = TimKerja::where('kode', $coPicKode)->first();
-                        if ($coPic) {
-                            $iku->picTimKerjas()->syncWithoutDetaching([$coPic->id]);
-                        }
+                // Co-PICs di pivot
+                foreach ($coPicMap[$ikuKode] ?? [] as $coPicKode) {
+                    $coPic = TimKerja::where('kode', $coPicKode)->first();
+                    if ($coPic) {
+                        $iku->picTimKerjas()->syncWithoutDetaching([$coPic->id]);
                     }
                 }
-            }
 
-            // ── PK Revisi (copy langsung dari PK Awal — single source of truth) ──
-            $pkRevisi = PerjanjianKinerja::firstOrCreate(
-                ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id, 'jenis' => 'revisi'],
-                ['status' => 'draft', 'created_by' => $createdBy]
+                $ikuRecords[$ikuKode] = $iku;
+            }
+        }
+
+        // PK Revisi: copy langsung dari PK Awal
+        $pkRevisi            = PerjanjianKinerja::firstOrCreate(
+            ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $tkPk->id, 'jenis' => 'revisi'],
+            ['status' => 'draft', 'created_by' => $createdBy]
+        );
+        $pkAwalSasaransLoaded = Sasaran::where('perjanjian_kinerja_id', $pkAwal->id)
+            ->with(['indikators.picTimKerjas'])
+            ->get();
+
+        foreach ($pkAwalSasaransLoaded as $sasAwal) {
+            $sasRevisi = Sasaran::firstOrCreate(
+                ['perjanjian_kinerja_id' => $pkRevisi->id, 'kode' => $sasAwal->kode],
+                ['nama' => $sasAwal->nama, 'urutan' => $sasAwal->urutan]
             );
-
-            $pkAwalSasaransLoaded = Sasaran::where('perjanjian_kinerja_id', $pk->id)
-                ->with(['indikators.picTimKerjas'])
-                ->get();
-
-            foreach ($pkAwalSasaransLoaded as $sasAwal) {
-                $sasRevisi = Sasaran::firstOrCreate(
-                    ['perjanjian_kinerja_id' => $pkRevisi->id, 'kode' => $sasAwal->kode],
-                    ['nama' => $sasAwal->nama, 'urutan' => $sasAwal->urutan]
+            foreach ($sasAwal->indikators as $ikuAwal) {
+                $ikuRevisi = IndikatorKinerja::firstOrCreate(
+                    ['sasaran_id' => $sasRevisi->id, 'kode' => $ikuAwal->kode],
+                    [
+                        'nama'             => $ikuAwal->nama,
+                        'satuan'           => $ikuAwal->satuan,
+                        'target'           => $ikuAwal->target,
+                        'target_tw1'       => $ikuAwal->target_tw1,
+                        'target_tw2'       => $ikuAwal->target_tw2,
+                        'target_tw3'       => $ikuAwal->target_tw3,
+                        'target_tw4'       => $ikuAwal->target_tw4,
+                        'urutan'           => $ikuAwal->urutan,
+                        'pic_tim_kerja_id' => $ikuAwal->pic_tim_kerja_id,
+                    ]
                 );
-
-                foreach ($sasAwal->indikators as $ikuAwal) {
-                    $ikuRevisi = IndikatorKinerja::firstOrCreate(
-                        ['sasaran_id' => $sasRevisi->id, 'kode' => $ikuAwal->kode],
-                        [
-                            'nama'             => $ikuAwal->nama,
-                            'satuan'           => $ikuAwal->satuan,
-                            'target'           => $ikuAwal->target,
-                            'target_tw1'       => $ikuAwal->target_tw1,
-                            'target_tw2'       => $ikuAwal->target_tw2,
-                            'target_tw3'       => $ikuAwal->target_tw3,
-                            'target_tw4'       => $ikuAwal->target_tw4,
-                            'urutan'           => $ikuAwal->urutan,
-                            'pic_tim_kerja_id' => $ikuAwal->pic_tim_kerja_id,
-                        ]
-                    );
-                    // Copy semua PIC (primary + co-PIC) dari PK Awal
-                    $ikuRevisi->picTimKerjas()->syncWithoutDetaching(
-                        $ikuAwal->picTimKerjas->pluck('id')->all()
-                    );
-                }
+                $ikuRevisi->picTimKerjas()->syncWithoutDetaching(
+                    $ikuAwal->picTimKerjas->pluck('id')->all()
+                );
             }
+        }
 
-            // ── Rencana Aksi ─────────────────────────────────────────────────
-            $pkAwalSasarans = Sasaran::where('perjanjian_kinerja_id', $pk->id)
-                ->pluck('id', 'kode');
+        // ── Rencana Aksi: tetap per tim berdasarkan pic_tim_kerjas ──────────────
+        // Ambil sasaran_id dari PK Awal TK-PK (sumber tunggal)
+        $pkAwalSasarans = Sasaran::where('perjanjian_kinerja_id', $pkAwal->id)
+            ->pluck('id', 'kode'); // ['S 1' => id, ...]
+
+        $raIkuMap = $this->getRaIkuMap();
+
+        foreach ($raIkuMap as $tkKode => $sasaranMap) {
+            $timKerja  = TimKerja::where('kode', $tkKode)->first();
+            if (! $timKerja) continue;
+
+            $ketua2    = User::where('tim_kerja_id', $timKerja->id)->where('role', 'ketua_tim_kerja')->first();
+            $createdBy2 = $ketua2?->id ?? 1;
 
             $ra = RencanaAksi::firstOrCreate(
                 ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id],
-                ['status' => 'draft', 'created_by' => $createdBy]
+                ['status' => 'draft', 'created_by' => $createdBy2]
             );
 
             $raUrutan = 1;
@@ -200,7 +199,7 @@ class PerencanaanSeeder extends Seeder
             }
         }
 
-        // ── Seed RealisasiKinerja TW1 (demo data — cascadeOnDelete handles cleanup) ──
+        // ── Seed RealisasiKinerja TW1 ────────────────────────────────────────────
         $periodeTw1 = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
             ->where('triwulan', 'TW1')
             ->first();
@@ -208,56 +207,37 @@ class PerencanaanSeeder extends Seeder
         if ($periodeTw1) {
             $realisasiMaster = $this->getRealisasiTw1Master();
 
-            foreach ($tkIkuMap as $tkKode => $sasaranMap) {
-                $timKerja = TimKerja::where('kode', $tkKode)->first();
-                if (! $timKerja) continue;
+            // Realisasi diinput oleh tim kerja PIC primer masing-masing IKU
+            foreach ($ikuRecords as $ikuKode => $iku) {
+                $data = $realisasiMaster[$ikuKode] ?? null;
+                if (! $data) continue;
 
-                $ketua = User::where('tim_kerja_id', $timKerja->id)
-                    ->where('role', 'ketua_tim_kerja')
-                    ->first();
-                $createdBy = $ketua?->id ?? 1;
+                $picPrimerKode = $picPrimerMap[$ikuKode];
+                $timKerjaPic   = TimKerja::where('kode', $picPrimerKode)->first();
+                $ketuaPic      = $timKerjaPic
+                    ? User::where('tim_kerja_id', $timKerjaPic->id)->where('role', 'ketua_tim_kerja')->first()
+                    : null;
 
-                $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-                    ->where('tim_kerja_id', $timKerja->id)
-                    ->where('jenis', 'awal')
-                    ->first();
-                if (! $pk) continue;
-
-                foreach ($sasaranMap as $sasKode => $ikuKodes) {
-                    $sasaran = Sasaran::where('perjanjian_kinerja_id', $pk->id)
-                        ->where('kode', $sasKode)
-                        ->first();
-                    if (! $sasaran) continue;
-
-                    foreach ($ikuKodes as $ikuKode) {
-                        $iku  = IndikatorKinerja::where('sasaran_id', $sasaran->id)
-                            ->where('kode', $ikuKode)
-                            ->first();
-                        $data = $realisasiMaster[$ikuKode] ?? null;
-                        if (! $iku || ! $data) continue;
-
-                        RealisasiKinerja::updateOrCreate(
-                            [
-                                'indikator_kinerja_id' => $iku->id,
-                                'periode_pengukuran_id' => $periodeTw1->id,
-                            ],
-                            [
-                                'input_by_tim_kerja_id'  => $timKerja->id,
-                                'realisasi'              => $data['realisasi'],
-                                'progress_kegiatan'      => $data['progress_kegiatan'],
-                                'kendala'                => $data['kendala'],
-                                'strategi_tindak_lanjut' => $data['strategi_tindak_lanjut'],
-                                'catatan'                => null,
-                                'created_by'             => $createdBy,
-                            ]
-                        );
-                    }
-                }
+                RealisasiKinerja::updateOrCreate(
+                    [
+                        'indikator_kinerja_id'  => $iku->id,
+                        'periode_pengukuran_id' => $periodeTw1->id,
+                    ],
+                    [
+                        'input_by_tim_kerja_id'  => $timKerjaPic?->id,
+                        'realisasi'              => $data['realisasi'],
+                        'progress_kegiatan'      => $data['progress_kegiatan'],
+                        'kendala'                => $data['kendala'],
+                        'strategi_tindak_lanjut' => $data['strategi_tindak_lanjut'],
+                        'catatan'                => null,
+                        'created_by'             => $ketuaPic?->id ?? 1,
+                    ]
+                );
             }
         }
     }
 
-    // ─── Data Masters ────────────────────────────────────────────────────────────
+    // ─── Data Masters ─────────────────────────────────────────────────────────
 
     private function getSasaranNamas(): array
     {
@@ -300,57 +280,65 @@ class PerencanaanSeeder extends Seeder
     }
 
     /**
-     * Mapping Tim Kerja → Sasaran → IKU (primary PIC)
-     * Berdasarkan Lembar Kerja Penyusunan Target Kinerja 2025-2029 (358_M_KEP_2025)
+     * PK IKU Map: satu PK untuk TK-PK berisi SEMUA sasaran dan IKU.
+     * Urutan array menentukan urutan tampil.
      */
-    private function getTkIkuMap(): array
+    private function getPkIkuMap(): array
     {
         return [
-            // S1: Kualitas Layanan → PIC: Humas & Kerja Sama
-            'TK-HMK' => [
-                'S 1' => ['IKU 1.1'],
-            ],
-            // S1: Arsitektur PTS → PIC primer: Penjaminan Mutu
-            // S2: Fasilitasi Mutu Pembelajaran → PIC primer: Penjaminan Mutu
-            'TK-PENJAMU' => [
-                'S 1' => ['IKU 1.2'],
-                'S 2' => ['IKU 2.1'],
-            ],
-            // S2: Mahasiswa MBKM → PIC: Pembelajaran, Kemahasiswaan & Prestasi
-            'TK-BELMAWA' => [
-                'S 2' => ['IKU 2.2'],
-            ],
-            // S2: Anti Intoleransi → PIC: Anti Dosa Pendidikan & Integritas Akademik
-            'TK-ADIA' => [
-                'S 2' => ['IKU 2.3'],
-            ],
-            // S3: Dosen Berkegiatan → PIC: Sumber Daya
-            'TK-SD' => [
-                'S 3' => ['IKU 3.1'],
-            ],
-            // S3: Prodi Bekerja Sama → PIC primer: Riset & Pengabdian Masyarakat
-            'TK-RPM' => [
-                'S 3' => ['IKU 3.2'],
-            ],
-            // S4: SAKIP + Kinerja Anggaran → PIC primer: Perencanaan & Keuangan
-            'TK-PK' => [
-                'S 4' => ['IKU 4.1', 'IKU 4.2'],
-            ],
+            'S 1' => ['IKU 1.1', 'IKU 1.2'],
+            'S 2' => ['IKU 2.1', 'IKU 2.2', 'IKU 2.3'],
+            'S 3' => ['IKU 3.1', 'IKU 3.2'],
+            'S 4' => ['IKU 4.1', 'IKU 4.2'],
         ];
     }
 
     /**
-     * Co-PIC tambahan per IKU (selain primary PIC)
-     * Berdasarkan kolom "PIC IKU" di Excel (nama dipisah titik koma)
+     * PIC primer per IKU (tim kerja yang bertanggung jawab utama).
+     */
+    private function getPicPrimerMap(): array
+    {
+        return [
+            'IKU 1.1' => 'TK-HMK',
+            'IKU 1.2' => 'TK-PENJAMU',
+            'IKU 2.1' => 'TK-PENJAMU',
+            'IKU 2.2' => 'TK-BELMAWA',
+            'IKU 2.3' => 'TK-ADIA',
+            'IKU 3.1' => 'TK-SD',
+            'IKU 3.2' => 'TK-RPM',
+            'IKU 4.1' => 'TK-PK',
+            'IKU 4.2' => 'TK-PK',
+        ];
+    }
+
+    /**
+     * Co-PIC tambahan per IKU (selain primary PIC).
      */
     private function getCoPicMap(): array
     {
         return [
-            'IKU 1.2' => ['TK-KK'],           // Kelembagaan & Kemitraan juga PIC
-            'IKU 2.1' => ['TK-BELMAWA'],      // Belmawa juga co-PIC fasilitasi mutu
-            'IKU 3.2' => ['TK-KK'],           // Kelembagaan & Kemitraan co-PIC penelitian
-            'IKU 4.1' => ['TK-HKT'],          // HKT co-PIC SAKIP
-            'IKU 4.2' => ['TK-HKT'],          // HKT co-PIC Kinerja Anggaran
+            'IKU 1.2' => ['TK-KK'],
+            'IKU 2.1' => ['TK-BELMAWA'],
+            'IKU 3.2' => ['TK-KK'],
+            'IKU 4.1' => ['TK-HKT'],
+            'IKU 4.2' => ['TK-HKT'],
+        ];
+    }
+
+    /**
+     * RA IKU Map: tetap per tim kerja berdasarkan PIC primer.
+     * Sasaran referensi diambil dari PK Awal TK-PK.
+     */
+    private function getRaIkuMap(): array
+    {
+        return [
+            'TK-HMK'    => ['S 1' => ['IKU 1.1']],
+            'TK-PENJAMU' => ['S 1' => ['IKU 1.2'], 'S 2' => ['IKU 2.1']],
+            'TK-BELMAWA' => ['S 2' => ['IKU 2.2']],
+            'TK-ADIA'    => ['S 2' => ['IKU 2.3']],
+            'TK-SD'      => ['S 3' => ['IKU 3.1']],
+            'TK-RPM'     => ['S 3' => ['IKU 3.2']],
+            'TK-PK'      => ['S 4' => ['IKU 4.1', 'IKU 4.2']],
         ];
     }
 

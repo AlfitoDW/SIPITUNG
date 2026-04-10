@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\LaporanPengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
+use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,14 +37,15 @@ class PersetujuanController extends Controller
 
         $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->whereNotIn('status', ['draft'])
-            ->orderByRaw("FIELD(status,'submitted','kabag_approved','rejected','ppk_approved')")
+            ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
+            ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
             ->get()
             ->map(fn ($ra) => $this->mapRa($ra));
 
         $laporans = LaporanPengukuran::with(['timKerja', 'periode'])
             ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
-            ->whereNotIn('status', ['draft'])
+            ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
+            ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
             ->orderBy('periode_pengukuran_id')
             ->orderBy('tim_kerja_id')
             ->get()
@@ -97,6 +100,32 @@ class PersetujuanController extends Controller
 
     private function mapRa(RencanaAksi $ra): array
     {
+        $indikators = $ra->indikators;
+
+        // Co-PIC: RA tidak punya RAI sendiri → tampilkan RAI dari RA primary PIC
+        if ($indikators->isEmpty()) {
+            $sharedIkuKodes = DB::table('indikator_kinerja_pic')
+                ->join('indikator_kinerja', 'indikator_kinerja.id', '=', 'indikator_kinerja_pic.indikator_kinerja_id')
+                ->join('sasaran', 'sasaran.id', '=', 'indikator_kinerja.sasaran_id')
+                ->join('perjanjian_kinerja', 'perjanjian_kinerja.id', '=', 'sasaran.perjanjian_kinerja_id')
+                ->where('perjanjian_kinerja.tahun_anggaran_id', $ra->tahun_anggaran_id)
+                ->where('perjanjian_kinerja.jenis', 'awal')
+                ->where('indikator_kinerja_pic.tim_kerja_id', $ra->tim_kerja_id)
+                ->pluck('indikator_kinerja.kode')
+                ->all();
+
+            if (! empty($sharedIkuKodes)) {
+                $otherRaIds = RencanaAksi::where('tahun_anggaran_id', $ra->tahun_anggaran_id)
+                    ->where('id', '!=', $ra->id)
+                    ->pluck('id');
+
+                $indikators = RencanaAksiIndikator::with('sasaran')
+                    ->whereIn('rencana_aksi_id', $otherRaIds)
+                    ->whereIn('kode', $sharedIkuKodes)
+                    ->get();
+            }
+        }
+
         return [
             'id'                => $ra->id,
             'tim_kerja_nama'    => $ra->timKerja?->nama ?? '',
@@ -106,7 +135,7 @@ class PersetujuanController extends Controller
             'rekomendasi_ppk'   => $ra->rekomendasi_ppk,
             'rejected_by'       => $ra->rejected_by,
             'updated_at'        => $ra->updated_at?->format('d M Y H:i'),
-            'indikators'        => $ra->indikators->map(fn ($i) => [
+            'indikators'        => $indikators->map(fn ($i) => [
                 'id'         => $i->id,
                 'kode'       => $i->kode,
                 'nama'       => $i->nama,

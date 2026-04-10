@@ -36,14 +36,12 @@ const superAdminNav: NavGroup[] = [
                         title: 'Awal',
                         children: [
                             { title: 'Penyusunan', href: '/super-admin/perencanaan/perjanjian-kinerja/awal/penyusunan' },
-                            { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/awal/progress'   },
                         ],
                     },
                     {
                         title: 'Revisi',
                         children: [
                             { title: 'Penyusunan', href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/penyusunan' },
-                            { title: 'Progress',   href: '/super-admin/perencanaan/perjanjian-kinerja/revisi/progress'   },
                         ],
                     },
                     { title: 'Matriks PK', href: '/super-admin/perencanaan/perjanjian-kinerja/matriks' },
@@ -56,10 +54,6 @@ const superAdminNav: NavGroup[] = [
                     {
                         title: 'Penyusunan',
                         href: '/super-admin/perencanaan/rencana-aksi/penyusunan',
-                    },
-                    {
-                        title: 'Progress',
-                        href: '/super-admin/perencanaan/rencana-aksi/progress',
                     },
                 ],
             },

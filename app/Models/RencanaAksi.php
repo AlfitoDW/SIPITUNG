@@ -13,6 +13,7 @@ class RencanaAksi extends Model
     protected $fillable = [
         'tahun_anggaran_id',
         'tim_kerja_id',
+        'peer_tim_kerja_id',
         'status',
         'created_by',
         'rekomendasi_kabag',
@@ -27,9 +28,8 @@ class RencanaAksi extends Model
     public function isDraft(): bool          { return $this->status === 'draft'; }
     public function isSubmitted(): bool      { return $this->status === 'submitted'; }
     public function isKabagApproved(): bool  { return $this->status === 'kabag_approved'; }
-    public function isPpkApproved(): bool    { return $this->status === 'ppk_approved'; }
     public function isRejected(): bool       { return $this->status === 'rejected'; }
-    public function isLocked(): bool         { return $this->status === 'ppk_approved'; }
+    public function isLocked(): bool         { return $this->status === 'kabag_approved'; }
     public function isEditable(): bool       { return in_array($this->status, ['draft', 'rejected']); }
 
     public function tahunAnggaran(): BelongsTo
@@ -40,6 +40,12 @@ class RencanaAksi extends Model
     public function timKerja(): BelongsTo
     {
         return $this->belongsTo(TimKerja::class, 'tim_kerja_id');
+    }
+
+    /** Tim kolaborator (partner) untuk RA ini. Null = RA mandiri/solo. */
+    public function peerTimKerja(): BelongsTo
+    {
+        return $this->belongsTo(TimKerja::class, 'peer_tim_kerja_id');
     }
 
     public function createdBy(): BelongsTo

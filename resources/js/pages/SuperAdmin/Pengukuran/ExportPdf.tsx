@@ -72,9 +72,14 @@ export default function ExportPdf({ tahun, matrix }: Props) {
         <>
             <Head title={`Export Realisasi Kinerja ${tahun.tahun}`} />
 
-            <div className="p-4 print:p-0">
+            <div className="p-4">
                 <div className="flex justify-end mb-4 print:hidden">
-                    <Button onClick={() => window.print()} className="gap-2">
+                    <Button onClick={() => {
+                        const prev = document.title;
+                        document.title = '';
+                        window.print();
+                        document.title = prev;
+                    }} className="gap-2">
                         <Printer className="h-4 w-4" /> Cetak / Simpan PDF
                     </Button>
                 </div>
@@ -184,8 +189,18 @@ export default function ExportPdf({ tahun, matrix }: Props) {
 
             <style>{`
                 @media print {
-                    @page { size: A3 landscape; margin: 1cm; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    @page {
+                        size: A3 landscape;
+                        margin: 0;
+                    }
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    /* Margin dokumen via padding wrapper */
+                    .p-4 {
+                        padding: 1cm 1.2cm !important;
+                    }
                     .print\\:hidden { display: none !important; }
                 }
             `}</style>

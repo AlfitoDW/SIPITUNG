@@ -8,17 +8,14 @@ use Illuminate\Http\RedirectResponse;
 use App\Models\IndikatorKinerja;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
+use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PerencanaanController extends Controller
 {
-    private function isPpk(): bool
-    {
-        return auth()->user()->pimpinan_type === 'ppk';
-    }
-
     // views
 
     public function pkAwal(): Response
@@ -61,7 +58,6 @@ class PerencanaanController extends Controller
         $user  = auth()->user();
 
         // Build PIC lookup: [sasaran_id][kode] → picTimKerjas
-        // Hanya dari PK Awal milik tahun ini
         $ikuPics = IndikatorKinerja::with('picTimKerjas')
             ->whereHas('sasaran.perjanjianKinerja', fn ($q) => $q
                 ->where('tahun_anggaran_id', $tahun->id)
@@ -71,10 +67,20 @@ class PerencanaanController extends Controller
             ->groupBy('sasaran_id')
             ->map(fn ($ikus) => $ikus->keyBy('kode'));
 
-        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
+        // Hanya ambil RA yang punya indikator sendiri (primary PIC) atau yang submitted
+        // RA co-PIC (KK) yang kosong tidak perlu ditampilkan terpisah — mereka hanya blocker
+        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja', 'peerTimKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
+            ->whereHas('indikators')  // hanya RA yang punya indikator (primary PIC)
+            ->orWhere(function ($q) use ($tahun) {
+                // Atau RA yang sudah di-submit meski kosong (edge case)
+                $q->where('tahun_anggaran_id', $tahun->id)
+                  ->whereIn('status', ['submitted', 'kabag_approved', 'rejected']);
+            })
             ->get()
-            ->map(function ($ra) use ($ikuPics) {
+            // Deduplicate — pastikan tidak ada duplikat RA berdasarkan ID
+            ->unique('id')
+            ->map(function ($ra) use ($ikuPics, $tahun) {
                 $grouped = $ra->indikators->groupBy('sasaran_id');
 
                 $sasarans = $grouped->map(function ($indikators) use ($ikuPics) {
@@ -97,12 +103,17 @@ class PerencanaanController extends Controller
                 })->values();
 
                 return [
-                    'id'        => $ra->id,
-                    'status'    => $ra->status,
-                    'tim_kerja' => $ra->timKerja,
-                    'sasarans'  => $sasarans,
+                    'id'               => $ra->id,
+                    'status'           => $ra->status,
+                    'rekomendasi_kabag'=> $ra->rekomendasi_kabag,
+                    'tim_kerja'        => $ra->timKerja,
+                    'peer_tim_kerja'   => $ra->peerTimKerja
+                        ? $ra->peerTimKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
+                        : null,
+                    'sasarans'         => $sasarans,
                 ];
-            });
+            })
+            ->values();
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,
@@ -111,89 +122,64 @@ class PerencanaanController extends Controller
         ]);
     }
 
+
     //PK Actions
     public function pkApprove(Request $request, PerjanjianKinerja $pk): RedirectResponse
     {
-        $request->validate(['rekomendasi'=> 'nullable|string|max:1000']);
+        $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
-        $user = auth() ->user();
-
-        if($user->pimpinan_type === 'kabag_umum'){
-            abort_if($pk->status !== 'submitted', 422, 'Status tidak valid.');
-            $pk->update([
-                'status'  => 'kabag_approved',
-                'rekomendasi_kabag' => $request->rekomendasi,
-            ]);
-        } else {
-            abort_if($pk->status !== 'kabag_approved', 422 , 'Status tidak Valid.');
-            $pk->update([
-                'status' => 'ppk_approved',
-                'rekomendasi_ppk' => $request->rekomendasi,
-            ]);
-        }
-        return back()->with('success', "PK {$pk->timKerja->nama_singkat} berhasil disetujui.");
-    }
-    
-    public function pkReject(Request $request, PerjanjianKinerja $pk) : RedirectResponse
-    {
-        $request ->validate(['rekomendasi' => 'nullable|string|max:1000']);
-
-        $user   = auth()->user();
-        $expectedStatus = $user->pimpinan_type === 'kabag_umum' ? 'submitted' : 'kabag_approved';
-        $rekomendasiKey = $user->pimpinan_type === 'kabag_umum' ? 'rekomendasi_kabag' : 'rekomendasi_ppk';
-
-        abort_if($pk->status !== $expectedStatus, 422, 'Status tidak valid');
+        abort_if($pk->status !== 'submitted', 422, 'Status tidak valid.');
 
         $pk->update([
-            'status'    => 'rejected',
-            'rejected_by' => $user->pimpinan_type,
-            $rekomendasiKey => $request->rekomendasi,
+            'status'            => 'kabag_approved',
+            'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
         ]);
 
-        return back()->with('success', "PK {$pk->timKerja->nama_singkat} ditolak." );
+        return back()->with('success', "PK {$pk->timKerja->nama_singkat} berhasil disetujui.");
+    }
 
+    public function pkReject(Request $request, PerjanjianKinerja $pk): RedirectResponse
+    {
+        $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
+
+        abort_if($pk->status !== 'submitted', 422, 'Status tidak valid.');
+
+        $pk->update([
+            'status'            => 'rejected',
+            'rejected_by'       => 'kabag_umum',
+            'rekomendasi_kabag' => $request->rekomendasi,
+        ]);
+
+        return back()->with('success', "PK {$pk->timKerja->nama_singkat} ditolak.");
     }
 
     // RA Actions
-     public function raApprove(Request $request, RencanaAksi $ra): RedirectResponse
-      {
-          $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
+    public function raApprove(Request $request, RencanaAksi $ra): RedirectResponse
+    {
+        $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
-          $user = auth()->user();
+        abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
-          if ($user->pimpinan_type === 'kabag_umum') {
-              abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
-              $ra->update([
-                  'status'            => 'kabag_approved',
-                  'rekomendasi_kabag' => $request->rekomendasi,
-              ]);
-          } else {
-              abort_if($ra->status !== 'kabag_approved', 422, 'Status tidak valid.');
-              $ra->update([
-                  'status'          => 'ppk_approved',
-                  'rekomendasi_ppk' => $request->rekomendasi,
-              ]);
-          }
+        $ra->update([
+            'status'            => 'kabag_approved',
+            'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
+        ]);
 
-          return back()->with('success', "RA {$ra->timKerja->nama_singkat} berhasil disetujui.");
-      }
+        return back()->with('success', "RA {$ra->timKerja->nama_singkat} berhasil disetujui.");
+    }
 
-      public function raReject(Request $request, RencanaAksi $ra): RedirectResponse
-      {
-          $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
+    public function raReject(Request $request, RencanaAksi $ra): RedirectResponse
+    {
+        $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
-          $user           = auth()->user();
-          $expectedStatus = $user->pimpinan_type === 'kabag_umum' ? 'submitted' : 'kabag_approved';
-          $rekomendasiKey = $user->pimpinan_type === 'kabag_umum' ? 'rekomendasi_kabag' : 'rekomendasi_ppk';
+        abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
-          abort_if($ra->status !== $expectedStatus, 422, 'Status tidak valid.');
+        $ra->update([
+            'status'            => 'rejected',
+            'rejected_by'       => 'kabag_umum',
+            'rekomendasi_kabag' => $request->rekomendasi,
+        ]);
 
-          $ra->update([
-              'status'        => 'rejected',
-              'rejected_by'   => $user->pimpinan_type,
-              $rekomendasiKey => $request->rekomendasi,
-          ]);
-
-          return back()->with('success', "RA {$ra->timKerja->nama_singkat} ditolak.");
-      }
+        return back()->with('success', "RA {$ra->timKerja->nama_singkat} ditolak.");
+    }
 }

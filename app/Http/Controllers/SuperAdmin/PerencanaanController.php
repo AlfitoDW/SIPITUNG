@@ -28,6 +28,7 @@ class PerencanaanController extends Controller
             'tahun'     => $tahun,
             'jenis'     => 'awal',
             'timKerjas' => $timKerjas,
+            'pks'       => $this->buildPkStatusList($tahun->id, 'awal'),
             ...$this->buildFlatPkData($tahun->id, 'awal'),
         ]);
     }
@@ -41,8 +42,31 @@ class PerencanaanController extends Controller
             'tahun'     => $tahun,
             'jenis'     => 'revisi',
             'timKerjas' => $timKerjas,
+            'pks'       => $this->buildPkStatusList($tahun->id, 'revisi'),
             ...$this->buildFlatPkData($tahun->id, 'revisi'),
         ]);
+    }
+
+    private function buildPkStatusList(int $tahunId, string $jenis): array
+    {
+        return PerjanjianKinerja::with('timKerja:id,nama,kode,nama_singkat')
+            ->where('tahun_anggaran_id', $tahunId)
+            ->where('jenis', $jenis)
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($pk) => [
+                'id'                => $pk->id,
+                'status'            => $pk->status,
+                'rekomendasi_kabag' => $pk->rekomendasi_kabag,
+                'tim_kerja'         => $pk->timKerja ? [
+                    'id'           => $pk->timKerja->id,
+                    'nama'         => $pk->timKerja->nama,
+                    'kode'         => $pk->timKerja->kode,
+                    'nama_singkat' => $pk->timKerja->nama_singkat,
+                ] : null,
+            ])
+            ->values()
+            ->all();
     }
 
     private function buildFlatPkData(int $tahunId, string $jenis): array
@@ -325,10 +349,14 @@ class PerencanaanController extends Controller
 
     public function pkReopen(PerjanjianKinerja $pk): RedirectResponse
     {
-        abort_if($pk->status !== 'ppk_approved', 422, 'Hanya dokumen yang sudah terkunci dapat dibuka kembali.');
-        $pk->update(['status' => 'draft']);
+        abort_if(
+            ! in_array($pk->status, ['submitted', 'kabag_approved']),
+            422,
+            'Hanya dokumen yang sedang diproses atau sudah disetujui yang dapat dibuka kembali.'
+        );
+        $pk->update(['status' => 'draft', 'rekomendasi_kabag' => null]);
 
-        return back()->with('success', "PK {$pk->timKerja->nama_singkat} dibuka kembali.");
+        return back()->with('success', "PK {$pk->timKerja->nama_singkat} berhasil dibuka kembali ke Draft.");
     }
 
     // ─── RA Reopen ──────────────────────────────────────────────────────────────

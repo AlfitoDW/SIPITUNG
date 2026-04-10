@@ -37,11 +37,13 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
 
     // ─── Pengukuran ───────────────────────────────────────────────────────────────
     Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
-        Route::get('/kinerja',              [PengukuranController::class, 'kinerja'])->name('kinerja');
-        Route::post('/{laporan}/approve',   [PengukuranController::class, 'approve'])->name('approve');
-        Route::post('/{laporan}/reject',    [PengukuranController::class, 'reject'])->name('reject');
-        Route::get('/export/pdf',           [PengukuranController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/kinerja',               [PengukuranController::class, 'kinerja'])->name('kinerja');
+        Route::post('/{laporan}/approve',    [PengukuranController::class, 'approve'])->name('approve');
+        Route::post('/{laporan}/reject',     [PengukuranController::class, 'reject'])->name('reject');
+        Route::post('/rekomendasi',          [PengukuranController::class, 'saveRekomendasi'])->name('rekomendasi.save');
+        Route::get('/export/pdf',            [PengukuranController::class, 'exportPdf'])->name('export.pdf');
     });
+
 
     // ─── Keuangan ─────────────────────────────────────────────────────────────────
     Route::prefix('keuangan')->name('keuangan.')->group(function () {

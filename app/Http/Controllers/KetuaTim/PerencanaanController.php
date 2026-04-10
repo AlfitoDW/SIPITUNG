@@ -9,8 +9,10 @@ use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
 use App\Models\Sasaran;
 use App\Models\TahunAnggaran;
+use App\Models\TimKerja;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,33 +25,34 @@ class PerencanaanController extends Controller
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        // PK milik tim ini (hanya untuk status, submit, approval)
-        $ownPk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+        // Satu PK awal untuk semua (milik TK-PK); tim lain hanya view
+        $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
             ->first();
 
-        [$ownIkuCount, $ownFilledCount] = $this->countOwnPkIkus($ownPk);
-        $collaboratorSubmittedBy = $this->findCollaboratorSubmitted($tahun->id, $timKerjaId, 'awal');
+        $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
+        $canInit = $request->user()->timkerja?->kode === 'TK-PK';
 
         return Inertia::render('KetuaTim/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
-            'tahun'                  => $tahun,
-            'pk'                     => $ownPk ? [
-                'id'                => $ownPk->id,
-                'status'            => $ownPk->status,
-                'rekomendasi_kabag' => $ownPk->rekomendasi_kabag,
-                'rekomendasi_ppk'   => $ownPk->rekomendasi_ppk,
-                'rejected_by'       => $ownPk->rejected_by,
+            'tahun'   => $tahun,
+            'pk'      => $pk ? [
+                'id'                => $pk->id,
+                'status'            => $pk->status,
+                'rekomendasi_kabag' => $pk->rekomendasi_kabag,
             ] : null,
-            'sasarans'               => $this->buildSasaransForPic($tahun->id, $timKerjaId, 'awal'),
-            'ownIkuCount'            => $ownIkuCount,
-            'ownFilledCount'         => $ownFilledCount,
-            'collaboratorSubmittedBy'=> $collaboratorSubmittedBy,
+            'sasarans' => $pk ? $this->buildPkSasarans($pk) : [],
+            'isOwner'  => $isOwner,
+            'canInit'  => $canInit,
         ]);
     }
 
     public function pkAwalInit(Request $request): RedirectResponse
     {
+        abort_unless(
+            $request->user()->timkerja?->kode === 'TK-PK',
+            403, 'Hanya Tim Perencanaan dan Keuangan yang dapat membuat Perjanjian Kinerja.'
+        );
+
         $tahun = TahunAnggaran::forSession();
 
         PerjanjianKinerja::firstOrCreate(
@@ -62,13 +65,20 @@ class PerencanaanController extends Controller
 
     public function pkAwalSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::forSession();
-        $pk    = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $request->user()->tim_kerja_id)
+        abort_unless(
+            $request->user()->timkerja?->kode === 'TK-PK',
+            403, 'Hanya Tim Perencanaan dan Keuangan yang dapat mengajukan Perjanjian Kinerja.'
+        );
+
+        $tahun      = TahunAnggaran::forSession();
+        $timKerjaId = $request->user()->tim_kerja_id;
+        $pk         = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+            ->where('tim_kerja_id', $timKerjaId)
             ->where('jenis', 'awal')
             ->firstOrFail();
 
         abort_if(! $pk->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
         $pk->update(['status' => 'submitted']);
 
         return redirect()->route('ketua-tim.perencanaan.pk.awal.persiapan')
@@ -82,32 +92,34 @@ class PerencanaanController extends Controller
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        $ownPk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+        // Satu PK revisi untuk semua (milik TK-PK); tim lain hanya view
+        $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'revisi')
             ->first();
 
-        [$ownIkuCount, $ownFilledCount] = $this->countOwnPkIkus($ownPk);
-        $collaboratorSubmittedBy = $this->findCollaboratorSubmitted($tahun->id, $timKerjaId, 'revisi');
+        $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
+        $canInit = $request->user()->timkerja?->kode === 'TK-PK';
 
         return Inertia::render('KetuaTim/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
-            'tahun'                  => $tahun,
-            'pk'                     => $ownPk ? [
-                'id'                => $ownPk->id,
-                'status'            => $ownPk->status,
-                'rekomendasi_kabag' => $ownPk->rekomendasi_kabag,
-                'rekomendasi_ppk'   => $ownPk->rekomendasi_ppk,
-                'rejected_by'       => $ownPk->rejected_by,
+            'tahun'    => $tahun,
+            'pk'       => $pk ? [
+                'id'                => $pk->id,
+                'status'            => $pk->status,
+                'rekomendasi_kabag' => $pk->rekomendasi_kabag,
             ] : null,
-            'sasarans'               => $this->buildSasaransForPic($tahun->id, $timKerjaId, 'revisi'),
-            'ownIkuCount'            => $ownIkuCount,
-            'ownFilledCount'         => $ownFilledCount,
-            'collaboratorSubmittedBy'=> $collaboratorSubmittedBy,
+            'sasarans' => $pk ? $this->buildPkSasarans($pk) : [],
+            'isOwner'  => $isOwner,
+            'canInit'  => $canInit,
         ]);
     }
 
     public function pkRevisiInit(Request $request): RedirectResponse
     {
+        abort_unless(
+            $request->user()->timkerja?->kode === 'TK-PK',
+            403, 'Hanya Tim Perencanaan dan Keuangan yang dapat membuat Perjanjian Kinerja.'
+        );
+
         $tahun = TahunAnggaran::forSession();
 
         PerjanjianKinerja::firstOrCreate(
@@ -120,32 +132,39 @@ class PerencanaanController extends Controller
 
     public function pkRevisiSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::forSession();
-        $pk    = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $request->user()->tim_kerja_id)
+        abort_unless(
+            $request->user()->timkerja?->kode === 'TK-PK',
+            403, 'Hanya Tim Perencanaan dan Keuangan yang dapat mengajukan Perjanjian Kinerja.'
+        );
+
+        $tahun      = TahunAnggaran::forSession();
+        $timKerjaId = $request->user()->tim_kerja_id;
+        $pk         = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+            ->where('tim_kerja_id', $timKerjaId)
             ->where('jenis', 'revisi')
             ->firstOrFail();
 
         abort_if(! $pk->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
         $pk->update(['status' => 'submitted']);
 
         return redirect()->route('ketua-tim.perencanaan.pk.revisi.persiapan')
             ->with('success', 'Perjanjian Kinerja Revisi berhasil disubmit.');
     }
 
-    // ─── Update Target IKU (PK) — primary PIC atau co-PIC boleh ────────────────
+    // ─── Update Target IKU (PK) — hanya pemilik PK ──────────────────────────────
 
     public function indikatorTargetUpdate(Request $request, IndikatorKinerja $indikator): RedirectResponse
     {
+        abort_unless(
+            $request->user()->timkerja?->kode === 'TK-PK',
+            403, 'Hanya Tim Perencanaan dan Keuangan yang dapat mengubah target IKU.'
+        );
+
         $pk         = $indikator->sasaran->perjanjianKinerja;
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        $isOwner = $pk->tim_kerja_id === $timKerjaId;
-        $isCoPic = ! $isOwner && $indikator->picTimKerjas()
-            ->where('tim_kerja.id', $timKerjaId)
-            ->exists();
-
-        abort_if(! $isOwner && ! $isCoPic, 403);
+        abort_if($pk->tim_kerja_id !== $timKerjaId, 403);
         abort_if(! $pk->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
         $data = $request->validate(['target' => ['required', 'string', 'max:50']]);
@@ -197,88 +216,56 @@ class PerencanaanController extends Controller
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        // RA milik tim ini (untuk status, submit, approval)
-        $ownRa = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
-            ->first();
+        // Bangun kelompok kolaborasi RA
+        $collabGroups = $this->buildRaCollabGroups($tahun->id, $timKerjaId);
 
-        // Sasaran IDs dari PK Awal di mana tim ini adalah PIC (primary atau co-PIC)
-        $sasaranIds = Sasaran::whereHas('perjanjianKinerja', fn ($q) =>
-            $q->where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal')
-        )->whereHas('indikators.picTimKerjas', fn ($q) =>
-            $q->where('tim_kerja.id', $timKerjaId)
-        )->pluck('id');
+        // Kumpulkan semua sasaran/indikator yang ditampilkan per group
+        $groupsData = [];
+        foreach ($collabGroups as $group) {
+            $raInds = RencanaAksiIndikator::with('sasaran')
+                ->whereIn('id', $group['ra_ind_ids'])
+                ->orderBy('kode')
+                ->get();
 
-        // Auto-create RA jika tim punya sasaran (primary atau co-PIC) tapi belum punya RA
-        if (! $ownRa && $sasaranIds->isNotEmpty()) {
-            $ownRa = RencanaAksi::create([
-                'tahun_anggaran_id' => $tahun->id,
-                'tim_kerja_id'      => $timKerjaId,
-                'status'            => 'draft',
-                'created_by'        => $request->user()->id,
-            ]);
-        }
-
-        [$ownRaIndCount, $ownRaFilledCount] = $this->countOwnRaInds($ownRa);
-        $collaboratorSubmittedBy = $this->findCollaboratorSubmittedRa($tahun->id, $timKerjaId);
-
-        // RA indikator dari SEMUA RA (bisa milik tim lain) untuk sasaran tersebut
-        $raInds = RencanaAksiIndikator::with('sasaran')
-            ->whereIn('sasaran_id', $sasaranIds)
-            ->orderBy('kode')
-            ->get();
-
-        $sasaranMap = [];
-        foreach ($raInds as $ind) {
-            $s = $ind->sasaran;
-            if (! $s) continue;
-            if (! isset($sasaranMap[$s->kode])) {
-                $sasaranMap[$s->kode] = [
-                    'id'         => $s->id,
-                    'kode'       => $s->kode,
-                    'nama'       => $s->nama,
-                    'indikators' => [],
+            $sasaranMap = [];
+            foreach ($raInds as $ind) {
+                $s = $ind->sasaran;
+                if (! $s) continue;
+                if (! isset($sasaranMap[$s->kode])) {
+                    $sasaranMap[$s->kode] = [
+                        'id' => $s->id, 'kode' => $s->kode, 'nama' => $s->nama,
+                        'indikators' => [],
+                    ];
+                }
+                $sasaranMap[$s->kode]['indikators'][] = [
+                    'id'         => $ind->id,
+                    'kode'       => $ind->kode,
+                    'nama'       => $ind->nama,
+                    'satuan'     => $ind->satuan,
+                    'target'     => $ind->target,
+                    'target_tw1' => $ind->target_tw1,
+                    'target_tw2' => $ind->target_tw2,
+                    'target_tw3' => $ind->target_tw3,
+                    'target_tw4' => $ind->target_tw4,
                 ];
             }
-            $sasaranMap[$s->kode]['indikators'][] = [
-                'id'         => $ind->id,
-                'kode'       => $ind->kode,
-                'nama'       => $ind->nama,
-                'satuan'     => $ind->satuan,
-                'target'     => $ind->target,
-                'target_tw1' => $ind->target_tw1,
-                'target_tw2' => $ind->target_tw2,
-                'target_tw3' => $ind->target_tw3,
-                'target_tw4' => $ind->target_tw4,
-            ];
+            ksort($sasaranMap);
+
+            $groupsData[] = array_merge(
+                $group,
+                ['sasarans' => array_values($sasaranMap)]
+            );
         }
-        ksort($sasaranMap);
 
         return Inertia::render('KetuaTim/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun'                  => $tahun,
-            'ownRaIndCount'          => $ownRaIndCount,
-            'ownRaFilledCount'       => $ownRaFilledCount,
-            'ra'                     => $ownRa ? [
-                'id'                => $ownRa->id,
-                'status'            => $ownRa->status,
-                'rekomendasi_kabag' => $ownRa->rekomendasi_kabag,
-                'rekomendasi_ppk'   => $ownRa->rekomendasi_ppk,
-                'rejected_by'       => $ownRa->rejected_by,
-            ] : null,
-            'sasarans'               => array_values($sasaranMap),
-            'collaboratorSubmittedBy'=> $collaboratorSubmittedBy,
+            'tahun'      => $tahun,
+            'raGroups'   => $groupsData,
         ]);
     }
 
     public function raInit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::forSession();
-
-        RencanaAksi::firstOrCreate(
-            ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $request->user()->tim_kerja_id],
-            ['status' => 'draft', 'created_by' => $request->user()->id]
-        );
-
+        // raInit sekarang tidak dibutuhkan — RA di-auto-create di buildRaCollabGroups
         return redirect()->route('ketua-tim.perencanaan.ra.penyusunan');
     }
 
@@ -313,16 +300,40 @@ class PerencanaanController extends Controller
 
     public function raSubmit(Request $request): RedirectResponse
     {
-        $tahun = TahunAnggaran::forSession();
-        $ra    = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $request->user()->tim_kerja_id)
+        $tahun          = TahunAnggaran::forSession();
+        $timKerjaId     = $request->user()->tim_kerja_id;
+        $peerTimKerjaId = $request->input('peer_tim_kerja_id');
+        $peerTimKerjaId = $peerTimKerjaId !== null ? (int) $peerTimKerjaId : null;
+
+        $ra = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
+            ->where('tim_kerja_id', $timKerjaId)
+            ->where('peer_tim_kerja_id', $peerTimKerjaId)
             ->firstOrFail();
 
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
-        $ra->update(['status' => 'submitted']);
+
+        // Cek apakah peer sudah submit RA untuk pasangan ini
+        if ($peerTimKerjaId !== null) {
+            $peerRa = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
+                ->where('tim_kerja_id', $peerTimKerjaId)
+                ->where('peer_tim_kerja_id', $timKerjaId)
+                ->whereIn('status', ['submitted', 'kabag_approved'])
+                ->first();
+
+            if ($peerRa) {
+                $peerName = $peerRa->timKerja?->nama_singkat ?? $peerRa->timKerja?->nama ?? 'Tim lain';
+                abort(403, "{$peerName} telah mengajukan Rencana Aksi untuk IKU bersama ini. Hanya satu tim yang dapat mengajukan.");
+            }
+        }
+
+        $ra->update(['status' => 'submitted', 'rekomendasi_kabag' => null, 'rejected_by' => null]);
+
+        $peerName = $peerTimKerjaId
+            ? (TimKerja::find($peerTimKerjaId)?->nama_singkat ?? 'tim partner')
+            : 'IKU mandiri';
 
         return redirect()->route('ketua-tim.perencanaan.ra.penyusunan')
-            ->with('success', 'Rencana Aksi berhasil disubmit.');
+            ->with('success', "Rencana Aksi kelompok {$peerName} berhasil disubmit.");
     }
 
     public function rencanaAksiProgress(Request $request): Response
@@ -344,40 +355,144 @@ class PerencanaanController extends Controller
     // ─── Helper ─────────────────────────────────────────────────────────────────
 
     /**
-     * Cek apakah ada tim lain (co-PIC) yang sudah submit PK untuk IKU yang sama.
-     * Mengembalikan nama_singkat tim tersebut, atau null jika belum ada.
+     * Bangun kelompok kolaborasi RA per pasangan (tim_kerja, peer_tim_kerja).
+     * Auto-create RA record per kelompok jika belum ada.
+     * Return array kelompok dengan info status, sasaran/IKU, dan peer.
      */
-    private function findCollaboratorSubmitted(int $tahunId, int $timKerjaId, string $jenis): ?string
+    private function buildRaCollabGroups(int $tahunId, int $timKerjaId): array
     {
-        $pk = PerjanjianKinerja::with('timKerja:id,nama_singkat,nama')
-            ->where('tahun_anggaran_id', $tahunId)
-            ->where('jenis', $jenis)
-            ->where('tim_kerja_id', '!=', $timKerjaId)
-            ->whereNotIn('status', ['draft', 'rejected'])
-            ->whereHas('sasarans.indikators.picTimKerjas', fn ($q) =>
-                $q->where('tim_kerja.id', $timKerjaId)
-            )
-            ->first();
+        // IKU semua kolaborasi tim ini dari PK Awal
+        $allIkuRows = DB::table('indikator_kinerja_pic as p1')
+            ->join('indikator_kinerja as iku', 'iku.id', '=', 'p1.indikator_kinerja_id')
+            ->join('sasaran', 'sasaran.id', '=', 'iku.sasaran_id')
+            ->join('perjanjian_kinerja', 'perjanjian_kinerja.id', '=', 'sasaran.perjanjian_kinerja_id')
+            ->where('perjanjian_kinerja.tahun_anggaran_id', $tahunId)
+            ->where('perjanjian_kinerja.jenis', 'awal')
+            ->where('p1.tim_kerja_id', $timKerjaId)
+            ->select('p1.indikator_kinerja_id')
+            ->pluck('p1.indikator_kinerja_id')
+            ->all();
 
-        return $pk ? ($pk->timKerja?->nama_singkat ?? $pk->timKerja?->nama) : null;
+        if (empty($allIkuRows)) return [];
+
+        // Kelompokkan IKU berdasarkan peer
+        $groupMap = []; // 'null' | 'peerID' => [iku_id, ...]
+        foreach ($allIkuRows as $ikuId) {
+            $otherPics = DB::table('indikator_kinerja_pic')
+                ->where('indikator_kinerja_id', $ikuId)
+                ->where('tim_kerja_id', '!=', $timKerjaId)
+                ->pluck('tim_kerja_id')
+                ->all();
+
+            if (empty($otherPics)) {
+                $groupMap['null'][] = $ikuId;
+            } else {
+                foreach ($otherPics as $peerId) {
+                    $groupMap[(string) $peerId][] = $ikuId;
+                }
+            }
+        }
+
+        // Peer info
+        $peerIds   = collect(array_keys($groupMap))->filter(fn ($k) => $k !== 'null')->map(fn ($k) => (int) $k)->all();
+        $peersById = TimKerja::whereIn('id', $peerIds)->get()->keyBy('id');
+
+        // Load/create RA records untuk setiap kelompok
+        $myRas = RencanaAksi::where('tahun_anggaran_id', $tahunId)
+            ->where('tim_kerja_id', $timKerjaId)
+            ->get()
+            ->keyBy(fn ($ra) => $ra->peer_tim_kerja_id === null ? 'null' : (string) $ra->peer_tim_kerja_id);
+
+        // Load RA peer untuk info collaborator
+        $peerRas = RencanaAksi::with('timKerja:id,nama_singkat,nama')
+            ->where('tahun_anggaran_id', $tahunId)
+            ->whereIn('tim_kerja_id', $peerIds)
+            ->get();
+
+        $result  = [];
+        $created = auth()->user();
+
+        foreach ($groupMap as $peerKey => $ikuIds) {
+            $peerId   = $peerKey === 'null' ? null : (int) $peerKey;
+            $peerInfo = $peerId ? $peersById->get($peerId) : null;
+
+            // Auto-create RA untuk kelompok ini jika belum ada
+            $myRa = $myRas->get($peerKey);
+            if (! $myRa) {
+                $myRa = RencanaAksi::create([
+                    'tahun_anggaran_id'  => $tahunId,
+                    'tim_kerja_id'       => $timKerjaId,
+                    'peer_tim_kerja_id'  => $peerId,
+                    'status'             => 'draft',
+                    'created_by'         => $created?->id ?? 1,
+                ]);
+            }
+
+            // Cek peer RA untuk pasangan ini
+            $peerRa = $peerId
+                ? $peerRas->first(fn ($ra) => $ra->tim_kerja_id === $peerId && $ra->peer_tim_kerja_id === $timKerjaId)
+                : null;
+
+            // Hitung sasaran yang relevan untuk kelompok ini:
+            // - Sasaran di mana timKerjaId adalah PIC
+            // - DAN jika ada peer: sasaran di mana peer juga PIC
+            // - DAN jika solo (null peer): sasaran di mana TIDAK ada PIC lain
+            if ($peerId !== null) {
+                $relevantSasaranIds = Sasaran::whereHas(
+                    'indikators.picTimKerjas', fn ($q) => $q->where('tim_kerja.id', $timKerjaId)
+                )->whereHas(
+                    'indikators.picTimKerjas', fn ($q) => $q->where('tim_kerja.id', $peerId)
+                )->pluck('id')->all();
+            } else {
+                // Solo: sasaran yang merupakan PIC tim ini tapi IKU-nya tidak punya PIC lain
+                $relevantSasaranIds = DB::table('sasaran')
+                    ->whereIn('id', DB::table('indikator_kinerja')
+                        ->join('indikator_kinerja_pic as p1', 'p1.indikator_kinerja_id', '=', 'indikator_kinerja.id')
+                        ->where('p1.tim_kerja_id', $timKerjaId)
+                        ->whereNotExists(function ($sub) use ($timKerjaId) {
+                            $sub->select(DB::raw(1))
+                                ->from('indikator_kinerja_pic as p2')
+                                ->whereColumn('p2.indikator_kinerja_id', 'indikator_kinerja.id')
+                                ->where('p2.tim_kerja_id', '!=', $timKerjaId);
+                        })
+                        ->pluck('indikator_kinerja.sasaran_id')
+                    )
+                    ->pluck('id')->all();
+            }
+
+            // RA indikators untuk kelompok ini (dari RA manapun — bisa milik peer/primary PIC)
+            $raInds = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)->get();
+            $raIndIds   = $raInds->pluck('id')->all();
+            $indCount   = $raInds->count();
+            $filledCount = $raInds->filter(
+                fn ($i) => $i->target_tw1 || $i->target_tw2 || $i->target_tw3 || $i->target_tw4
+            )->count();
+
+            $result[] = [
+                'peer_id'         => $peerId,
+                'peer_nama'       => $peerInfo?->nama_singkat ?? $peerInfo?->nama ?? 'Mandiri',
+                'ra'              => [
+                    'id'                => $myRa->id,
+                    'status'            => $myRa->status,
+                    'rekomendasi_kabag' => $myRa->rekomendasi_kabag,
+                ],
+                'ra_ind_ids'      => $raIndIds,
+                'ind_count'       => $indCount,
+                'filled_count'    => $filledCount,
+                'collaborator'    => ($peerRa && in_array($peerRa->status, ['submitted', 'kabag_approved'])) ? [
+                    'submitted_by' => $peerRa->timKerja?->nama_singkat ?? $peerRa->timKerja?->nama,
+                    'status'       => $peerRa->status,
+                ] : null,
+                'collab_rejected' => ($peerRa && $peerRa->status === 'rejected') ? [
+                    'submitted_by'      => $peerRa->timKerja?->nama_singkat ?? $peerRa->timKerja?->nama,
+                    'rekomendasi_kabag' => $peerRa->rekomendasi_kabag,
+                ] : null,
+            ];
+        }
+
+        return $result;
     }
 
-    /**
-     * Cek apakah ada tim lain yang sudah submit Rencana Aksi untuk IKU yang sama (co-PIC).
-     */
-    private function findCollaboratorSubmittedRa(int $tahunId, int $timKerjaId): ?string
-    {
-        $ra = RencanaAksi::with('timKerja:id,nama_singkat,nama')
-            ->where('tahun_anggaran_id', $tahunId)
-            ->where('tim_kerja_id', '!=', $timKerjaId)
-            ->whereNotIn('status', ['draft', 'rejected'])
-            ->whereHas('indikators.sasaran.indikators.picTimKerjas', fn ($q) =>
-                $q->where('tim_kerja.id', $timKerjaId)
-            )
-            ->first();
-
-        return $ra ? ($ra->timKerja?->nama_singkat ?? $ra->timKerja?->nama) : null;
-    }
 
     /**
      * Hitung total indikator RA sendiri dan yang sudah terisi target TW (bukan co-PIC).
@@ -395,65 +510,37 @@ class PerencanaanController extends Controller
     }
 
     /**
-     * Hitung total IKU dan IKU yang sudah terisi target pada PK sendiri (bukan co-PIC).
-     * @return array{int, int}  [$totalOwn, $filledOwn]
+     * Load sasaran + IKU dari PK yang diberikan.
      */
-    private function countOwnPkIkus(?PerjanjianKinerja $pk): array
+    private function buildPkSasarans(PerjanjianKinerja $pk): array
     {
-        if (! $pk) return [0, 0];
-
-        $pk->load('sasarans.indikators');
-        $ikus = $pk->sasarans->flatMap->indikators;
-
-        return [
-            $ikus->count(),
-            $ikus->filter(fn ($i) => ! empty($i->target))->count(),
-        ];
-    }
-
-    /**
-     * Load semua IKU (dari semua PK jenis $jenis) di mana tim ini adalah PIC.
-     * Menggabungkan sasaran dari berbagai PK ke satu flat list per kode sasaran.
-     */
-    private function buildSasaransForPic(int $tahunId, int $timKerjaId, string $jenis): array
-    {
-        $pks = PerjanjianKinerja::with([
+        $pk->load([
             'sasarans'              => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'   => fn ($q) => $q->whereHas(
-                'picTimKerjas', fn ($q2) => $q2->where('tim_kerja.id', $timKerjaId)
-            )->orderBy('kode'),
+            'sasarans.indikators'   => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
-        ])->where('tahun_anggaran_id', $tahunId)->where('jenis', $jenis)->get();
+        ]);
 
-        $sasaranMap = [];
-        foreach ($pks as $pk) {
-            foreach ($pk->sasarans as $s) {
-                foreach ($s->indikators as $iku) {
-                    if (! isset($sasaranMap[$s->kode])) {
-                        $sasaranMap[$s->kode] = [
-                            'id'         => $s->id,
-                            'kode'       => $s->kode,
-                            'nama'       => $s->nama,
-                            'indikators' => [],
-                        ];
-                    }
-                    $sasaranMap[$s->kode]['indikators'][] = [
-                        'id'            => $iku->id,
-                        'kode'          => $iku->kode,
-                        'nama'          => $iku->nama,
-                        'satuan'        => $iku->satuan,
-                        'target'        => $iku->target,
-                        'pic_tim_kerjas'=> $iku->picTimKerjas->map(fn ($t) => [
-                            'id'          => $t->id,
-                            'nama'        => $t->nama,
-                            'kode'        => $t->kode,
-                            'nama_singkat'=> $t->nama_singkat,
-                        ]),
-                    ];
-                }
-            }
+        $result = [];
+        foreach ($pk->sasarans as $s) {
+            $result[] = [
+                'id'         => $s->id,
+                'kode'       => $s->kode,
+                'nama'       => $s->nama,
+                'indikators' => $s->indikators->map(fn ($iku) => [
+                    'id'            => $iku->id,
+                    'kode'          => $iku->kode,
+                    'nama'          => $iku->nama,
+                    'satuan'        => $iku->satuan,
+                    'target'        => $iku->target,
+                    'pic_tim_kerjas'=> $iku->picTimKerjas->map(fn ($t) => [
+                        'id'          => $t->id,
+                        'nama'        => $t->nama,
+                        'kode'        => $t->kode,
+                        'nama_singkat'=> $t->nama_singkat,
+                    ])->toArray(),
+                ])->toArray(),
+            ];
         }
-        ksort($sasaranMap);
-        return array_values($sasaranMap);
+        return $result;
     }
 }

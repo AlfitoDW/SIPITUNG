@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tahun_anggaran_id')->constrained('tahun_anggaran')->cascadeOnDelete();
             $table->foreignId('tim_kerja_id')->constrained('tim_kerja')->cascadeOnDelete();
-            $table->enum('status', ['draft', 'submitted', 'approved', 'rejected'])->default('draft');
+            $table->enum('status', ['draft', 'submitted', 'kabag_approved', 'rejected'])->default('draft');
             $table->foreignId('created_by')->constrained('users');
             $table->timestamps();
 

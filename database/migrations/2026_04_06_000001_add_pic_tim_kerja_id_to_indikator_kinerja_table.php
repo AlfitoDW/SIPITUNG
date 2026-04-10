@@ -20,7 +20,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('indikator_kinerja', function (Blueprint $table) {
-            $table->dropForeignIdFor(\App\Models\TimKerja::class, 'pic_tim_kerja_id');
+            // Drop FK dengan nama eksplisit yang dibuat Laravel saat up()
+            $table->dropForeign('indikator_kinerja_pic_tim_kerja_id_foreign');
             $table->dropColumn('pic_tim_kerja_id');
         });
     }

@@ -15,8 +15,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (DB::getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE laporan_pengukuran MODIFY COLUMN status ENUM('draft','submitted') NOT NULL DEFAULT 'draft'");
-        }
+        // Tidak di-rollback ke ENUM yang lebih kecil karena akan menyebabkan
+        // "Data truncated" error jika tabel sudah berisi data kabag_approved/rejected.
+        // down() dibiarkan no-op; jika perlu fresh install gunakan migrate:fresh.
     }
 };

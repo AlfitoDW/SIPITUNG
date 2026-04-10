@@ -93,16 +93,16 @@ const pimpinanNav: NavGroup[] = [
     //         },
     //     ],
     // },
-    {
-        label: 'Misc',
-        items: [
-            {
-                title: 'Notifikasi',
-                href: '/pimpinan/notifikasi',
-                icon: BellRingIcon,
-            }
-        ]
-    }
+    // {
+    //     label: 'Misc',
+    //     items: [
+    //         {
+    //             title: 'Notifikasi',
+    //             href: '/pimpinan/notifikasi',
+    //             icon: BellRingIcon,
+    //         }
+    //     ]
+    // }
 ];
 
 export default pimpinanNav;
