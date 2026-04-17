@@ -26,20 +26,6 @@ class PerencanaanSeeder extends Seeder
             return;
         }
 
-        // Bersihkan data lama untuk tahun ini agar re-seed tidak nabrak
-        MasterSasaran::where('tahun_anggaran_id', $tahun->id)->delete();
-        $pkIds      = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->pluck('id');
-        $sasaranIds = Sasaran::whereIn('perjanjian_kinerja_id', $pkIds)->pluck('id');
-        \DB::table('indikator_kinerja_pic')->whereIn('indikator_kinerja_id',
-            IndikatorKinerja::whereIn('sasaran_id', $sasaranIds)->pluck('id')
-        )->delete();
-        IndikatorKinerja::whereIn('sasaran_id', $sasaranIds)->delete();
-        Sasaran::whereIn('perjanjian_kinerja_id', $pkIds)->delete();
-        $raIds = RencanaAksi::where('tahun_anggaran_id', $tahun->id)->pluck('id');
-        RencanaAksiIndikator::whereIn('rencana_aksi_id', $raIds)->delete();
-        RencanaAksi::where('tahun_anggaran_id', $tahun->id)->delete();
-        PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->delete();
-
         // Seed periode pengukuran (TW1–TW4, TW1 aktif sebagai default)
         foreach (['TW1' => true, 'TW2' => false, 'TW3' => false, 'TW4' => false] as $tw => $aktif) {
             PeriodePengukuran::updateOrCreate(
@@ -56,12 +42,13 @@ class PerencanaanSeeder extends Seeder
 
         // Seed master sasaran
         foreach ($sasaranNamas as $kode => $nama) {
-            MasterSasaran::create([
-                'tahun_anggaran_id' => $tahun->id,
-                'kode'              => $kode,
-                'nama'              => $nama,
-                'urutan'            => (int) str_replace('S ', '', $kode),
-            ]);
+            MasterSasaran::updateOrCreate(
+                ['tahun_anggaran_id' => $tahun->id, 'kode' => $kode],
+                [
+                    'nama'   => $nama,
+                    'urutan' => (int) str_replace('S ', '', $kode),
+                ]
+            );
         }
 
         // ── PK Awal & Revisi: SATU PK milik TK-PK, berisi SEMUA IKU ────────────
@@ -69,7 +56,7 @@ class PerencanaanSeeder extends Seeder
         $ketua = User::where('tim_kerja_id', $tkPk->id)->where('role', 'ketua_tim_kerja')->first();
         $createdBy = $ketua?->id ?? 1;
 
-        $pkAwal = PerjanjianKinerja::firstOrCreate(
+        $pkAwal = PerjanjianKinerja::updateOrCreate(
             ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $tkPk->id, 'jenis' => 'awal'],
             ['status' => 'draft', 'created_by' => $createdBy]
         );
@@ -79,7 +66,7 @@ class PerencanaanSeeder extends Seeder
         $ikuRecords = []; // kode_iku => IndikatorKinerja (dari PK Awal)
 
         foreach ($pkIkuMap as $sasKode => $ikuKodes) {
-            $sasaran = Sasaran::firstOrCreate(
+            $sasaran = Sasaran::updateOrCreate(
                 ['perjanjian_kinerja_id' => $pkAwal->id, 'kode' => $sasKode],
                 ['nama' => $sasaranNamas[$sasKode], 'urutan' => (int) str_replace('S ', '', $sasKode)]
             );
@@ -89,7 +76,7 @@ class PerencanaanSeeder extends Seeder
                 $tw           = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
                 $picPrimer    = TimKerja::where('kode', $picPrimerMap[$ikuKode])->first();
 
-                $iku = IndikatorKinerja::firstOrCreate(
+                $iku = IndikatorKinerja::updateOrCreate(
                     ['sasaran_id' => $sasaran->id, 'kode' => $ikuKode],
                     [
                         'nama'             => $ikuData['nama'],
@@ -121,7 +108,7 @@ class PerencanaanSeeder extends Seeder
         }
 
         // PK Revisi: copy langsung dari PK Awal
-        $pkRevisi            = PerjanjianKinerja::firstOrCreate(
+        $pkRevisi            = PerjanjianKinerja::updateOrCreate(
             ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $tkPk->id, 'jenis' => 'revisi'],
             ['status' => 'draft', 'created_by' => $createdBy]
         );
@@ -130,12 +117,12 @@ class PerencanaanSeeder extends Seeder
             ->get();
 
         foreach ($pkAwalSasaransLoaded as $sasAwal) {
-            $sasRevisi = Sasaran::firstOrCreate(
+            $sasRevisi = Sasaran::updateOrCreate(
                 ['perjanjian_kinerja_id' => $pkRevisi->id, 'kode' => $sasAwal->kode],
                 ['nama' => $sasAwal->nama, 'urutan' => $sasAwal->urutan]
             );
             foreach ($sasAwal->indikators as $ikuAwal) {
-                $ikuRevisi = IndikatorKinerja::firstOrCreate(
+                $ikuRevisi = IndikatorKinerja::updateOrCreate(
                     ['sasaran_id' => $sasRevisi->id, 'kode' => $ikuAwal->kode],
                     [
                         'nama'             => $ikuAwal->nama,
@@ -169,7 +156,7 @@ class PerencanaanSeeder extends Seeder
             $ketua2    = User::where('tim_kerja_id', $timKerja->id)->where('role', 'ketua_tim_kerja')->first();
             $createdBy2 = $ketua2?->id ?? 1;
 
-            $ra = RencanaAksi::firstOrCreate(
+            $ra = RencanaAksi::updateOrCreate(
                 ['tahun_anggaran_id' => $tahun->id, 'tim_kerja_id' => $timKerja->id],
                 ['status' => 'draft', 'created_by' => $createdBy2]
             );

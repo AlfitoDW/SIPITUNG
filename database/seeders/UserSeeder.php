@@ -94,15 +94,10 @@ class UserSeeder extends Seeder
             ];
 
             // Cari berdasarkan tim_kerja_id agar bisa update username in-place
-            $existing = User::where('tim_kerja_id', $timKerja->id)
-                ->where('role', 'ketua_tim_kerja')
-                ->first();
-
-            if ($existing) {
-                $existing->update($attrs);
-            } else {
-                User::create($attrs);
-            }
+            User::updateOrCreate(
+                ['tim_kerja_id' => $timKerja->id, 'role' => 'ketua_tim_kerja'],
+                $attrs
+            );
 
             $nip++;
         }

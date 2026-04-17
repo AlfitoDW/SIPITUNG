@@ -15,7 +15,7 @@ class TahunAnggaranSeeder extends Seeder
         ];
 
         foreach ($data as $item) {
-            TahunAnggaran::firstOrCreate(
+            TahunAnggaran::updateOrCreate(
                 ['tahun' => $item['tahun']],
                 $item,
             );
