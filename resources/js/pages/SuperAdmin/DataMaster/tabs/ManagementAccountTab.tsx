@@ -300,7 +300,7 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                                 onChange={(e) => setForm({ ...form, username: e.target.value })} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Email <span className="text-red-500">*</span></Label>
+                            <Label>Email <span className="text-muted-foreground text-xs">(opsional)</span></Label>
                             <Input type="email" placeholder="Misal: budi@lldikti3.id" value={form.email}
                                 onChange={(e) => setForm({ ...form, email: e.target.value })} />
                         </div>
