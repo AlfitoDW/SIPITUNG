@@ -65,7 +65,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                             Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                         </p>
                         <h1 className="text-3xl font-extrabold leading-tight mb-1 drop-shadow-md">
-                            LLDIKTI Wilayah III
+                            LLDIKTI Wilayah V
                         </h1>
                         <p className="text-blue-200 text-sm mt-1">
                             Lembaga Layanan Pendidikan Tinggi
@@ -96,7 +96,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                 {/* Footer kiri */}
                 <div className="relative z-10 px-12 pb-8 text-center">
                     <p className="text-blue-300/70 text-xs">
-                        © {new Date().getFullYear()} LLDIKTI Wilayah V · Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
+                        © {new Date().getFullYear()} LLDIKTI Wilayah III · Kementerian Pendidikan, Tinggi, Sains, dan Teknologi
                     </p>
                 </div>
             </div>
