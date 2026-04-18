@@ -287,8 +287,8 @@ function RaGroupCard({ group, onEdit, onSubmit }: {
 
 // ─── Submit Dialog per Group ───────────────────────────────────────────────────
 
-function SubmitRaDialog({ group, onClose, onConfirm }: {
-    group: RaGroup; onClose: () => void; onConfirm: () => void;
+function SubmitRaDialog({ group, onClose, onConfirm, submitting }: {
+    group: RaGroup; onClose: () => void; onConfirm: () => void; submitting: boolean;
 }) {
     const isSolo     = group.peer_id === null;
     const isRejected = group.ra.status === 'rejected';
@@ -314,8 +314,11 @@ function SubmitRaDialog({ group, onClose, onConfirm }: {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={onClose}>Batal</AlertDialogCancel>
-                    <AlertDialogAction onClick={onConfirm}>Ya, Submit</AlertDialogAction>
+                    <AlertDialogCancel onClick={onClose} disabled={submitting}>Batal</AlertDialogCancel>
+                    <AlertDialogAction onClick={onConfirm} disabled={submitting}>
+                        {submitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                        Ya, Submit
+                    </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -328,6 +331,8 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
     const [editDialog, setEditDialog]     = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
     const [form, setForm]                 = useState<TwForm>(EMPTY_TW);
     const [submitGroup, setSubmitGroup]   = useState<RaGroup | null>(null);
+    const [saving, setSaving]             = useState(false);
+    const [submitting, setSubmitting]     = useState(false);
 
     function openEdit(iku: Indikator) {
         setForm({
@@ -351,17 +356,21 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
             target_tw3: form.target_tw3 ? norm(form.target_tw3) : null,
             target_tw4: form.target_tw4 ? norm(form.target_tw4) : null,
         };
+        setSaving(true);
         router.patch(`/ketua-tim/perencanaan/rencana-aksi/indikator/${editDialog.iku.id}/target`, payload, {
             onSuccess: () => setEditDialog({ open: false, iku: null }),
+            onFinish: () => setSaving(false),
         });
     }
 
     function doSubmitGroup() {
         if (!submitGroup) return;
+        setSubmitting(true);
         router.patch('/ketua-tim/perencanaan/rencana-aksi/submit', {
             peer_tim_kerja_id: submitGroup.peer_id ?? null,
         }, {
             onSuccess: () => setSubmitGroup(null),
+            onFinish: () => setSubmitting(false),
         });
     }
 
@@ -460,8 +469,8 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                         </div>
                     )}
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialog({ open: false, iku: null })}>Batal</Button>
-                        <Button onClick={saveEdit} disabled={!form.target.trim()}>Simpan</Button>
+                        <Button variant="outline" onClick={() => setEditDialog({ open: false, iku: null })} disabled={saving}>Batal</Button>
+                        <Button onClick={saveEdit} loading={saving} disabled={!form.target.trim()}>Simpan</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -472,6 +481,7 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                     group={submitGroup}
                     onClose={() => setSubmitGroup(null)}
                     onConfirm={doSubmitGroup}
+                    submitting={submitting}
                 />
             )}
         </AppLayout>

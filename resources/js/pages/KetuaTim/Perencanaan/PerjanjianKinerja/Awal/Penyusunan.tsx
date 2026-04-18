@@ -56,6 +56,8 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
     const [targetDialog, setTargetDialog] = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
     const [targetVal, setTargetVal]       = useState('');
     const [submitDialog, setSubmitDialog] = useState(false);
+    const [saving, setSaving]             = useState(false);
+    const [submitting, setSubmitting]     = useState(false);
     const [rejectedVisible, setRejectedVisible] = useState(true);
     const [rejectedDismissed, setRejectedDismissed] = useState(false);
     const [statusVisible, setStatusVisible] = useState(true);
@@ -79,14 +81,18 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
         if (!targetDialog.iku) return;
         // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
         const normalized = targetVal.replace(',', '.');
+        setSaving(true);
         router.patch(`/ketua-tim/perencanaan/indikator/${targetDialog.iku.id}/target`, { target: normalized }, {
             onSuccess: () => setTargetDialog({ open: false, iku: null }),
+            onFinish: () => setSaving(false),
         });
     }
 
     function submitPK() {
+        setSubmitting(true);
         router.patch('/ketua-tim/perencanaan/perjanjian-kinerja/awal/submit', {}, {
             onSuccess: () => setSubmitDialog(false),
+            onFinish: () => setSubmitting(false),
         });
     }
 
@@ -282,8 +288,8 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
                         </div>
                     )}
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setTargetDialog({ open: false, iku: null })}>Batal</Button>
-                        <Button onClick={saveTarget} disabled={!targetVal.trim()}>Simpan</Button>
+                        <Button variant="outline" onClick={() => setTargetDialog({ open: false, iku: null })} disabled={saving}>Batal</Button>
+                        <Button onClick={saveTarget} loading={saving} disabled={!targetVal.trim()}>Simpan</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -298,8 +304,11 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={submitPK}>Ya, Submit</AlertDialogAction>
+                        <AlertDialogCancel disabled={submitting}>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={submitPK} disabled={submitting}>
+                            {submitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                            Ya, Submit
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

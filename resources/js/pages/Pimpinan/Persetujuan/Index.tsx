@@ -650,7 +650,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                                                     <div className="flex gap-2">
                                                         <Button
                                                             className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                                                            disabled={processing}
+                                                            loading={processing}
                                                             onClick={() => submitAction('approve')}
                                                         >
                                                             <CheckCircle2 className="h-4 w-4" />
@@ -659,7 +659,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                                                         <Button
                                                             variant="destructive"
                                                             className="gap-1.5"
-                                                            disabled={processing}
+                                                            loading={processing}
                                                             onClick={() => submitAction('reject')}
                                                         >
                                                             <XCircle className="h-4 w-4" />

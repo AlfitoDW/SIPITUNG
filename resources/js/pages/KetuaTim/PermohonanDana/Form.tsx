@@ -234,7 +234,7 @@ export default function Form({ pd }: Props) {
                         >
                             Batal
                         </Button>
-                        <Button type="submit" disabled={processing} className="gap-2">
+                        <Button type="submit" loading={processing} className="gap-2">
                             <Save className="h-4 w-4" />
                             {isEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft'}
                         </Button>

@@ -390,7 +390,7 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    disabled={rekForm.processing}
+                                    loading={rekForm.processing}
                                     className="gap-1.5"
                                 >
                                     <Save className="h-3.5 w-3.5" />

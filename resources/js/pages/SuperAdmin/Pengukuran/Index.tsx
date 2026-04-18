@@ -73,7 +73,7 @@ function PeriodeDialog({ open, onClose, tahunId, triwulan, existing }: {
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-                        <Button type="submit" disabled={form.processing}>Simpan</Button>
+                        <Button type="submit" loading={form.processing}>Simpan</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

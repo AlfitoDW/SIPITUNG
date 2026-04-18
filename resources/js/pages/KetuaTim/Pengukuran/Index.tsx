@@ -105,8 +105,8 @@ function RealisasiDialog({ iku, periode, onClose }: {
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
         // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
-        form.transform(data => ({ ...data, realisasi: data.realisasi.replace(',', '.') }))
-            .post('/ketua-tim/pengukuran/store', { onSuccess: onClose });
+        form.transform(data => ({ ...data, realisasi: data.realisasi.replace(',', '.') }));
+        form.post('/ketua-tim/pengukuran/store', { onSuccess: onClose });
     }
 
     const isEdit   = !!iku.realisasi_id;
@@ -195,7 +195,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-                        <Button type="submit" disabled={form.processing}>Simpan</Button>
+                        <Button type="submit" loading={form.processing}>Simpan</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

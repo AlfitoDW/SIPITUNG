@@ -231,7 +231,7 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Batal</Button>
-                            <Button type="submit" disabled={addForm.processing}>Simpan</Button>
+                            <Button type="submit" loading={addForm.processing}>Simpan</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -284,7 +284,7 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Batal</Button>
-                            <Button type="submit" disabled={editForm.processing}>Simpan</Button>
+                            <Button type="submit" loading={editForm.processing}>Simpan</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
