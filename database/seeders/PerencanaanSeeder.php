@@ -226,12 +226,12 @@ class PerencanaanSeeder extends Seeder
             // ── Seed LaporanPengukuran TW1 (variasi status agar dashboard informatif) ──
             $laporanData = [
                 // kode_tim          => status
-                'TK-PK'      => 'kabag_approved',
-                'TK-HKT'     => 'submitted',
-                'TK-TUBMN'   => 'submitted',
+                'TK-PK'      => 'draft',
+                'TK-HKT'     => 'draft',
+                'TK-TUBMN'   => 'draft',
                 'TK-HMK'     => 'draft',
-                'TK-KK'      => 'kabag_approved',
-                'TK-PENJAMU' => 'rejected',
+                'TK-KK'      => 'draft',
+                'TK-PENJAMU' => 'draft',
                 'TK-ADIA'    => 'draft',
                 'TK-SD'      => 'draft',
                 'TK-BELMAWA' => 'draft',
@@ -249,19 +249,12 @@ class PerencanaanSeeder extends Seeder
 
                 LaporanPengukuran::updateOrCreate(
                     [
-                        'tim_kerja_id'          => $tim->id,
-                        'periode_pengukuran_id'  => $periodeTw1->id,
+                        'tim_kerja_id'         => $tim->id,
+                        'periode_pengukuran_id' => $periodeTw1->id,
                     ],
                     [
-                        'status'       => $status,
-                        'submitted_at' => in_array($status, ['submitted', 'kabag_approved', 'rejected'])
-                            ? now()->subDays(rand(3, 14))
-                            : null,
-                        'submitted_by' => in_array($status, ['submitted', 'kabag_approved', 'rejected'])
-                            ? ($ketua?->id ?? 1)
-                            : null,
-                        'approved_at'  => $status === 'kabag_approved' ? now()->subDays(rand(1, 5)) : null,
-                        'created_by'   => $ketua?->id ?? 1,
+                        'status'     => $status,
+                        'created_by' => $ketua?->id ?? 1,
                     ]
                 );
             }
