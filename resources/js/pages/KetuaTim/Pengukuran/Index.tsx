@@ -1,18 +1,20 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { toCommaDisplay } from '@/components/ui/numeric-input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Pencil, Users, Send, CheckCircle2, Circle, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Pencil, Users, Send, CheckCircle2, Circle, XCircle, AlertCircle, X, Lock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toCommaDisplay } from '@/components/ui/numeric-input';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran Kinerja', href: '/ketua-tim/pengukuran' },
@@ -71,12 +73,6 @@ type Props = {
 
 const TW_LABELS: Record<string, string> = {
     TW1: 'Triwulan I', TW2: 'Triwulan II', TW3: 'Triwulan III', TW4: 'Triwulan IV',
-};
-
-const LAPORAN_STATUS: Record<string, { label: string; className: string }> = {
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    kabag_approved: { label: 'Disetujui',      className: 'bg-green-100 text-green-800 border-green-400' },
-    rejected:       { label: 'Dikembalikan',   className: 'bg-red-100 text-red-800 border-red-400' },
 };
 
 const sasaranColors: Record<string, { bg: string; badge: string; accent: string }> = {
@@ -206,7 +202,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
 // ─── Group Card ───────────────────────────────────────────────────────────────
 
 function CollabGroupCard({
-    group, ikuList, periode, timKerjaId, onSubmit, onEdit,
+    group, ikuList, periode, timKerjaId, onSubmit, onEdit, isLoading,
 }: {
     group: CollabGroup;
     ikuList: IKUItem[];
@@ -214,6 +210,7 @@ function CollabGroupCard({
     timKerjaId: number;
     onSubmit: (group: CollabGroup) => void;
     onEdit: (iku: IKUItem) => void;
+    isLoading: boolean;
 }) {
     const groupIkus   = ikuList.filter(i => group.iku_ids.includes(i.iku_id));
     const grouped     = groupIkus.map((row, i) => {
@@ -376,7 +373,15 @@ function CollabGroupCard({
                         </tr>
                     </thead>
                     <tbody>
-                        {grouped.map((row) => {
+                        {isLoading ? Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={i}>
+                                {[160, 220, 80, 60, 60, 70, 80, 80, 50].map((w, j) => (
+                                    <td key={j} className="border border-border px-3 py-2">
+                                        <Skeleton className="h-4 rounded" style={{ width: w }} />
+                                    </td>
+                                ))}
+                            </tr>
+                        )) : grouped.map((row) => {
                             const color    = getColor(row.sasaran_kode);
                             const hasData  = !!row.realisasi;
                             const isShared = row.pic_tim_kerjas.length > 1;
@@ -531,6 +536,7 @@ function SubmitGroupDialog({ group, periode, onClose, onConfirm }: {
 export default function PengukuranIndex({ tahun, periodes, periode, ikuList, timKerjaId, collabGroups }: Props) {
     const [editing, setEditing]             = useState<IKUItem | null>(null);
     const [submitGroup, setSubmitGroup]     = useState<CollabGroup | null>(null);
+    const isLoading = useNavigationLoading();
 
     function changePeriode(id: string) {
         router.get('/ketua-tim/pengukuran', { periode_id: id }, { preserveState: false });
@@ -645,6 +651,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                         timKerjaId={timKerjaId}
                         onSubmit={setSubmitGroup}
                         onEdit={setEditing}
+                        isLoading={isLoading}
                     />
                 ))}
             </div>

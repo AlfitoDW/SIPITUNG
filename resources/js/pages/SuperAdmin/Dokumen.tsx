@@ -1,41 +1,23 @@
 import { Head } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    Search,
+    Download,
+    Eye,
+    Trash2,
+    Building2,
+    FolderOpen,
+    MoreVertical,
+    FileText,
+    Image,
+    File,
+    Calendar,
+    User,
+    HardDrive,
+    Plus,
+    Edit,
+    Settings,
+} from 'lucide-react';
+import { useState } from 'react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -46,27 +28,43 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    Search,
-    Filter,
-    Download,
-    Eye,
-    Trash2,
-    Building2,
-    FolderOpen,
-    MoreVertical,
-    FileText,
-    Image,
-    Receipt,
-    File,
-    Calendar,
-    User,
-    HardDrive,
-    Plus,
-    Edit,
-    Settings,
-} from 'lucide-react';
-import { useState } from 'react';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -153,7 +151,6 @@ export default function Dokumen({
     
     // State untuk manage kategori
     const [showKategoriDialog, setShowKategoriDialog] = useState(false);
-    const [editingKategori, setEditingKategori] = useState<KategoriOption | null>(null);
 
     // Handler preview
     const handlePreview = (dokumen: DokumenItem) => {
@@ -175,13 +172,6 @@ export default function Dokumen({
             setShowDeleteDialog(false);
             setDokumenToDelete(null);
         }
-    };
-
-    // Handler manage kategori
-    const handleSaveKategori = () => {
-        console.log('Save kategori');
-        alert('Kategori berhasil disimpan');
-        setShowKategoriDialog(false);
     };
 
     // File icon helper

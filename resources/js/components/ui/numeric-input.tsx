@@ -55,7 +55,7 @@ function NumericInput({
                 const firstComma = str.indexOf(",")
                 return offset === firstComma ? m : ""
             })
-            .replace(/[^0-9,\-]/g, "")   // buang karakter selain angka, koma, minus
+            .replace(/[^0-9,-]/g, "")    // buang karakter selain angka, koma, minus
             .replace(/(?!^)-/g, "")      // buang minus yang bukan di posisi pertama
 
         const dotValue = sanitized.replace(",", ".")

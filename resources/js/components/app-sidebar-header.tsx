@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { CalendarDays, Check, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { Breadcrumbs } from '@/components/breadcrumbs';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -11,7 +12,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,

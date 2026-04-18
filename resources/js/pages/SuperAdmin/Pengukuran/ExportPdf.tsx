@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Fragment } from 'react';
+import { Button } from '@/components/ui/button';
 
 type TimKerja  = { id: number; nama: string };
 type TwData    = { tw: string; target: string | null; realisasi: string | null };

@@ -1,16 +1,15 @@
 import { Head, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { Badge } from '@/components/ui/badge';
+import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,10 +109,6 @@ function pendingCount(items: { status: string }[], role: Role): number {
 
 function isPkSelected(s: Selected): s is SelectedPk {
     return s.type === 'pk_awal' || s.type === 'pk_revisi';
-}
-
-function isRaSelected(s: Selected): s is SelectedRa {
-    return s.type === 'ra';
 }
 
 // ── Small components ──────────────────────────────────────────────────────────

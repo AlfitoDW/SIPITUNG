@@ -1,16 +1,16 @@
+import { Search, Plus, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, Plus, Edit, Trash2, Upload, Download, MoreVertical } from 'lucide-react';
-import { KategoriKegiatan } from '../types';
-import { StatusBadge } from '../components/StatusBadge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import { StatusBadge } from '../components/StatusBadge';
+import type { KategoriKegiatan } from '../types';
 
 interface KategoriForm {
     nama: string;

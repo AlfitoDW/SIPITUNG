@@ -4,8 +4,6 @@ import {
     ClipboardCheck,
     ChartNoAxesColumn,
     HandCoins,
-    FolderOpen,
-    BellRingIcon,
     Activity,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';

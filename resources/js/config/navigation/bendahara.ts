@@ -1,8 +1,5 @@
 import {
     LayoutDashboard,
-    Banknote,
-    ClipboardCheck,
-    ChartColumnIncreasing,
     BellRingIcon,
     HandCoins,
 } from 'lucide-react';

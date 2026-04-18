@@ -1,8 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
+import { FileText, ClipboardList, Loader2, ChevronRight, HandCoins, ChartNoAxesColumn } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import type { BreadcrumbItem } from '@/types';
-import { FileText, Users, ClipboardList, Loader2, ChevronRight, HandCoins, ChartNoAxesColumn, TrendingUp } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/super-admin/dashboard' },

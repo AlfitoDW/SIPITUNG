@@ -1,15 +1,15 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { Button } from '@/components/ui/button';
+import { CalendarDays, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useState } from 'react';
-import { CalendarDays, Plus } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran', href: '#' },
@@ -39,7 +39,7 @@ const TW_COLORS: Record<string, string> = {
     TW4: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30',
 };
 
-function PeriodeDialog({ open, onClose, tahunId, triwulan, existing }: {
+function PeriodeDialog({ open, onClose, triwulan, existing }: {
     open: boolean; onClose: () => void;
     tahunId: number; triwulan: string; existing?: Periode;
 }) {

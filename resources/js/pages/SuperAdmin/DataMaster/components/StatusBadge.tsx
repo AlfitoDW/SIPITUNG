@@ -1,5 +1,5 @@
-import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 export function StatusBadge({ status }: { status: string }) {
     if (status === 'active') {

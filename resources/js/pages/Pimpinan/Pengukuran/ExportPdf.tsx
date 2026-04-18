@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Fragment } from 'react';
+import { Button } from '@/components/ui/button';
 
 type TimKerja  = { id: number; nama: string };
 type MatrixRow = {
@@ -89,7 +89,7 @@ function PicNumbered({ pics }: { pics: TimKerja[] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function ExportPdf({ tahun, periode, matrix, laporans, rekomendasi_pimpinan }: Props) {
+export default function ExportPdf({ tahun, periode, matrix, rekomendasi_pimpinan }: Props) {
     const groups   = groupBySasaran(matrix);
     const twLabel  = TW_LABELS[periode.triwulan] ?? periode.triwulan;
     let no = 1;

@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
+import { ShieldCheck } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -10,15 +11,14 @@ import {
     SidebarHeader,
     useSidebar,
 } from '@/components/ui/sidebar';
+import bendaharaNav  from '@/config/navigation/bendahara';
+import ketuaTimNav   from '@/config/navigation/ketua-tim';
+import pimpinanNav   from '@/config/navigation/pimpinan';
+import superAdminNav from '@/config/navigation/super-admin';
 import type { NavGroup, NavItem, SharedData } from '@/types';
 import type { UserRole } from '@/types/auth';
 import AppLogo from './app-logo';
-import { ShieldCheck } from 'lucide-react';
 
-import superAdminNav from '@/config/navigation/super-admin';
-import ketuaTimNav   from '@/config/navigation/ketua-tim';
-import pimpinanNav   from '@/config/navigation/pimpinan';
-import bendaharaNav  from '@/config/navigation/bendahara';
 
 const navByRole: Record<UserRole, NavGroup[]> = {
     super_admin:     superAdminNav,

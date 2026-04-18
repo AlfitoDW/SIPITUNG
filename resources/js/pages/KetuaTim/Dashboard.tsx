@@ -1,10 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
 import {
     FileText, ClipboardList, ChevronRight, Loader2, Building2,
-    HandCoins, ShieldCheck, ChartNoAxesColumn, TrendingUp, CheckCircle2,
-    Clock, AlertCircle, ArrowRight
+    HandCoins, ShieldCheck, ChartNoAxesColumn, ArrowRight
 } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
 import type { SharedData } from '@/types';
 
 type DocStatus = { id: number; status: string; indikators_count?: number } | null;

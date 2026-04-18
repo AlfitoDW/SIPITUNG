@@ -1,9 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
 import {
     Loader2, CheckCircle2, XCircle, Shield, ChevronRight,
-    ClipboardList, ChartNoAxesColumn, FileText, HandCoins, AlertCircle, Clock
+    ClipboardList, ChartNoAxesColumn, FileText, HandCoins, Clock
 } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [

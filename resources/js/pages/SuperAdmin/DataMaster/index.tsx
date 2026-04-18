@@ -1,10 +1,15 @@
 import { Head } from '@inertiajs/react';
+import { Tag, Users, Calendar, File } from 'lucide-react';
 import { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tag, Users, Calendar, File } from 'lucide-react';
 
+
+import { KategoriTab } from './tabs/KategoriTab';
+import { ManagementAccountTab } from './tabs/ManagementAccountTab';
+import { TahunAnggaranTab } from './tabs/TahunAnggaranTab';
+import { TemplateDokumenTab } from './tabs/TemplateDokumenTab';
 import type {
     KategoriKegiatan,
     ManagementAccount,
@@ -12,11 +17,6 @@ import type {
     TahunAnggaran,
     TemplateDokumen,
 } from './types';
-
-import { KategoriTab } from './tabs/KategoriTab';
-import { ManagementAccountTab } from './tabs/ManagementAccountTab';
-import { TahunAnggaranTab } from './tabs/TahunAnggaranTab';
-import { TemplateDokumenTab } from './tabs/TemplateDokumenTab';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Data Master', href: '#' }];
 

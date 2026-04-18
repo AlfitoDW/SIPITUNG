@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
     const [selectedTahun, setSelectedTahun] = useState<string>(
         defaultTahunAnggaranId ? String(defaultTahunAnggaranId) : ''
     );
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className="min-h-screen flex">
@@ -200,16 +202,27 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                                             <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
                                                 Kata Sandi
                                             </Label>
-                                            <Input
-                                                id="password"
-                                                type="password"
-                                                name="password"
-                                                required
-                                                tabIndex={2}
-                                                autoComplete="current-password"
-                                                placeholder="••••••••"
-                                                className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                                            />
+                                            <div className="relative">
+                                                <Input
+                                                    id="password"
+                                                    type={showPassword ? 'text' : 'password'}
+                                                    name="password"
+                                                    required
+                                                    tabIndex={2}
+                                                    autoComplete="current-password"
+                                                    placeholder="••••••••"
+                                                    className="h-11 border-gray-200 pr-10 focus:border-blue-500 focus:ring-blue-500"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    tabIndex={-1}
+                                                    onClick={() => setShowPassword(v => !v)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                                                >
+                                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
                                             <InputError message={errors.password} />
                                         </div>
 

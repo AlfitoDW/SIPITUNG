@@ -1,14 +1,16 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import { Eye, FileText, Save, MessageSquareText } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
-import { Eye, FileText, Save, MessageSquareText } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran', href: '#' },
@@ -151,6 +153,7 @@ function groupBySasaran(rows: MatrixRow[]) {
 
 export default function Kinerja({ tahun, periodes, periode, matrix, role, rekomendasi_pimpinan }: Props) {
     const [detail, setDetail] = useState<MatrixRow | null>(null);
+    const isLoading = useNavigationLoading();
 
     const rekForm = useForm({
         periode_id:           periode?.id?.toString() ?? '',
@@ -244,7 +247,15 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                                 </tr>
                             </thead>
                             <tbody>
-                                {grouped.map((row) => {
+                                {isLoading ? Array.from({ length: 6 }).map((_, i) => (
+                                    <tr key={i}>
+                                        {[160, 220, 80, 60, 60, 70, 80].map((w, j) => (
+                                            <td key={j} className="border border-border px-3 py-2">
+                                                <Skeleton className="h-4 rounded" style={{ width: w }} />
+                                            </td>
+                                        ))}
+                                    </tr>
+                                )) : grouped.map((row) => {
                                     const color   = getColor(row.sasaran_kode);
                                     const hasData = !!row.realisasi;
                                     return (
@@ -383,10 +394,10 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                             </div>
 
                             <div className="flex items-center justify-between gap-3 flex-wrap">
-                                {(rekForm as any).recentlySuccessful && (
+                                {rekForm.recentlySuccessful && (
                                     <p className="text-xs text-green-600 font-medium">✓ Rekomendasi berhasil disimpan.</p>
                                 )}
-                                {!((rekForm as any).recentlySuccessful) && <span />}
+                                {!(rekForm.recentlySuccessful) && <span />}
                                 <Button
                                     type="submit"
                                     size="sm"

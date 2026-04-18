@@ -2,7 +2,6 @@ import {
     LayoutDashboard,
     ClipboardList,
     ShieldCheck,
-    BellRingIcon,
     HandCoins,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';

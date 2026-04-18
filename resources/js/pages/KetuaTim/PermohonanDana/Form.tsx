@@ -1,12 +1,13 @@
 import { Head, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import { Plus, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 type ItemRow = {
     uraian: string;
@@ -41,7 +42,7 @@ const fmt = (n: number) =>
 export default function Form({ pd }: Props) {
     const isEdit = pd !== null;
 
-    const { data, setData, post, put, processing, errors } = useForm<FormData>({
+    const { data, setData, post, put, processing, errors, isDirty } = useForm<FormData>({
         keperluan:        pd?.keperluan ?? '',
         tanggal_kegiatan: pd?.tanggal_kegiatan ? pd.tanggal_kegiatan.substring(0, 10) : '',
         keterangan:       pd?.keterangan ?? '',
@@ -53,6 +54,8 @@ export default function Form({ pd }: Props) {
             keterangan:   i.keterangan ?? '',
         })) ?? [emptyItem()],
     });
+
+    useUnsavedChanges(isDirty && !processing);
 
     function updateItem(idx: number, field: keyof ItemRow, value: string) {
         const items = [...data.items];

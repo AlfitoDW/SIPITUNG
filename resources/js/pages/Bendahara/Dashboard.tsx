@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { ClipboardCheck, Banknote, CheckCircle2, CircleDollarSign, ChevronRight, CalendarDays } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
 type RiwayatItem = {

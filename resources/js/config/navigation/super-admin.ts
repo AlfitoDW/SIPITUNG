@@ -7,12 +7,10 @@ import {
     Database,
     BellRingIcon,
     Users,
-    Group,
     UserCog,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import type { NavGroup } from '@/types';
-import { title } from 'process';
 
 const superAdminNav: NavGroup[] = [
     {

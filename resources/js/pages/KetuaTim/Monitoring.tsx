@@ -1,10 +1,10 @@
 import { Head } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { useState } from 'react';
 import {
     CheckCircle2, Clock, AlertCircle, FileText, ChartNoAxesColumn,
-    Loader2, Minus, ChevronDown, ChevronRight, ChevronUp
+    Loader2, Minus, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { useState } from 'react';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -90,7 +90,7 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
 
 // ─── RA Tab ────────────────────────────────────────────────────────────────────
 
-function RaTimRow({ row, allTim }: { row: RaTimRow; allTim: TimKerja[] }) {
+function RaTimRow({ row }: { row: RaTimRow; allTim?: TimKerja[] }) {
     const [expanded, setExpanded] = useState(false);
 
     return (
