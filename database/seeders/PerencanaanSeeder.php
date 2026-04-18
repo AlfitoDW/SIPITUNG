@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\IndikatorKinerja;
+use App\Models\LaporanPengukuran;
 use App\Models\MasterSasaran;
 use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
@@ -218,6 +219,49 @@ class PerencanaanSeeder extends Seeder
                         'strategi_tindak_lanjut' => $data['strategi_tindak_lanjut'],
                         'catatan'                => null,
                         'created_by'             => $ketuaPic?->id ?? 1,
+                    ]
+                );
+            }
+
+            // ── Seed LaporanPengukuran TW1 (variasi status agar dashboard informatif) ──
+            $laporanData = [
+                // kode_tim          => status
+                'TK-PK'      => 'kabag_approved',
+                'TK-HKT'     => 'submitted',
+                'TK-TUBMN'   => 'submitted',
+                'TK-HMK'     => 'draft',
+                'TK-KK'      => 'kabag_approved',
+                'TK-PENJAMU' => 'rejected',
+                'TK-ADIA'    => 'draft',
+                'TK-SD'      => 'draft',
+                'TK-BELMAWA' => 'draft',
+                'TK-SIPD'    => 'draft',
+                'TK-RPM'     => 'draft',
+            ];
+
+            foreach ($laporanData as $kode => $status) {
+                $tim   = TimKerja::where('kode', $kode)->first();
+                $ketua = $tim
+                    ? User::where('tim_kerja_id', $tim->id)->where('role', 'ketua_tim_kerja')->first()
+                    : null;
+
+                if (! $tim) continue;
+
+                LaporanPengukuran::updateOrCreate(
+                    [
+                        'tim_kerja_id'          => $tim->id,
+                        'periode_pengukuran_id'  => $periodeTw1->id,
+                    ],
+                    [
+                        'status'       => $status,
+                        'submitted_at' => in_array($status, ['submitted', 'kabag_approved', 'rejected'])
+                            ? now()->subDays(rand(3, 14))
+                            : null,
+                        'submitted_by' => in_array($status, ['submitted', 'kabag_approved', 'rejected'])
+                            ? ($ketua?->id ?? 1)
+                            : null,
+                        'approved_at'  => $status === 'kabag_approved' ? now()->subDays(rand(1, 5)) : null,
+                        'created_by'   => $ketua?->id ?? 1,
                     ]
                 );
             }
