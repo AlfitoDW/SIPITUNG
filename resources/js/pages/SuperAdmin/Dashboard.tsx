@@ -187,7 +187,7 @@ export default function Dashboard({ tahun, timKerjaTotal, pkAwal, pkRevisi, ra, 
                             icon={ChartNoAxesColumn}
                             stats={pengukuran}
                             statusRows={PENGUKURAN_ROWS}
-                            href="/super-admin/pengukuran/kinerja"
+                            href="/super-admin/pengukuran/realisasi"
                             accentBg="bg-indigo-500"
                             footer={
                                 pengTotal > 0

@@ -37,11 +37,11 @@ class DashboardController extends Controller
 
         // ── Pengukuran Kinerja ────────────────────────────────────────────────────
         $pengukuranStatuses = ['draft', 'submitted', 'kabag_approved', 'rejected'];
-        $periodeAktifIds = $tahun
-            ? PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)->where('is_active', true)->pluck('id')
+        $periodeIds = $tahun
+            ? PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)->pluck('id')
             : collect();
-        $laporanStats = $periodeAktifIds->count()
-            ? LaporanPengukuran::whereIn('periode_pengukuran_id', $periodeAktifIds)
+        $laporanStats = $periodeIds->count()
+            ? LaporanPengukuran::whereIn('periode_pengukuran_id', $periodeIds)
                 ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')
             : collect();
 

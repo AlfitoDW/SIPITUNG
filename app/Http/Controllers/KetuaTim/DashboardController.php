@@ -39,26 +39,38 @@ class DashboardController extends Controller
             ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
             ->first() : null;
 
-        // ── Pengukuran Kinerja — laporan triwulan aktif ───────────────────────────
+        // ── Pengukuran Kinerja — tampilkan laporan terbaru tim (prioritas: ada laporan) ──
         $pengukuran = null;
         if ($tahun) {
-            $periodeAktif = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-                ->where('is_active', true)
-                ->orderByRaw("FIELD(triwulan,'TW1','TW2','TW3','TW4')")
+            // Prioritas 1: cari laporan terbaik tim ini dari semua periode tahun ini
+            $myLaporan = LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
+                ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
+                ->with('periode')
+                ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
                 ->first();
 
-            if ($periodeAktif) {
-                // Ambil laporan terbaik tim ini untuk periode aktif
-                $myLaporan = LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
-                    ->where('periode_pengukuran_id', $periodeAktif->id)
-                    ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
-                    ->first();
-
+            if ($myLaporan) {
                 $pengukuran = [
-                    'status'      => $myLaporan?->status,
-                    'triwulan'    => $periodeAktif->triwulan,
-                    'approved_at' => $myLaporan?->approved_at?->format('d M Y'),
+                    'status'      => $myLaporan->status,
+                    'triwulan'    => $myLaporan->periode->triwulan,
+                    'approved_at' => $myLaporan->approved_at?->format('d M Y'),
                 ];
+            } else {
+                // Prioritas 2: periode aktif (untuk tampilkan "Belum disubmit" dengan info triwulan)
+                $periodeAktif = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+                    ->where('is_active', true)
+                    ->first()
+                    ?? PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
+                        ->orderByRaw("FIELD(triwulan,'TW4','TW3','TW2','TW1')")
+                        ->first();
+
+                if ($periodeAktif) {
+                    $pengukuran = [
+                        'status'      => null,
+                        'triwulan'    => $periodeAktif->triwulan,
+                        'approved_at' => null,
+                    ];
+                }
             }
         }
 

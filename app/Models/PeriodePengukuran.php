@@ -37,4 +37,9 @@ class PeriodePengukuran extends Model
     {
         return $this->hasMany(RealisasiKinerja::class);
     }
+
+    public function laporans(): HasMany
+    {
+        return $this->hasMany(LaporanPengukuran::class);
+    }
 }

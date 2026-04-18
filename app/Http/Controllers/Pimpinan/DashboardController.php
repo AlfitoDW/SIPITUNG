@@ -57,9 +57,9 @@ class DashboardController extends Controller
             'permohonan_dana' => PermohonanDana::where('tahun_anggaran_id', $tahun->id)->where('status', 'rejected')->where('rejected_by', $pdRejectedBy)->count(),
         ] : ['pk' => 0, 'ra' => 0, 'permohonan_dana' => 0];
 
-        // Periode pengukuran aktif
+        // Periode pengukuran yang punya laporan (tidak perlu is_active)
         $periodePengukuran = $tahun ? PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->where('is_active', true)
+            ->whereHas('laporans')
             ->orderByRaw("FIELD(triwulan,'TW1','TW2','TW3','TW4')")
             ->get()
             ->map(fn($p) => [
