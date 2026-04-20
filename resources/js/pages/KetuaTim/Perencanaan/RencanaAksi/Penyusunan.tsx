@@ -63,8 +63,8 @@ const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; acce
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-type TwForm = { target: string; target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
-const EMPTY_TW: TwForm = { target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
+type TwForm = { target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
+const EMPTY_TW: TwForm = { target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
 
 const TW_CONFIG = [
     null,
@@ -553,7 +553,6 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
 
     function openEdit(iku: Indikator) {
         setForm({
-            target:     iku.target ?? '',
             target_tw1: iku.target_tw1 ?? '',
             target_tw2: iku.target_tw2 ?? '',
             target_tw3: iku.target_tw3 ?? '',
@@ -566,7 +565,6 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
         if (!editDialog.iku) return;
         const norm = (v: string) => v.replace(',', '.');
         const payload = {
-            target:     norm(form.target),
             target_tw1: form.target_tw1 ? norm(form.target_tw1) : null,
             target_tw2: form.target_tw2 ? norm(form.target_tw2) : null,
             target_tw3: form.target_tw3 ? norm(form.target_tw3) : null,
@@ -668,13 +666,9 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                                 <p className="text-xs text-muted-foreground mb-0.5">{editDialog.iku.kode}</p>
                                 <p className="font-medium leading-snug">{editDialog.iku.nama}</p>
                             </div>
-                            <div className="grid gap-1.5">
-                                <Label>Target Tahunan ({editDialog.iku.satuan})</Label>
-                                <Input
-                                    value={form.target}
-                                    onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
-                                    placeholder={targetPlaceholder(editDialog.iku.satuan)}
-                                />
+                            <div className="rounded-md border bg-slate-50 dark:bg-slate-900 px-3 py-2 flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Target Tahunan</span>
+                                <span className="text-sm font-semibold">{editDialog.iku.target} <span className="font-normal text-muted-foreground">{editDialog.iku.satuan}</span></span>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="grid gap-1.5"><Label>Target TW I</Label><Input value={form.target_tw1} onChange={e => setForm(f => ({ ...f, target_tw1: e.target.value }))} placeholder={targetPlaceholder(editDialog.iku.satuan)} /></div>
@@ -686,7 +680,7 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                     )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditDialog({ open: false, iku: null })} disabled={saving}>Batal</Button>
-                        <Button onClick={saveEdit} loading={saving} disabled={!form.target.trim()}>Simpan</Button>
+                        <Button onClick={saveEdit} loading={saving}>Simpan</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -293,7 +293,6 @@ class PerencanaanController extends Controller
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
         $data = $request->validate([
-            'target'     => ['required', 'string', 'max:50'],
             'target_tw1' => ['nullable', 'string', 'max:50'],
             'target_tw2' => ['nullable', 'string', 'max:50'],
             'target_tw3' => ['nullable', 'string', 'max:50'],
