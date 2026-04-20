@@ -9,6 +9,7 @@ use App\Models\PerjanjianKinerja;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -33,6 +34,27 @@ class PengukuranController extends Controller
             'tahun'    => $tahun,
             'periodes' => $periodes,
         ]);
+    }
+
+    // ─── Laporan Reopen ──────────────────────────────────────────────────────────
+
+    public function laporanReopen(LaporanPengukuran $laporan): RedirectResponse
+    {
+        abort_if(
+            ! in_array($laporan->status, ['submitted', 'kabag_approved']),
+            422,
+            'Hanya laporan yang sedang diproses atau sudah disetujui yang dapat dibuka kembali.'
+        );
+
+        $laporan->update([
+            'status'            => 'draft',
+            'rekomendasi_kabag' => null,
+            'approved_at'       => null,
+            'approved_by'       => null,
+        ]);
+
+        $nama = $laporan->timKerja?->nama_singkat ?? $laporan->timKerja?->nama ?? 'Tim Kerja';
+        return back()->with('success', "Laporan {$nama} ({$laporan->periode?->triwulan}) berhasil dibuka kembali ke Draft.");
     }
 
     public function periodeStore(Request $request): RedirectResponse
@@ -127,11 +149,37 @@ class PengukuranController extends Controller
             }
         }
 
+        // Daftar laporan non-draft untuk panel status
+        $laporans = LaporanPengukuran::with(['timKerja:id,nama,kode,nama_singkat', 'periode:id,triwulan'])
+            ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
+            ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
+            ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
+            ->orderBy('periode_pengukuran_id')
+            ->orderBy('tim_kerja_id')
+            ->get()
+            ->map(fn ($l) => [
+                'id'                => $l->id,
+                'status'            => $l->status,
+                'rekomendasi_kabag' => $l->rekomendasi_kabag,
+                'submitted_at'      => $l->submitted_at?->format('d M Y H:i'),
+                'approved_at'       => $l->approved_at?->format('d M Y H:i'),
+                'periode_triwulan'  => $l->periode?->triwulan ?? '',
+                'tim_kerja'         => $l->timKerja ? [
+                    'id'           => $l->timKerja->id,
+                    'nama'         => $l->timKerja->nama,
+                    'kode'         => $l->timKerja->kode,
+                    'nama_singkat' => $l->timKerja->nama_singkat,
+                ] : null,
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('SuperAdmin/Pengukuran/Realisasi', [
             'tahun'    => $tahun,
             'periodes' => $periodes,
             'periode'  => $periode,
             'matrix'   => $matrix,
+            'laporans' => $laporans,
         ]);
     }
 
@@ -375,6 +423,160 @@ class PengukuranController extends Controller
 
         // ── Freeze panes ──────────────────────────────────────────────────────
         $sheet->freezePane('D4');
+
+        // ── Sheet 2–5: Rencana Kegiatan per Triwulan ──────────────────────────────
+        // Query PK Awal sebagai sumber urutan sasaran & IKU, termasuk semua PIC
+        $pkAwalSheet = PerjanjianKinerja::with([
+            'sasarans'            => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators.picTimKerjas',
+        ])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'awal')
+            ->first();
+
+        // Index semua RAI (dengan kegiatan) by kode IKU
+        $raiByKode = \App\Models\RencanaAksiIndikator::with([
+            'kegiatans' => fn ($q) => $q->orderBy('triwulan')->orderBy('urutan'),
+        ])
+            ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
+            ->get()
+            ->keyBy('kode');
+
+        // Flatten semua baris (urutan PK Awal), kegiatan dikelompok per TW
+        $allKgRows = [];
+        if ($pkAwalSheet) {
+            foreach ($pkAwalSheet->sasarans as $sasaran) {
+                foreach ($sasaran->indikators as $iku) {
+                    $rai = $raiByKode->get($iku->kode);
+                    if (! $rai || $rai->kegiatans->isEmpty()) continue;
+
+                    $picNames = $iku->picTimKerjas
+                        ->map(fn ($t) => $t->nama_singkat ?? $t->kode)
+                        ->join(' / ');
+
+                    $twKegiatan = [];
+                    for ($tw = 1; $tw <= 4; $tw++) {
+                        $twKegiatan[$tw] = $rai->kegiatans->where('triwulan', $tw)->values();
+                    }
+
+                    $allKgRows[] = [
+                        'sasaran_kode' => $sasaran->kode,
+                        'sasaran_nama' => $sasaran->nama,
+                        'iku_kode'     => $iku->kode,
+                        'iku_nama'     => $iku->nama,
+                        'pic_names'    => $picNames ?: '-',
+                        'tw_kegiatan'  => $twKegiatan,
+                    ];
+                }
+            }
+        }
+
+        // Shared styles untuk sheet TW
+        $kgWrapStyle = [
+            'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true, 'indent' => 1],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'AAAAAA']]],
+        ];
+        $kgCenterStyle = [
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'AAAAAA']]],
+        ];
+        // Baris sasaran dirender sebagai section-header row (full-width merged), bukan merge vertikal
+        $kgSasaranHeaderStyle = [
+            'font'      => ['bold' => true, 'name' => 'Times New Roman', 'size' => 11, 'color' => ['rgb' => '1F3864']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER, 'indent' => 1],
+            'borders'   => [
+                'top'    => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
+                'bottom' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
+                'left'   => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
+                'right'  => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
+            ],
+        ];
+
+        $twSheetNames = [1 => 'Kegiatan TW I', 2 => 'Kegiatan TW II', 3 => 'Kegiatan TW III', 4 => 'Kegiatan TW IV'];
+        $twSheetTitles = [
+            1 => 'Rencana Kegiatan Triwulan I',
+            2 => 'Rencana Kegiatan Triwulan II',
+            3 => 'Rencana Kegiatan Triwulan III',
+            4 => 'Rencana Kegiatan Triwulan IV',
+        ];
+
+        foreach ([1, 2, 3, 4] as $tw) {
+            // Saring hanya IKU yang punya kegiatan di TW ini
+            $twRows = array_filter($allKgRows, fn ($r) => $r['tw_kegiatan'][$tw]->isNotEmpty());
+            if (empty($twRows)) continue;
+
+            $shTw = $spreadsheet->createSheet();
+            $shTw->setTitle($twSheetNames[$tw]);
+
+            // ── Title ────────────────────────────────────────────────────────
+            $shTw->mergeCells('A1:E1');
+            $shTw->setCellValue('A1', $twSheetTitles[$tw] . " — {$tahun->label}");
+            $shTw->getStyle('A1:E1')->applyFromArray([
+                'font'      => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            ]);
+            $shTw->getRowDimension(1)->setRowHeight(30);
+
+            // ── Header ───────────────────────────────────────────────────────
+            // Kolom: No | Kode IKU | Indikator Kinerja | Tim Kerja PIC | Rencana Kegiatan
+            // (Sasaran ditampilkan sebagai baris pemisah grup, bukan kolom)
+            $twHeaders = ['A' => 'No', 'B' => 'Kode IKU', 'C' => 'Indikator Kinerja Utama', 'D' => 'Tim Kerja PIC', 'E' => 'Rencana Kegiatan'];
+            foreach ($twHeaders as $col => $label) {
+                $shTw->setCellValue("{$col}2", $label);
+                $shTw->getStyle("{$col}2")->applyFromArray($headerStyle);
+            }
+            $shTw->getRowDimension(2)->setRowHeight(22);
+
+            // ── Column widths ─────────────────────────────────────────────────
+            foreach (['A' => 5, 'B' => 12, 'C' => 52, 'D' => 26, 'E' => 68] as $col => $w) {
+                $shTw->getColumnDimension($col)->setWidth($w);
+            }
+
+            // ── Data rows ─────────────────────────────────────────────────────
+            $rowTw         = 3;
+            $noTw          = 1;
+            $prevSasaranTw = null;
+
+            foreach ($twRows as $dr) {
+                // ── Sasaran section-header row (saat sasaran berganti) ─────────
+                if ($dr['sasaran_kode'] !== $prevSasaranTw) {
+                    $shTw->mergeCells("A{$rowTw}:E{$rowTw}");
+                    $shTw->setCellValue("A{$rowTw}", $dr['sasaran_kode'] . '   —   ' . $dr['sasaran_nama']);
+                    $shTw->getStyle("A{$rowTw}:E{$rowTw}")->applyFromArray($kgSasaranHeaderStyle);
+                    $shTw->getRowDimension($rowTw)->setRowHeight(18);
+                    $rowTw++;
+                    $prevSasaranTw = $dr['sasaran_kode'];
+                }
+
+                // ── IKU data row ───────────────────────────────────────────────
+                $items       = $dr['tw_kegiatan'][$tw];
+                $kegiatanStr = $items->map(fn ($k, $i) => ($i + 1) . '. ' . $k->nama_kegiatan)->join("\n");
+
+                $shTw->setCellValue("A{$rowTw}", $noTw++);
+                $shTw->setCellValue("B{$rowTw}", $dr['iku_kode']);
+                $shTw->setCellValue("C{$rowTw}", $dr['iku_nama']);
+                $shTw->setCellValue("D{$rowTw}", $dr['pic_names']);
+                $shTw->setCellValue("E{$rowTw}", $kegiatanStr);
+
+                $shTw->getStyle("A{$rowTw}")->applyFromArray($kgCenterStyle);
+                $shTw->getStyle("B{$rowTw}")->applyFromArray($kgCenterStyle);
+                $shTw->getStyle("C{$rowTw}")->applyFromArray($kgWrapStyle);
+                $shTw->getStyle("D{$rowTw}")->applyFromArray($kgCenterStyle);
+                $shTw->getStyle("E{$rowTw}")->applyFromArray($kgWrapStyle);
+                $shTw->getRowDimension($rowTw)->setRowHeight(-1); // auto-height (berhasil untuk non-merged)
+
+                $rowTw++;
+            }
+
+            $shTw->freezePane('A3');
+        }
+
+        // Reset ke sheet pertama (Realisasi Kinerja)
+        $spreadsheet->setActiveSheetIndex(0);
 
         // ── Output ────────────────────────────────────────────────────────────
         $filename = "Realisasi_Kinerja_{$tahun->tahun}.xlsx";

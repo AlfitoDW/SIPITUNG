@@ -153,6 +153,7 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
                         );
                     })}
                 </div>
+
             </div>
 
             <PeriodeDialog

@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Pencil, Send, CheckCircle2, Circle, Lock, Loader2, AlertCircle, Users } from 'lucide-react';
+import { Pencil, Send, CheckCircle2, Circle, Lock, Loader2, AlertCircle, Users, List, Plus, Trash2, Save, X } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -18,16 +20,18 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Penyusunan', href: '/ketua-tim/perencanaan/rencana-aksi/penyusunan' },
 ];
 
-/** Menghasilkan teks placeholder yang sesuai dengan satuan IKU */
 function targetPlaceholder(satuan: string): string {
     const s = satuan.trim().toLowerCase();
     if (s === '%' || s === 'persen') return 'Contoh: 89,75';
     return 'Masukkan nilai target';
 }
 
+type Kegiatan = { id: number; triwulan: number; urutan: number; nama_kegiatan: string };
+
 type Indikator = {
     id: number; kode: string; nama: string; satuan: string; target: string;
     target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null;
+    kegiatans: Kegiatan[];
 };
 type Sasaran = { id: number; kode: string; nama: string; indikators: Indikator[] };
 type RA = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'rejected'; rekomendasi_kabag: string | null };
@@ -62,12 +66,206 @@ function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S
 type TwForm = { target: string; target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
 const EMPTY_TW: TwForm = { target: '', target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
 
+const TW_CONFIG = [
+    null,
+    { label: 'Triwulan I',   roman: 'I',   pill: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200',   border: 'border-blue-200 dark:border-blue-800',   accent: 'border-l-2 border-l-blue-400' },
+    { label: 'Triwulan II',  roman: 'II',  pill: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200', border: 'border-emerald-200 dark:border-emerald-800', accent: 'border-l-2 border-l-emerald-400' },
+    { label: 'Triwulan III', roman: 'III', pill: 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200',   border: 'border-violet-200 dark:border-violet-800',   accent: 'border-l-2 border-l-violet-400' },
+    { label: 'Triwulan IV',  roman: 'IV',  pill: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',     border: 'border-amber-200 dark:border-amber-800',     accent: 'border-l-2 border-l-amber-400' },
+] as const;
+
+// ─── Kegiatan Sheet ───────────────────────────────────────────────────────────
+
+function KegiatanSheet({ iku, isEditable, peerNama, onClose }: {
+    iku: Indikator;
+    isEditable: boolean;
+    peerNama?: string | null;
+    onClose: () => void;
+}) {
+    const [newKegiatan, setNewKegiatan] = useState<Record<number, string>>({ 1: '', 2: '', 3: '', 4: '' });
+    const [editingId, setEditingId]     = useState<number | null>(null);
+    const [editText, setEditText]       = useState('');
+    const [saving, setSaving]           = useState<Record<string, boolean>>({});
+
+    const kegiatanByTw = (tw: number) =>
+        iku.kegiatans.filter(k => k.triwulan === tw).sort((a, b) => a.urutan - b.urutan);
+
+    function addKegiatan(tw: number) {
+        const text = newKegiatan[tw]?.trim();
+        if (!text) return;
+        setSaving(s => ({ ...s, [`add-${tw}`]: true }));
+        router.post(`/ketua-tim/perencanaan/rencana-aksi/indikator/${iku.id}/kegiatan`, {
+            triwulan: tw,
+            nama_kegiatan: text,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => setNewKegiatan(n => ({ ...n, [tw]: '' })),
+            onFinish: () => setSaving(s => ({ ...s, [`add-${tw}`]: false })),
+        });
+    }
+
+    function startEdit(k: Kegiatan) {
+        setEditingId(k.id);
+        setEditText(k.nama_kegiatan);
+    }
+
+    function saveEdit(k: Kegiatan) {
+        if (!editText.trim()) return;
+        setSaving(s => ({ ...s, [`edit-${k.id}`]: true }));
+        router.patch(`/ketua-tim/perencanaan/rencana-aksi/kegiatan/${k.id}`, {
+            nama_kegiatan: editText.trim(),
+        }, {
+            preserveScroll: true,
+            onSuccess: () => setEditingId(null),
+            onFinish: () => setSaving(s => ({ ...s, [`edit-${k.id}`]: false })),
+        });
+    }
+
+    function deleteKegiatan(k: Kegiatan) {
+        setSaving(s => ({ ...s, [`del-${k.id}`]: true }));
+        router.delete(`/ketua-tim/perencanaan/rencana-aksi/kegiatan/${k.id}`, {
+            preserveScroll: true,
+            onFinish: () => setSaving(s => ({ ...s, [`del-${k.id}`]: false })),
+        });
+    }
+
+    const totalKegiatan = iku.kegiatans.length;
+
+    return (
+        <Sheet open onOpenChange={(v) => !v && onClose()}>
+            <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col gap-0 p-0">
+                <SheetHeader className="px-5 pt-5 pb-3 border-b">
+                    <SheetTitle className="text-base leading-tight">Rencana Kegiatan / Aktivitas</SheetTitle>
+                    <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm mt-1">
+                        <p className="text-xs text-muted-foreground">{iku.kode}</p>
+                        <p className="font-medium leading-snug">{iku.nama}</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {peerNama && (
+                            <span className="text-xs text-muted-foreground">
+                                Kolaborasi dengan <span className="font-medium text-foreground">{peerNama}</span>
+                            </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                            {totalKegiatan} kegiatan tersimpan{isEditable ? ' — tekan Enter atau klik Tambah' : ''}
+                        </span>
+                    </div>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                    {([1, 2, 3, 4] as const).map((tw) => {
+                        const cfg    = TW_CONFIG[tw]!;
+                        const list   = kegiatanByTw(tw);
+                        const twTarget = iku[`target_tw${tw}` as keyof Indikator] as string | null;
+                        return (
+                            <div key={tw} className="space-y-2">
+                                {/* TW header pill */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-semibold ${cfg.pill}`}>
+                                            TW {cfg.roman} — {cfg.label}
+                                        </span>
+                                        {twTarget && (
+                                            <span className="text-xs text-muted-foreground">
+                                                Target: <span className="font-semibold">{twTarget}</span> {iku.satuan}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">{list.length} kegiatan</span>
+                                </div>
+
+                                {/* Kegiatan list */}
+                                <div className={`rounded-lg border divide-y ${cfg.border}`}>
+                                    {list.length === 0 && (
+                                        <p className="text-xs text-muted-foreground italic px-3 py-2.5">
+                                            Belum ada kegiatan{isEditable ? ' — tambahkan di bawah' : ''}.
+                                        </p>
+                                    )}
+                                    {list.map((k, idx) => (
+                                        <div key={k.id} className={`flex items-start gap-2 px-3 py-2 group ${cfg.accent}`}>
+                                            <span className="text-xs text-muted-foreground font-mono mt-0.5 w-5 shrink-0 text-right">
+                                                {idx + 1}.
+                                            </span>
+                                            {isEditable && editingId === k.id ? (
+                                                <div className="flex-1 flex items-start gap-1.5">
+                                                    <Textarea
+                                                        value={editText}
+                                                        onChange={e => setEditText(e.target.value)}
+                                                        className="min-h-15 text-sm flex-1"
+                                                        autoFocus
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(k); }
+                                                            if (e.key === 'Escape') setEditingId(null);
+                                                        }}
+                                                    />
+                                                    <div className="flex flex-col gap-1 shrink-0">
+                                                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => saveEdit(k)} disabled={saving[`edit-${k.id}`]}>
+                                                            {saving[`edit-${k.id}`] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                                                            <X className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex-1 flex items-start justify-between gap-2">
+                                                    <p className="text-sm leading-snug flex-1">{k.nama_kegiatan}</p>
+                                                    {isEditable && (
+                                                        <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => startEdit(k)}>
+                                                                <Pencil className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteKegiatan(k)} disabled={saving[`del-${k.id}`]}>
+                                                                {saving[`del-${k.id}`] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Add form */}
+                                {isEditable && (
+                                    <div className="flex gap-2 items-end">
+                                        <Textarea
+                                            placeholder={`Tambah kegiatan TW ${cfg.roman}… (Enter untuk simpan)`}
+                                            value={newKegiatan[tw]}
+                                            onChange={e => setNewKegiatan(n => ({ ...n, [tw]: e.target.value }))}
+                                            className="min-h-13 text-sm flex-1 resize-none"
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addKegiatan(tw); }
+                                            }}
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 shrink-0 gap-1.5"
+                                            onClick={() => addKegiatan(tw)}
+                                            disabled={!newKegiatan[tw]?.trim() || saving[`add-${tw}`]}
+                                        >
+                                            {saving[`add-${tw}`] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                                            Tambah
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
 // ─── Group Card ───────────────────────────────────────────────────────────────
 
-function RaGroupCard({ group, onEdit, onSubmit }: {
+function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
     group: RaGroup;
     onEdit: (iku: Indikator) => void;
     onSubmit: (group: RaGroup) => void;
+    onOpenKegiatan: (iku: Indikator, editable: boolean, peerNama?: string | null) => void;
 }) {
     const ra             = group.ra;
     const isSubmitted    = ra.status === 'submitted';
@@ -83,7 +281,6 @@ function RaGroupCard({ group, onEdit, onSubmit }: {
     const twFilled   = group.sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 || i.target_tw2 || i.target_tw3 || i.target_tw4).length, 0);
     const totalInd   = group.sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
 
-    // Progress for this group
     const progress = isApproved || collabApproved ? 100
         : isSubmitted || collabLocked ? 80
         : totalInd > 0 ? Math.round((twFilled / totalInd) * 60)
@@ -212,7 +409,7 @@ function RaGroupCard({ group, onEdit, onSubmit }: {
                 <div className="overflow-x-auto border-t">
                     {isEditable && (
                         <div className="px-4 py-2 border-b bg-muted/30 text-xs text-muted-foreground">
-                            Isi kolom <span className="font-semibold text-foreground">Target per Triwulan</span> untuk setiap IKU, kemudian submit ke Kabag Umum.
+                            Isi kolom <span className="font-semibold text-foreground">Target per Triwulan</span> untuk setiap IKU, kemudian isi <span className="font-semibold text-foreground">Rencana Kegiatan</span> via tombol <List className="inline h-3 w-3 mx-0.5" />, lalu submit ke Kabag Umum.
                         </div>
                     )}
                     <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
@@ -223,7 +420,7 @@ function RaGroupCard({ group, onEdit, onSubmit }: {
                                 <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-24">Satuan</TableHead>
                                 <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
                                 <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
-                                {isEditable && <TableHead rowSpan={2} className="text-center font-semibold text-white w-16">Aksi</TableHead>}
+                                <TableHead rowSpan={2} className="text-center font-semibold text-white w-24">Aksi</TableHead>
                             </TableRow>
                             <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
                                 {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
@@ -244,38 +441,57 @@ function RaGroupCard({ group, onEdit, onSubmit }: {
                                                 <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
                                                 <p className="leading-snug text-foreground">{sasaran.nama}</p>
                                             </td>
-                                            <td colSpan={isEditable ? 6 : 5} className="text-center text-sm text-muted-foreground py-4 italic border-b">Belum ada indikator</td>
+                                            <td colSpan={6} className="text-center text-sm text-muted-foreground py-4 italic border-b">Belum ada indikator</td>
                                         </tr>
                                     )];
                                 }
 
-                                return sasaran.indikators.map((iku, idx) => (
-                                    <TableRow key={iku.id} className="align-top hover:bg-muted/30">
-                                        {idx === 0 && (
-                                            <TableCell rowSpan={rowSpan} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
-                                                <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
-                                                <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                return sasaran.indikators.map((iku, idx) => {
+                                    const kegiatanCount = iku.kegiatans.length;
+                                    return (
+                                        <TableRow key={iku.id} className="align-top hover:bg-muted/30">
+                                            {idx === 0 && (
+                                                <TableCell rowSpan={rowSpan} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                </TableCell>
+                                            )}
+                                            <TableCell className="text-sm align-top">
+                                                <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                <p className="leading-snug">{iku.nama}</p>
                                             </TableCell>
-                                        )}
-                                        <TableCell className="text-sm align-top">
-                                            <span className="inline-block mb-1 text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                            <p className="leading-snug">{iku.nama}</p>
-                                        </TableCell>
-                                        <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
-                                        <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
-                                        <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                        <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                        <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                        <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                                        {isEditable && (
+                                            <TableCell className="text-center text-sm text-muted-foreground">{iku.satuan}</TableCell>
+                                            <TableCell className="text-center text-sm font-semibold">{iku.target}</TableCell>
+                                            <TableCell className="text-center text-sm">{iku.target_tw1 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                            <TableCell className="text-center text-sm">{iku.target_tw2 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                            <TableCell className="text-center text-sm">{iku.target_tw3 ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                                            <TableCell className="text-center text-sm">{iku.target_tw4 ?? <span className="text-muted-foreground">-</span>}</TableCell>
                                             <TableCell className="text-center">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(iku)}>
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                </Button>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {isEditable && (
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(iku)} title="Isi target triwulan">
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 relative"
+                                                        onClick={() => onOpenKegiatan(iku, isEditable, group.peer_id !== null ? group.peer_nama : null)}
+                                                        title="Rencana Kegiatan"
+                                                    >
+                                                        <List className="h-3.5 w-3.5" />
+                                                        {kegiatanCount > 0 && (
+                                                            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">
+                                                                {kegiatanCount}
+                                                            </span>
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </TableCell>
-                                        )}
-                                    </TableRow>
-                                ));
+                                        </TableRow>
+                                    );
+                                });
                             })}
                         </TableBody>
                     </Table>
@@ -333,6 +549,7 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
     const [submitGroup, setSubmitGroup]   = useState<RaGroup | null>(null);
     const [saving, setSaving]             = useState(false);
     const [submitting, setSubmitting]     = useState(false);
+    const [kegiatanSheet, setKegiatanSheet] = useState<{ iku: Indikator; editable: boolean; peerNama?: string | null } | null>(null);
 
     function openEdit(iku: Indikator) {
         setForm({
@@ -347,7 +564,6 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
 
     function saveEdit() {
         if (!editDialog.iku) return;
-        // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
         const norm = (v: string) => v.replace(',', '.');
         const payload = {
             target:     norm(form.target),
@@ -374,7 +590,6 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
         });
     }
 
-    // Overall progress across all groups
     const totalInd    = raGroups.reduce((s, g) => s + g.ind_count, 0);
     const totalFilled = raGroups.reduce((s, g) => s + g.filled_count, 0);
     const allApproved = raGroups.length > 0 && raGroups.every(
@@ -435,6 +650,7 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                             group={group}
                             onEdit={openEdit}
                             onSubmit={setSubmitGroup}
+                            onOpenKegiatan={(iku, editable, peerNama) => setKegiatanSheet({ iku, editable, peerNama })}
                         />
                     ))
                 )}
@@ -482,6 +698,16 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                     onClose={() => setSubmitGroup(null)}
                     onConfirm={doSubmitGroup}
                     submitting={submitting}
+                />
+            )}
+
+            {/* Kegiatan Sheet */}
+            {kegiatanSheet && (
+                <KegiatanSheet
+                    iku={kegiatanSheet.iku}
+                    isEditable={kegiatanSheet.editable}
+                    peerNama={kegiatanSheet.peerNama}
+                    onClose={() => setKegiatanSheet(null)}
                 />
             )}
         </AppLayout>

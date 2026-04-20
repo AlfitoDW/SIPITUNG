@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -48,7 +49,11 @@ const STATUS_CONFIG = {
 function PkStatusPanel({ pks }: { pks: PkStatus[] }) {
     const [reopenTarget, setReopenTarget] = useState<PkStatus | null>(null);
 
-    if (pks.length === 0) return null;
+    if (pks.length === 0) return (
+        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            Belum ada Perjanjian Kinerja yang disubmit atau disetujui.
+        </div>
+    );
 
     function doReopen() {
         if (!reopenTarget) return;
@@ -438,90 +443,107 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                     </div>
                 </div>
 
-                {/* PK Status Panel */}
-                <PkStatusPanel pks={pks} />
-
-                {/* Main Table */}
-                <div className="rounded-xl border shadow-sm overflow-hidden">
-                    <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                <TableHead className="border-r border-white/20 text-white font-semibold text-center w-8">#</TableHead>
-                                <TableHead className="border-r border-white/20 text-white font-semibold w-52">Sasaran</TableHead>
-                                <TableHead className="border-r border-white/20 text-white font-semibold">Indikator Kinerja Utama</TableHead>
-                                <TableHead className="border-r border-white/20 text-white font-semibold text-center w-20">Satuan</TableHead>
-                                <TableHead className="border-r border-white/20 text-white font-semibold text-center w-24">Target</TableHead>
-                                <TableHead className="border-r border-white/20 text-white font-semibold text-center w-44">PIC Tim Kerja</TableHead>
-                                <TableHead className="text-white font-semibold text-center w-20">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sasarans.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                                        Belum ada data. Jalankan seeder atau tambah IKU manual.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                (() => {
-                                    let rowNum = 0;
-                                    return sasarans.flatMap((sasaran) => {
-                                        const color = getColor(sasaran.kode);
-                                        const count = sasaran.indikators.length;
-                                        if (count === 0) return [];
-                                        return sasaran.indikators.map((iku, idx) => {
-                                            rowNum++;
-                                            return (
-                                                <TableRow key={iku.id} className="align-top hover:bg-muted/30">
-                                                    <TableCell className="text-center text-xs text-muted-foreground align-middle">{rowNum}</TableCell>
-                                                    {idx === 0 && (
-                                                        <TableCell rowSpan={count} className={`align-top text-sm ${color.bg} ${color.accent}`}>
-                                                            <span className={`inline-block mb-1 rounded px-1.5 py-0.5 text-xs font-bold ${color.badge}`}>{sasaran.kode}</span>
-                                                            <p className="text-xs leading-snug text-foreground">{sasaran.nama}</p>
-                                                        </TableCell>
-                                                    )}
-                                                    <TableCell className="align-top">
-                                                        <span className="block text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                        <span className="text-sm leading-snug">{iku.nama}</span>
-                                                    </TableCell>
-                                                    <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
-                                                    <TableCell className="text-center align-middle">
-                                                        {iku.target
-                                                            ? <span className="text-sm font-semibold">{iku.target}</span>
-                                                            : <span className="text-xs text-amber-500 italic">Belum diisi</span>}
-                                                    </TableCell>
-                                                    <TableCell className="text-center align-middle">
-                                                        {iku.pic_tim_kerjas.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-1 justify-center">
-                                                                {iku.pic_tim_kerjas.map(t => (
-                                                                    <Badge key={t.id} variant="secondary" className="text-xs">{t.nama}</Badge>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-red-400 italic">Belum ada PIC</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center align-middle">
-                                                        <div className="flex justify-center gap-1">
-                                                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                                                                onClick={() => setIkuDlg({ open: true, indikator: iku })}>
-                                                                <Pencil className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
-                                                                onClick={() => setDeleteDlg({ open: true, id: iku.id, label: iku.kode })}>
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        });
-                                    });
-                                })()
+                {/* Tabs: Penyusunan | Status PK */}
+                <Tabs defaultValue="penyusunan">
+                    <TabsList>
+                        <TabsTrigger value="penyusunan">Penyusunan</TabsTrigger>
+                        <TabsTrigger value="status" className="gap-1.5">
+                            Status PK
+                            {pks.filter(pk => pk.status !== 'draft').length > 0 && (
+                                <Badge className="h-4 min-w-4 px-1 text-[10px] bg-amber-500 text-white">
+                                    {pks.filter(pk => pk.status !== 'draft').length}
+                                </Badge>
                             )}
-                        </TableBody>
-                    </Table>
-                </div>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="penyusunan" className="mt-4">
+                        <div className="rounded-xl border shadow-sm overflow-hidden">
+                            <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold text-center w-8">#</TableHead>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold w-52">Sasaran</TableHead>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold">Indikator Kinerja Utama</TableHead>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold text-center w-20">Satuan</TableHead>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold text-center w-24">Target</TableHead>
+                                        <TableHead className="border-r border-white/20 text-white font-semibold text-center w-44">PIC Tim Kerja</TableHead>
+                                        <TableHead className="text-white font-semibold text-center w-20">Aksi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sasarans.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                                Belum ada data. Jalankan seeder atau tambah IKU manual.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        (() => {
+                                            let rowNum = 0;
+                                            return sasarans.flatMap((sasaran) => {
+                                                const color = getColor(sasaran.kode);
+                                                const count = sasaran.indikators.length;
+                                                if (count === 0) return [];
+                                                return sasaran.indikators.map((iku, idx) => {
+                                                    rowNum++;
+                                                    return (
+                                                        <TableRow key={iku.id} className="align-top hover:bg-muted/30">
+                                                            <TableCell className="text-center text-xs text-muted-foreground align-middle">{rowNum}</TableCell>
+                                                            {idx === 0 && (
+                                                                <TableCell rowSpan={count} className={`align-top text-sm ${color.bg} ${color.accent}`}>
+                                                                    <span className={`inline-block mb-1 rounded px-1.5 py-0.5 text-xs font-bold ${color.badge}`}>{sasaran.kode}</span>
+                                                                    <p className="text-xs leading-snug text-foreground">{sasaran.nama}</p>
+                                                                </TableCell>
+                                                            )}
+                                                            <TableCell className="align-top">
+                                                                <span className="block text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                                <span className="text-sm leading-snug">{iku.nama}</span>
+                                                            </TableCell>
+                                                            <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
+                                                            <TableCell className="text-center align-middle">
+                                                                {iku.target
+                                                                    ? <span className="text-sm font-semibold">{iku.target}</span>
+                                                                    : <span className="text-xs text-amber-500 italic">Belum diisi</span>}
+                                                            </TableCell>
+                                                            <TableCell className="text-center align-middle">
+                                                                {iku.pic_tim_kerjas.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1 justify-center">
+                                                                        {iku.pic_tim_kerjas.map(t => (
+                                                                            <Badge key={t.id} variant="secondary" className="text-xs">{t.nama}</Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-xs text-red-400 italic">Belum ada PIC</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-center align-middle">
+                                                                <div className="flex justify-center gap-1">
+                                                                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                                                                        onClick={() => setIkuDlg({ open: true, indikator: iku })}>
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                                                                        onClick={() => setDeleteDlg({ open: true, id: iku.id, label: iku.kode })}>
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                });
+                                            });
+                                        })()
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="status" className="mt-4">
+                        <PkStatusPanel pks={pks} />
+                    </TabsContent>
+                </Tabs>
             </div>
 
             <MasterSasaranDialog open={masterDlg} onClose={() => setMasterDlg(false)} masterSasarans={masterSasarans} />

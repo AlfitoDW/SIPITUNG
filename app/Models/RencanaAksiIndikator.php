@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RencanaAksiIndikator extends Model
 {
@@ -31,5 +32,12 @@ class RencanaAksiIndikator extends Model
     public function sasaran(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Sasaran::class, 'sasaran_id');
+    }
+
+    public function kegiatans(): HasMany
+    {
+        return $this->hasMany(RencanaKegiatan::class, 'rencana_aksi_indikator_id')
+            ->orderBy('triwulan')
+            ->orderBy('urutan');
     }
 }

@@ -39,6 +39,11 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         // Update target + target_tw RA indikator (hanya field target)
         Route::patch('indikator/{indikator}/target', [PerencanaanController::class, 'raIndikatorUpdate'])->name('indikator.target');
         Route::patch('submit', [PerencanaanController::class, 'raSubmit'])->name('submit');
+
+        // Rencana Kegiatan
+        Route::post('indikator/{indikator}/kegiatan',  [PerencanaanController::class, 'kegiatanStore'])->name('kegiatan.store');
+        Route::patch('kegiatan/{kegiatan}',            [PerencanaanController::class, 'kegiatanUpdate'])->name('kegiatan.update');
+        Route::delete('kegiatan/{kegiatan}',           [PerencanaanController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
     });
 
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {

@@ -5,12 +5,10 @@ namespace App\Http\Controllers\Pimpinan;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
-use App\Models\IndikatorKinerja;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,68 +55,81 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        // Build PIC lookup: [sasaran_id][kode] → picTimKerjas
-        $ikuPics = IndikatorKinerja::with('picTimKerjas')
-            ->whereHas('sasaran.perjanjianKinerja', fn ($q) => $q
-                ->where('tahun_anggaran_id', $tahun->id)
-                ->where('jenis', 'awal')
-            )
-            ->get()
-            ->groupBy('sasaran_id')
-            ->map(fn ($ikus) => $ikus->keyBy('kode'));
-
-        // Hanya ambil RA yang punya indikator sendiri (primary PIC) atau yang submitted
-        // RA co-PIC (KK) yang kosong tidak perlu ditampilkan terpisah — mereka hanya blocker
-        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja', 'peerTimKerja'])
+        // Gunakan PK Awal sebagai sumber data IKU (sama seperti super admin)
+        $pkAwal = PerjanjianKinerja::with([
+            'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators.picTimKerjas',
+        ])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->whereHas('indikators')  // hanya RA yang punya indikator (primary PIC)
-            ->orWhere(function ($q) use ($tahun) {
-                // Atau RA yang sudah di-submit meski kosong (edge case)
-                $q->where('tahun_anggaran_id', $tahun->id)
-                  ->whereIn('status', ['submitted', 'kabag_approved', 'rejected']);
-            })
+            ->where('jenis', 'awal')
+            ->first();
+
+        // Index RAI per kode IKU (dari semua RA tahun ini)
+        $raiByKode = RencanaAksiIndikator::with(['rencanaAksi.timKerja', 'kegiatans'])
+            ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
             ->get()
-            // Deduplicate — pastikan tidak ada duplikat RA berdasarkan ID
-            ->unique('id')
-            ->map(function ($ra) use ($ikuPics, $tahun) {
-                $grouped = $ra->indikators->groupBy('sasaran_id');
+            ->groupBy('kode');
 
-                $sasarans = $grouped->map(function ($indikators) use ($ikuPics) {
-                    $s         = $indikators->first()->sasaran;
-                    $sasaranId = $indikators->first()->sasaran_id;
-                    $ikusMap   = $ikuPics->get($sasaranId, collect());
+        $sasaranMap = [];
 
-                    return [
-                        'kode'       => $s?->kode ?? '-',
-                        'nama'       => $s?->nama ?? 'Tanpa Sasaran',
-                        'indikators' => $indikators->map(function ($iku) use ($ikusMap) {
-                            $pkIku = $ikusMap->get($iku->kode);
-                            $arr   = $iku->toArray();
-                            $arr['pic_tim_kerjas'] = $pkIku
-                                ? $pkIku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode']))->values()->toArray()
-                                : [];
-                            return $arr;
-                        })->values()->toArray(),
+        if ($pkAwal) {
+            foreach ($pkAwal->sasarans as $sasaran) {
+                $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+
+                foreach ($sasaran->indikators as $iku) {
+                    $rais = $raiByKode->get($iku->kode, collect());
+                    $rai  = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
+                           ?? $rais->first();
+
+                    $ra = $rai?->rencanaAksi;
+
+                    $sasaranMap[$sasaran->kode]['indikators'][] = [
+                        'id'             => $rai?->id,
+                        'kode'           => $iku->kode,
+                        'nama'           => $iku->nama,
+                        'satuan'         => $iku->satuan,
+                        'target'         => $iku->target,
+                        'target_tw1'     => $rai?->target_tw1,
+                        'target_tw2'     => $rai?->target_tw2,
+                        'target_tw3'     => $rai?->target_tw3,
+                        'target_tw4'     => $rai?->target_tw4,
+                        'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode']))->values(),
+                        'ra_status'      => $ra?->status,
+                        'ra_id'          => $ra?->id,
+                        'ra_tim_kerja'   => $ra?->timKerja
+                            ? $ra->timKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
+                            : null,
+                        'kegiatans'      => $rai ? $rai->kegiatans->map(fn ($k) => [
+                            'id'            => $k->id,
+                            'triwulan'      => $k->triwulan,
+                            'urutan'        => $k->urutan,
+                            'nama_kegiatan' => $k->nama_kegiatan,
+                        ])->values()->all() : [],
                     ];
-                })->values();
+                }
+            }
+        }
 
-                return [
-                    'id'               => $ra->id,
-                    'status'           => $ra->status,
-                    'rekomendasi_kabag'=> $ra->rekomendasi_kabag,
-                    'tim_kerja'        => $ra->timKerja,
-                    'peer_tim_kerja'   => $ra->peerTimKerja
-                        ? $ra->peerTimKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
-                        : null,
-                    'sasarans'         => $sasarans,
-                ];
-            })
-            ->values();
+        // RA list untuk panel approve/reject
+        $ras = RencanaAksi::with('timKerja:id,nama,kode,nama_singkat')
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($ra) => [
+                'id'                => $ra->id,
+                'status'            => $ra->status,
+                'rekomendasi_kabag' => $ra->rekomendasi_kabag,
+                'tim_kerja'         => $ra->timKerja
+                    ? $ra->timKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
+                    : null,
+            ])->values()->all();
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun' => $tahun,
-            'ras'   => $ras,
-            'role'  => $user->pimpinan_type,
+            'tahun'    => $tahun,
+            'sasarans' => array_values($sasaranMap),
+            'ras'      => $ras,
+            'role'     => $user->pimpinan_type,
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Models\IndikatorKinerja;
 use App\Models\MasterSasaran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
+use App\Models\RencanaAksiIndikator;
 use App\Models\Sasaran;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
@@ -145,52 +146,81 @@ class PerencanaanController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        $ras = RencanaAksi::with(['indikators.sasaran', 'timKerja'])
+        // Selalu gunakan PK Awal sebagai sumber data IKU (selalu tersedia)
+        $pkAwal = PerjanjianKinerja::with([
+            'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators.picTimKerjas',
+        ])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'awal')
+            ->first();
+
+        // Index RAI yang sudah terisi (dari semua RA, dikelompokkan per kode IKU)
+        $raiByKode = RencanaAksiIndikator::with(['kegiatans', 'rencanaAksi.timKerja'])
+            ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
+            ->get()
+            ->groupBy('kode');
+
+        $sasaranMap = [];
+
+        if ($pkAwal) {
+            foreach ($pkAwal->sasarans as $sasaran) {
+                $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+
+                foreach ($sasaran->indikators as $iku) {
+                    // Pilih RAI dari primary PIC jika ada, fallback ke RAI apapun
+                    $rais      = $raiByKode->get($iku->kode, collect());
+                    $rai       = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
+                                 ?? $rais->first();
+
+                    $sasaranMap[$sasaran->kode]['indikators'][] = [
+                        'id'             => $rai?->id,
+                        'kode'           => $iku->kode,
+                        'nama'           => $iku->nama,
+                        'satuan'         => $iku->satuan,
+                        'target'         => $iku->target,
+                        'target_tw1'     => $rai?->target_tw1,
+                        'target_tw2'     => $rai?->target_tw2,
+                        'target_tw3'     => $rai?->target_tw3,
+                        'target_tw4'     => $rai?->target_tw4,
+                        'pic_tim_kerjas' => $iku->picTimKerjas->values(),
+                        'tim_kerja'      => $rai?->rencanaAksi?->timKerja
+                            ? ['id' => $rai->rencanaAksi->timKerja->id, 'nama' => $rai->rencanaAksi->timKerja->nama, 'kode' => $rai->rencanaAksi->timKerja->kode]
+                            : null,
+                        'kegiatans'      => $rai ? $rai->kegiatans->map(fn ($k) => [
+                            'id'            => $k->id,
+                            'triwulan'      => $k->triwulan,
+                            'urutan'        => $k->urutan,
+                            'nama_kegiatan' => $k->nama_kegiatan,
+                        ])->values()->all() : [],
+                    ];
+                }
+            }
+        }
+
+        // Status daftar RA per tim (untuk panel Buka Kembali)
+        $ras = RencanaAksi::with('timKerja:id,nama,kode,nama_singkat')
             ->where('tahun_anggaran_id', $tahun->id)
             ->orderBy('id')
             ->get();
 
-        $pkIkuByKode = IndikatorKinerja::with('picTimKerjas')
-            ->whereHas('sasaran.perjanjianKinerja', function ($q) use ($tahun) {
-                $q->where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal');
-            })
-            ->get()
-            ->keyBy('kode');
-
-        $sasaranMap = [];
-
-        foreach ($ras as $ra) {
-            foreach ($ra->indikators->sortBy('kode') as $rai) {
-                $sasKode = $rai->sasaran?->kode ?? '?';
-                $sasNama = $rai->sasaran?->nama ?? 'Tanpa Sasaran';
-
-                if (! isset($sasaranMap[$sasKode])) {
-                    $sasaranMap[$sasKode] = ['kode' => $sasKode, 'nama' => $sasNama, 'indikators' => []];
-                }
-
-                $pkIku = $pkIkuByKode[$rai->kode] ?? null;
-
-                $sasaranMap[$sasKode]['indikators'][] = [
-                    'id'             => $rai->id,
-                    'kode'           => $rai->kode,
-                    'nama'           => $rai->nama,
-                    'satuan'         => $rai->satuan,
-                    'target'         => $rai->target,
-                    'target_tw1'     => $rai->target_tw1,
-                    'target_tw2'     => $rai->target_tw2,
-                    'target_tw3'     => $rai->target_tw3,
-                    'target_tw4'     => $rai->target_tw4,
-                    'pic_tim_kerjas' => $pkIku ? $pkIku->picTimKerjas->values() : [],
-                    'tim_kerja'      => ['id' => $ra->timKerja->id, 'nama' => $ra->timKerja->nama, 'kode' => $ra->timKerja->kode],
-                ];
-            }
-        }
-
-        ksort($sasaranMap);
+        $raStatusList = $ras->map(fn ($ra) => [
+            'id'                => $ra->id,
+            'status'            => $ra->status,
+            'rekomendasi_kabag' => $ra->rekomendasi_kabag,
+            'tim_kerja'         => $ra->timKerja ? [
+                'id'           => $ra->timKerja->id,
+                'nama'         => $ra->timKerja->nama,
+                'kode'         => $ra->timKerja->kode,
+                'nama_singkat' => $ra->timKerja->nama_singkat,
+            ] : null,
+        ])->values()->all();
 
         return Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun'    => $tahun,
             'sasarans' => array_values($sasaranMap),
+            'ras'      => $raStatusList,
         ]);
     }
 
@@ -363,9 +393,14 @@ class PerencanaanController extends Controller
 
     public function raReopen(RencanaAksi $ra): RedirectResponse
     {
-        abort_if($ra->status !== 'ppk_approved', 422, 'Hanya dokumen yang sudah terkunci dapat dibuka kembali.');
-        $ra->update(['status' => 'draft']);
+        abort_if(
+            ! in_array($ra->status, ['submitted', 'kabag_approved']),
+            422,
+            'Hanya dokumen yang sedang diproses atau sudah disetujui yang dapat dibuka kembali.'
+        );
+        $ra->update(['status' => 'draft', 'rekomendasi_kabag' => null, 'rejected_by' => null]);
 
-        return back()->with('success', "RA {$ra->timKerja->nama_singkat} dibuka kembali.");
+        $nama = $ra->timKerja?->nama_singkat ?? $ra->timKerja?->nama ?? 'Tim Kerja';
+        return back()->with('success', "RA {$nama} berhasil dibuka kembali ke Draft.");
     }
 }

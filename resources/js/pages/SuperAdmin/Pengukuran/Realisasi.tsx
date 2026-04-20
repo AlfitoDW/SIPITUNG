@@ -1,10 +1,12 @@
 import { Head, router } from '@inertiajs/react';
-import { FileSpreadsheet, FileText, Eye } from 'lucide-react';
+import { FileSpreadsheet, FileText, Eye, LockOpen, Clock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -14,7 +16,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type Periode  = { id: number; triwulan: string; is_active: boolean };
-type TimKerja = { id: number; nama: string; kode: string };
+type TimKerja = { id: number; nama: string; kode: string; nama_singkat?: string };
 type MatrixRow = {
     sasaran_kode: string; sasaran_nama: string;
     iku_id: number; iku_kode: string; iku_nama: string;
@@ -27,12 +29,27 @@ type MatrixRow = {
     strategi_tindak_lanjut: string | null;
     catatan: string | null;
 };
+type Laporan = {
+    id: number;
+    status: 'submitted' | 'kabag_approved' | 'rejected';
+    rekomendasi_kabag: string | null;
+    submitted_at: string | null;
+    approved_at: string | null;
+    periode_triwulan: string;
+    tim_kerja: TimKerja | null;
+};
 type Tahun = { id: number; tahun: number; label: string };
-type Props = { tahun: Tahun; periodes: Periode[]; periode: Periode | null; matrix: MatrixRow[] };
+type Props = { tahun: Tahun; periodes: Periode[]; periode: Periode | null; matrix: MatrixRow[]; laporans: Laporan[] };
 
 const TW_LABELS: Record<string, string> = {
     TW1: 'Triwulan I', TW2: 'Triwulan II', TW3: 'Triwulan III', TW4: 'Triwulan IV',
 };
+
+const LAPORAN_STATUS_CONFIG = {
+    submitted:      { label: 'Menunggu Kabag', icon: Clock,        className: 'bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/40 dark:text-yellow-400' },
+    kabag_approved: { label: 'Disetujui',      icon: CheckCircle2, className: 'bg-green-50 text-green-700 border-green-300 dark:bg-green-950/40 dark:text-green-400' },
+    rejected:       { label: 'Ditolak',        icon: XCircle,      className: 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400' },
+} as const;
 
 const sasaranColors: Record<string, { bg: string; badge: string; accent: string }> = {
     'S 1': { bg: 'bg-blue-50 dark:bg-blue-950/40',       badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
@@ -41,6 +58,127 @@ const sasaranColors: Record<string, { bg: string; badge: string; accent: string 
     'S 4': { bg: 'bg-amber-50 dark:bg-amber-950/40',     badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
+
+// ─── Laporan Status Panel ─────────────────────────────────────────────────────
+
+function LaporanStatusPanel({ laporans }: { laporans: Laporan[] }) {
+    const [reopenTarget, setReopenTarget] = useState<Laporan | null>(null);
+
+    function doReopen() {
+        if (!reopenTarget) return;
+        router.patch(`/super-admin/pengukuran/laporan/${reopenTarget.id}/reopen`, {}, {
+            onSuccess: () => setReopenTarget(null),
+            preserveScroll: true,
+        });
+    }
+
+    const canReopen = (l: Laporan) => l.status === 'submitted' || l.status === 'kabag_approved';
+
+    const byTw: Record<string, Laporan[]> = {};
+    laporans.forEach(l => {
+        if (!byTw[l.periode_triwulan]) byTw[l.periode_triwulan] = [];
+        byTw[l.periode_triwulan].push(l);
+    });
+
+    if (laporans.length === 0) {
+        return (
+            <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                Belum ada laporan yang disubmit atau disetujui.
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <h2 className="text-sm font-semibold">Status Laporan Pengukuran per Tim Kerja</h2>
+                    <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali laporan yang terkunci</span>
+                </div>
+                {Object.entries(byTw).map(([tw, items]) => (
+                    <div key={tw}>
+                        <div className="px-4 py-2 bg-muted/20 border-b">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {TW_LABELS[tw] ?? tw}
+                            </span>
+                        </div>
+                        <div className="divide-y">
+                            {items.map(laporan => {
+                                const cfg  = LAPORAN_STATUS_CONFIG[laporan.status];
+                                const Icon = cfg.icon;
+                                const reopenable = canReopen(laporan);
+                                return (
+                                    <div key={laporan.id} className={`flex items-center gap-3 px-4 py-3 ${laporan.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : laporan.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-semibold truncate">{laporan.tim_kerja?.nama ?? '—'}</span>
+                                                {laporan.tim_kerja?.kode && (
+                                                    <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">
+                                                        {laporan.tim_kerja.kode}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {laporan.rekomendasi_kabag && (
+                                                <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {laporan.rekomendasi_kabag}</p>
+                                            )}
+                                            {laporan.approved_at && (
+                                                <p className="text-xs text-muted-foreground mt-0.5">Disetujui: {laporan.approved_at}</p>
+                                            )}
+                                        </div>
+                                        <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
+                                            <Icon className="h-3 w-3" />
+                                            {cfg.label}
+                                        </Badge>
+                                        {reopenable && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                onClick={() => setReopenTarget(laporan)}
+                                            >
+                                                <LockOpen className="h-3 w-3" />
+                                                Buka Kembali
+                                            </Button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <AlertDialog open={reopenTarget !== null} onOpenChange={v => !v && setReopenTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Buka kembali Laporan Pengukuran ini?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2">
+                                <p>
+                                    Laporan milik <span className="font-semibold">{reopenTarget?.tim_kerja?.nama ?? '—'}</span>{' '}
+                                    ({TW_LABELS[reopenTarget?.periode_triwulan ?? ''] ?? reopenTarget?.periode_triwulan}) akan kembali ke status{' '}
+                                    <span className="font-semibold">Draft</span> dan dapat diedit ulang oleh tim terkait.
+                                </p>
+                                {reopenTarget?.status === 'kabag_approved' && (
+                                    <div className="rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                                        ⚠️ Laporan ini sudah <strong>disetujui</strong> oleh Kabag Umum. Membuka kembali akan membatalkan persetujuan tersebut.
+                                    </div>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction className="bg-amber-600 text-white hover:bg-amber-700" onClick={doReopen}>
+                            Ya, Buka Kembali
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    );
+}
 
 // ─── Detail Dialog ────────────────────────────────────────────────────────────
 
@@ -73,7 +211,6 @@ function DetailDialog({ row, tw, onClose }: { row: MatrixRow; tw: string; onClos
                         </div>
                     </div>
 
-                    {/* PIC & Diisi Oleh */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">PIC Tim Kerja</p>
@@ -142,7 +279,7 @@ function groupBySasaran(rows: MatrixRow[]) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
+export default function Realisasi({ tahun, periodes, periode, matrix, laporans }: Props) {
     const [detail, setDetail] = useState<MatrixRow | null>(null);
 
     function changePeriode(id: string) {
@@ -152,6 +289,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
     const grouped  = groupBySasaran(matrix);
     const filled   = matrix.filter(r => r.realisasi).length;
     const twLabel  = periode ? (TW_LABELS[periode.triwulan] ?? periode.triwulan) : '';
+    const pendingCount = laporans.filter(l => l.status === 'submitted' || l.status === 'kabag_approved').length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -185,155 +323,174 @@ export default function Realisasi({ tahun, periodes, periode, matrix }: Props) {
                     )}
                 </div>
 
-                {/* Periode selector — hanya periode aktif */}
-                <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm text-muted-foreground">Periode Aktif:</span>
-                    {periodes.length === 0 ? (
-                        <span className="text-sm text-amber-600">Belum ada periode yang aktif.</span>
-                    ) : (
-                        <Select value={periode?.id?.toString() ?? ''} onValueChange={changePeriode}>
-                            <SelectTrigger className="w-48 h-8">
-                                <SelectValue placeholder="Pilih periode..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {periodes.map(p => (
-                                    <SelectItem key={p.id} value={p.id.toString()}>
-                                        {TW_LABELS[p.triwulan] ?? p.triwulan}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                    {periode && (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
-                            Aktif
-                        </Badge>
-                    )}
-                    {matrix.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                            {filled} / {matrix.length} IKU sudah diisi
-                        </span>
-                    )}
-                </div>
+                {/* Tabs */}
+                <Tabs defaultValue="realisasi">
+                    <TabsList>
+                        <TabsTrigger value="realisasi">Realisasi Kinerja</TabsTrigger>
+                        <TabsTrigger value="status" className="gap-1.5">
+                            Status Laporan
+                            {pendingCount > 0 && (
+                                <Badge className="h-4 min-w-4 px-1 text-[10px] bg-amber-500 text-white">
+                                    {pendingCount}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
 
-                {!periode ? (
-                    <p className="text-muted-foreground">Belum ada periode yang aktif. Aktifkan periode di halaman Kelola Periode.</p>
-                ) : matrix.length === 0 ? (
-                    <p className="text-muted-foreground">Belum ada data IKU.</p>
-                ) : (
-                    <div className="rounded-xl border shadow-sm overflow-x-auto">
-                        <table className="w-full border-collapse text-sm">
-                            <thead>
-                                <tr style={{ backgroundColor: '#003580' }}>
-                                    <th rowSpan={2} className="border border-white/20 px-3 py-2 text-left text-white font-semibold w-44">Sasaran</th>
-                                    <th rowSpan={2} className="border border-white/20 px-3 py-2 text-left text-white font-semibold">Indikator Kinerja</th>
-                                    <th rowSpan={2} className="border border-white/20 px-3 py-2 text-center text-white font-semibold w-36">PIC Tim Kerja</th>
-                                    <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Satuan</th>
-                                    <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Target PK</th>
-                                    <th colSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold">{twLabel}</th>
-                                    <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-28">Diisi Oleh</th>
-                                    <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Status</th>
-                                    <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-12">Detail</th>
-                                </tr>
-                                <tr style={{ backgroundColor: '#004099' }}>
-                                    <th className="border border-white/20 px-2 py-1.5 text-center text-white/80 font-normal text-xs w-20">Target</th>
-                                    <th className="border border-white/20 px-2 py-1.5 text-center text-white/80 font-normal text-xs w-20">Realisasi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {grouped.map((row) => {
-                                    const color   = getColor(row.sasaran_kode);
-                                    const hasData = !!row.realisasi;
-                                    return (
-                                        <tr key={row.iku_id} className="align-top hover:bg-muted/30">
+                    <TabsContent value="realisasi" className="mt-4 flex flex-col gap-4">
+                        {/* Periode selector */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-sm text-muted-foreground">Periode Aktif:</span>
+                            {periodes.length === 0 ? (
+                                <span className="text-sm text-amber-600">Belum ada periode yang aktif.</span>
+                            ) : (
+                                <Select value={periode?.id?.toString() ?? ''} onValueChange={changePeriode}>
+                                    <SelectTrigger className="w-48 h-8">
+                                        <SelectValue placeholder="Pilih periode..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {periodes.map(p => (
+                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                {TW_LABELS[p.triwulan] ?? p.triwulan}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {periode && (
+                                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
+                                    Aktif
+                                </Badge>
+                            )}
+                            {matrix.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                    {filled} / {matrix.length} IKU sudah diisi
+                                </span>
+                            )}
+                        </div>
 
-                                            {row.showSasaran && (
-                                                <td rowSpan={row.rowSpan}
-                                                    className={`border border-border px-3 py-2 align-top ${color.bg} ${color.accent}`}>
-                                                    <span className={`inline-block mb-1 rounded px-1.5 py-0.5 text-xs font-bold ${color.badge}`}>
-                                                        {row.sasaran_kode}
-                                                    </span>
-                                                    <p className="text-xs leading-snug text-foreground">{row.sasaran_nama}</p>
-                                                </td>
-                                            )}
-
-                                            <td className="border border-border px-3 py-2 align-top">
-                                                <span className="block text-xs font-semibold text-muted-foreground mb-0.5">{row.iku_kode}</span>
-                                                <p className="text-xs leading-snug">{row.iku_nama}</p>
-                                            </td>
-
-                                            {/* Multi-PIC: primary solid, co-PIC outline */}
-                                            <td className="border border-border px-2 py-2 text-center align-middle">
-                                                <div className="flex flex-col gap-0.5 items-center">
-                                                    {row.pic_tim_kerjas.length > 0
-                                                        ? row.pic_tim_kerjas.map((t, idx) => (
-                                                            <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs leading-tight ${
-                                                                idx === 0
-                                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium'
-                                                                    : 'border border-slate-300 text-slate-500 text-[10px]'
-                                                            }`}>
-                                                                {t.nama}
-                                                            </span>
-                                                        ))
-                                                        : <span className="text-xs text-muted-foreground">—</span>
-                                                    }
-                                                </div>
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center text-xs text-muted-foreground align-middle">
-                                                {row.iku_satuan}
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center text-xs font-semibold align-middle">
-                                                {row.iku_target}
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center text-xs align-middle bg-slate-50 dark:bg-slate-900/40 w-20">
-                                                {row.iku_target_tw
-                                                    ? <span className="font-medium">{row.iku_target_tw}</span>
-                                                    : <span className="text-muted-foreground">—</span>
-                                                }
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center text-xs align-middle w-20">
-                                                {hasData
-                                                    ? <span className="font-semibold text-green-700 dark:text-green-400">{row.realisasi}</span>
-                                                    : <span className="text-muted-foreground">—</span>
-                                                }
-                                            </td>
-
-                                            {/* Diisi oleh */}
-                                            <td className="border border-border px-2 py-2 text-center align-middle">
-                                                {row.input_by_tim_kerja
-                                                    ? <span className="inline-block rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                                        {row.input_by_tim_kerja.nama}
-                                                      </span>
-                                                    : <span className="text-xs text-muted-foreground">—</span>
-                                                }
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center align-middle">
-                                                <Badge variant="outline" className={hasData
-                                                    ? 'bg-green-50 text-green-700 border-green-200 text-xs'
-                                                    : 'bg-slate-50 text-slate-500 border-slate-200 text-xs'
-                                                }>
-                                                    {hasData ? 'Terisi' : 'Kosong'}
-                                                </Badge>
-                                            </td>
-
-                                            <td className="border border-border px-2 py-2 text-center align-middle">
-                                                <Button size="icon" variant="ghost" className="h-6 w-6"
-                                                    onClick={() => setDetail(row)}>
-                                                    <Eye className={`h-3.5 w-3.5 ${hasData ? '' : 'black'}`} />
-                                                </Button>
-                                            </td>
+                        {!periode ? (
+                            <p className="text-muted-foreground">Belum ada periode yang aktif. Aktifkan periode di halaman Kelola Periode.</p>
+                        ) : matrix.length === 0 ? (
+                            <p className="text-muted-foreground">Belum ada data IKU.</p>
+                        ) : (
+                            <div className="rounded-xl border shadow-sm overflow-x-auto">
+                                <table className="w-full border-collapse text-sm">
+                                    <thead>
+                                        <tr style={{ backgroundColor: '#003580' }}>
+                                            <th rowSpan={2} className="border border-white/20 px-3 py-2 text-left text-white font-semibold w-44">Sasaran</th>
+                                            <th rowSpan={2} className="border border-white/20 px-3 py-2 text-left text-white font-semibold">Indikator Kinerja</th>
+                                            <th rowSpan={2} className="border border-white/20 px-3 py-2 text-center text-white font-semibold w-36">PIC Tim Kerja</th>
+                                            <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Satuan</th>
+                                            <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Target PK</th>
+                                            <th colSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold">{twLabel}</th>
+                                            <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-28">Diisi Oleh</th>
+                                            <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Status</th>
+                                            <th rowSpan={2} className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-12">Detail</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                        <tr style={{ backgroundColor: '#004099' }}>
+                                            <th className="border border-white/20 px-2 py-1.5 text-center text-white/80 font-normal text-xs w-20">Target</th>
+                                            <th className="border border-white/20 px-2 py-1.5 text-center text-white/80 font-normal text-xs w-20">Realisasi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {grouped.map((row) => {
+                                            const color   = getColor(row.sasaran_kode);
+                                            const hasData = !!row.realisasi;
+                                            return (
+                                                <tr key={row.iku_id} className="align-top hover:bg-muted/30">
+
+                                                    {row.showSasaran && (
+                                                        <td rowSpan={row.rowSpan}
+                                                            className={`border border-border px-3 py-2 align-top ${color.bg} ${color.accent}`}>
+                                                            <span className={`inline-block mb-1 rounded px-1.5 py-0.5 text-xs font-bold ${color.badge}`}>
+                                                                {row.sasaran_kode}
+                                                            </span>
+                                                            <p className="text-xs leading-snug text-foreground">{row.sasaran_nama}</p>
+                                                        </td>
+                                                    )}
+
+                                                    <td className="border border-border px-3 py-2 align-top">
+                                                        <span className="block text-xs font-semibold text-muted-foreground mb-0.5">{row.iku_kode}</span>
+                                                        <p className="text-xs leading-snug">{row.iku_nama}</p>
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center align-middle">
+                                                        <div className="flex flex-col gap-0.5 items-center">
+                                                            {row.pic_tim_kerjas.length > 0
+                                                                ? row.pic_tim_kerjas.map((t, idx) => (
+                                                                    <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs leading-tight ${
+                                                                        idx === 0
+                                                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium'
+                                                                            : 'border border-slate-300 text-slate-500 text-[10px]'
+                                                                    }`}>
+                                                                        {t.nama}
+                                                                    </span>
+                                                                ))
+                                                                : <span className="text-xs text-muted-foreground">—</span>
+                                                            }
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center text-xs text-muted-foreground align-middle">
+                                                        {row.iku_satuan}
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center text-xs font-semibold align-middle">
+                                                        {row.iku_target}
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center text-xs align-middle bg-slate-50 dark:bg-slate-900/40 w-20">
+                                                        {row.iku_target_tw
+                                                            ? <span className="font-medium">{row.iku_target_tw}</span>
+                                                            : <span className="text-muted-foreground">—</span>
+                                                        }
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center text-xs align-middle w-20">
+                                                        {hasData
+                                                            ? <span className="font-semibold text-green-700 dark:text-green-400">{row.realisasi}</span>
+                                                            : <span className="text-muted-foreground">—</span>
+                                                        }
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center align-middle">
+                                                        {row.input_by_tim_kerja
+                                                            ? <span className="inline-block rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                                {row.input_by_tim_kerja.nama}
+                                                              </span>
+                                                            : <span className="text-xs text-muted-foreground">—</span>
+                                                        }
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center align-middle">
+                                                        <Badge variant="outline" className={hasData
+                                                            ? 'bg-green-50 text-green-700 border-green-200 text-xs'
+                                                            : 'bg-slate-50 text-slate-500 border-slate-200 text-xs'
+                                                        }>
+                                                            {hasData ? 'Terisi' : 'Kosong'}
+                                                        </Badge>
+                                                    </td>
+
+                                                    <td className="border border-border px-2 py-2 text-center align-middle">
+                                                        <Button size="icon" variant="ghost" className="h-6 w-6"
+                                                            onClick={() => setDetail(row)}>
+                                                            <Eye className={`h-3.5 w-3.5 ${hasData ? '' : 'black'}`} />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="status" className="mt-4">
+                        <LaporanStatusPanel laporans={laporans} />
+                    </TabsContent>
+                </Tabs>
             </div>
 
             {detail && periode && (

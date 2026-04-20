@@ -7,6 +7,7 @@ use App\Models\IndikatorKinerja;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
+use App\Models\RencanaKegiatan;
 use App\Models\Sasaran;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
@@ -222,7 +223,7 @@ class PerencanaanController extends Controller
         // Kumpulkan semua sasaran/indikator yang ditampilkan per group
         $groupsData = [];
         foreach ($collabGroups as $group) {
-            $raInds = RencanaAksiIndikator::with('sasaran')
+            $raInds = RencanaAksiIndikator::with(['sasaran', 'kegiatans'])
                 ->whereIn('id', $group['ra_ind_ids'])
                 ->orderBy('kode')
                 ->get();
@@ -247,6 +248,12 @@ class PerencanaanController extends Controller
                     'target_tw2' => $ind->target_tw2,
                     'target_tw3' => $ind->target_tw3,
                     'target_tw4' => $ind->target_tw4,
+                    'kegiatans'  => $ind->kegiatans->map(fn ($k) => [
+                        'id'            => $k->id,
+                        'triwulan'      => $k->triwulan,
+                        'urutan'        => $k->urutan,
+                        'nama_kegiatan' => $k->nama_kegiatan,
+                    ])->values()->all(),
                 ];
             }
             ksort($sasaranMap);
@@ -350,6 +357,86 @@ class PerencanaanController extends Controller
             'tahun' => $tahun,
             'ra'    => $ra,
         ]);
+    }
+
+    // ─── Rencana Kegiatan CRUD ──────────────────────────────────────────────────
+
+    public function kegiatanStore(Request $request, RencanaAksiIndikator $indikator): RedirectResponse
+    {
+        $ra         = $indikator->rencanaAksi;
+        $timKerjaId = $request->user()->tim_kerja_id;
+
+        // Izinkan owner RA atau co-PIC yang menjadi PIC IKU ini di PK
+        $isOwner = $ra->tim_kerja_id === $timKerjaId;
+        $isCoPic = ! $isOwner && $indikator->sasaran
+            && $indikator->sasaran->indikators()
+                ->whereHas('picTimKerjas', fn ($q) => $q->where('tim_kerja.id', $timKerjaId))
+                ->exists();
+
+        abort_if(! $isOwner && ! $isCoPic, 403);
+        abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $data = $request->validate([
+            'triwulan'      => ['required', 'integer', 'min:1', 'max:4'],
+            'nama_kegiatan' => ['required', 'string', 'max:500'],
+        ]);
+
+        $urutan = RencanaKegiatan::where('rencana_aksi_indikator_id', $indikator->id)
+            ->where('triwulan', $data['triwulan'])
+            ->max('urutan') + 1;
+
+        RencanaKegiatan::create([
+            'rencana_aksi_indikator_id' => $indikator->id,
+            'triwulan'                  => $data['triwulan'],
+            'urutan'                    => $urutan,
+            'nama_kegiatan'             => $data['nama_kegiatan'],
+        ]);
+
+        return back()->with('success', 'Kegiatan berhasil ditambahkan.');
+    }
+
+    public function kegiatanUpdate(Request $request, RencanaKegiatan $kegiatan): RedirectResponse
+    {
+        $indikator  = $kegiatan->indikator;
+        $ra         = $indikator->rencanaAksi;
+        $timKerjaId = $request->user()->tim_kerja_id;
+
+        $isOwner = $ra->tim_kerja_id === $timKerjaId;
+        $isCoPic = ! $isOwner && $indikator->sasaran
+            && $indikator->sasaran->indikators()
+                ->whereHas('picTimKerjas', fn ($q) => $q->where('tim_kerja.id', $timKerjaId))
+                ->exists();
+
+        abort_if(! $isOwner && ! $isCoPic, 403);
+        abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $data = $request->validate([
+            'nama_kegiatan' => ['required', 'string', 'max:500'],
+        ]);
+
+        $kegiatan->update(['nama_kegiatan' => $data['nama_kegiatan']]);
+
+        return back()->with('success', 'Kegiatan berhasil diperbarui.');
+    }
+
+    public function kegiatanDestroy(Request $request, RencanaKegiatan $kegiatan): RedirectResponse
+    {
+        $indikator  = $kegiatan->indikator;
+        $ra         = $indikator->rencanaAksi;
+        $timKerjaId = $request->user()->tim_kerja_id;
+
+        $isOwner = $ra->tim_kerja_id === $timKerjaId;
+        $isCoPic = ! $isOwner && $indikator->sasaran
+            && $indikator->sasaran->indikators()
+                ->whereHas('picTimKerjas', fn ($q) => $q->where('tim_kerja.id', $timKerjaId))
+                ->exists();
+
+        abort_if(! $isOwner && ! $isCoPic, 403);
+        abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $kegiatan->delete();
+
+        return back()->with('success', 'Kegiatan berhasil dihapus.');
     }
 
     // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -460,8 +547,58 @@ class PerencanaanController extends Controller
                     ->pluck('id')->all();
             }
 
-            // RA indikators untuk kelompok ini (dari RA manapun — bisa milik peer/primary PIC)
-            $raInds = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)->get();
+            // Kode IKU spesifik untuk group ini — cegah overlap IKU dari sasaran yang sama
+            $groupIkuKodes = IndikatorKinerja::whereIn('id', $ikuIds)->pluck('kode')->all();
+
+            // Auto-populasi RAI dari PK Awal jika belum ada untuk group ini
+            $existingRaiCount = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)
+                ->whereIn('kode', $groupIkuKodes)
+                ->count();
+            if ($existingRaiCount === 0) {
+                foreach ($ikuIds as $ikuId) {
+                    $pkIku = IndikatorKinerja::find($ikuId);
+                    if (! $pkIku || ! $pkIku->pic_tim_kerja_id) continue;
+
+                    $primaryPicId = $pkIku->pic_tim_kerja_id;
+
+                    if ($primaryPicId === $timKerjaId) {
+                        // Tim ini adalah primary PIC → RAI masuk ke RA sendiri
+                        $targetRa = $myRa;
+                    } elseif ($primaryPicId === $peerId) {
+                        // Peer adalah primary PIC → cari/buat RA peer terlebih dahulu
+                        $targetRa = RencanaAksi::firstOrCreate(
+                            [
+                                'tahun_anggaran_id' => $tahunId,
+                                'tim_kerja_id'      => $peerId,
+                                'peer_tim_kerja_id' => $timKerjaId,
+                            ],
+                            ['status' => 'draft', 'created_by' => auth()->id() ?? 1]
+                        );
+                    } else {
+                        continue;
+                    }
+
+                    RencanaAksiIndikator::firstOrCreate(
+                        ['rencana_aksi_id' => $targetRa->id, 'kode' => $pkIku->kode],
+                        [
+                            'sasaran_id'  => $pkIku->sasaran_id,
+                            'nama'        => $pkIku->nama,
+                            'satuan'      => $pkIku->satuan,
+                            'target'      => $pkIku->target,
+                            'target_tw1'  => null,
+                            'target_tw2'  => null,
+                            'target_tw3'  => null,
+                            'target_tw4'  => null,
+                            'urutan'      => $pkIku->urutan,
+                        ]
+                    );
+                }
+            }
+
+            // RA indikators untuk kelompok ini (filter ketat per kode IKU group ini)
+            $raInds = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)
+                ->whereIn('kode', $groupIkuKodes)
+                ->get();
             $raIndIds   = $raInds->pluck('id')->all();
             $indCount   = $raInds->count();
             $filledCount = $raInds->filter(

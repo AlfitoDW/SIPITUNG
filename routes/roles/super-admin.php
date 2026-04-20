@@ -63,6 +63,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::get('export/xls',                 [PengukuranController::class, 'exportXls'])->name('export.xls');
         Route::get('export/pdf',                 [PengukuranController::class, 'exportPdf'])->name('export.pdf');
         Route::get('export/tw-pdf',              [PengukuranController::class, 'exportTwPdf'])->name('export.tw-pdf');
+        Route::patch('laporan/{laporan}/reopen', [PengukuranController::class, 'laporanReopen'])->name('laporan.reopen');
     });
 
     Route::get('/pertanggungjawaban', fn() => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');
