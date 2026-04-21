@@ -55,15 +55,15 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        // Gunakan PK Awal sebagai sumber data IKU (sama seperti super admin)
-        $pkAwal = PerjanjianKinerja::with([
+        // Gunakan SEMUA PK Awal sebagai sumber IKU (robust jika data tersebar di beberapa PK)
+        $allPkAwal = PerjanjianKinerja::with([
             'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
-            ->first();
+            ->get();
 
         // Index RAI per kode IKU (dari semua RA tahun ini)
         $raiByKode = RencanaAksiIndikator::with(['rencanaAksi.timKerja', 'kegiatans'])
@@ -73,9 +73,11 @@ class PerencanaanController extends Controller
 
         $sasaranMap = [];
 
-        if ($pkAwal) {
+        foreach ($allPkAwal as $pkAwal) {
             foreach ($pkAwal->sasarans as $sasaran) {
-                $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+                if (! isset($sasaranMap[$sasaran->kode])) {
+                    $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+                }
 
                 foreach ($sasaran->indikators as $iku) {
                     $rais = $raiByKode->get($iku->kode, collect());

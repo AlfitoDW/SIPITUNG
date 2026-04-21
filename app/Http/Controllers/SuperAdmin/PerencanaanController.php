@@ -146,15 +146,15 @@ class PerencanaanController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        // Selalu gunakan PK Awal sebagai sumber data IKU (selalu tersedia)
-        $pkAwal = PerjanjianKinerja::with([
+        // Gunakan SEMUA PK Awal sebagai sumber IKU (robust jika data tersebar di beberapa PK)
+        $allPkAwal = PerjanjianKinerja::with([
             'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
-            ->first();
+            ->get();
 
         // Index RAI yang sudah terisi (dari semua RA, dikelompokkan per kode IKU)
         $raiByKode = RencanaAksiIndikator::with(['kegiatans', 'rencanaAksi.timKerja'])
@@ -164,15 +164,17 @@ class PerencanaanController extends Controller
 
         $sasaranMap = [];
 
-        if ($pkAwal) {
+        foreach ($allPkAwal as $pkAwal) {
             foreach ($pkAwal->sasarans as $sasaran) {
-                $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+                if (! isset($sasaranMap[$sasaran->kode])) {
+                    $sasaranMap[$sasaran->kode] = ['kode' => $sasaran->kode, 'nama' => $sasaran->nama, 'indikators' => []];
+                }
 
                 foreach ($sasaran->indikators as $iku) {
                     // Pilih RAI dari primary PIC jika ada, fallback ke RAI apapun
-                    $rais      = $raiByKode->get($iku->kode, collect());
-                    $rai       = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
-                                 ?? $rais->first();
+                    $rais = $raiByKode->get($iku->kode, collect());
+                    $rai  = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
+                             ?? $rais->first();
 
                     $sasaranMap[$sasaran->kode]['indikators'][] = [
                         'id'             => $rai?->id,
