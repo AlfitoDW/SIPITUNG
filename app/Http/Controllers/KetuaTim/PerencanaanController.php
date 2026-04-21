@@ -25,8 +25,9 @@ class PerencanaanController extends Controller
     {
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
+        $isTkPk     = $request->user()->timkerja?->kode === 'TK-PK';
 
-        // Satu PK awal untuk semua — selalu milik TK-PK; tim lain hanya view
+        // PK dokumen milik TK-PK (untuk status & editing)
         $tkPk = TimKerja::where('kode', 'TK-PK')->first();
         $pk   = $tkPk
             ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
@@ -35,17 +36,23 @@ class PerencanaanController extends Controller
                 ->first()
             : null;
 
-        $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
-        $canInit = $request->user()->timkerja?->kode === 'TK-PK';
+        // Sasaran: gabungkan SEMUA PK awal yang ada (robust jika data tersebar)
+        $allPks   = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'awal')
+            ->get();
+        $sasarans = $this->buildMergedPkSasarans($allPks);
+
+        $isOwner = $isTkPk && $pk !== null;
+        $canInit = $isTkPk;
 
         return Inertia::render('KetuaTim/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
-            'tahun'   => $tahun,
-            'pk'      => $pk ? [
+            'tahun'    => $tahun,
+            'pk'       => $pk ? [
                 'id'                => $pk->id,
                 'status'            => $pk->status,
                 'rekomendasi_kabag' => $pk->rekomendasi_kabag,
             ] : null,
-            'sasarans' => $pk ? $this->buildPkSasarans($pk) : [],
+            'sasarans' => $sasarans,
             'isOwner'  => $isOwner,
             'canInit'  => $canInit,
         ]);
@@ -96,8 +103,9 @@ class PerencanaanController extends Controller
     {
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
+        $isTkPk     = $request->user()->timkerja?->kode === 'TK-PK';
 
-        // Satu PK revisi untuk semua — selalu milik TK-PK; tim lain hanya view
+        // PK dokumen milik TK-PK (untuk status & editing)
         $tkPk = TimKerja::where('kode', 'TK-PK')->first();
         $pk   = $tkPk
             ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
@@ -106,8 +114,14 @@ class PerencanaanController extends Controller
                 ->first()
             : null;
 
-        $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
-        $canInit = $request->user()->timkerja?->kode === 'TK-PK';
+        // Sasaran: gabungkan SEMUA PK revisi yang ada (robust jika data tersebar)
+        $allPks   = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+            ->where('jenis', 'revisi')
+            ->get();
+        $sasarans = $this->buildMergedPkSasarans($allPks);
+
+        $isOwner = $isTkPk && $pk !== null;
+        $canInit = $isTkPk;
 
         return Inertia::render('KetuaTim/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
             'tahun'    => $tahun,
@@ -116,7 +130,7 @@ class PerencanaanController extends Controller
                 'status'            => $pk->status,
                 'rekomendasi_kabag' => $pk->rekomendasi_kabag,
             ] : null,
-            'sasarans' => $pk ? $this->buildPkSasarans($pk) : [],
+            'sasarans' => $sasarans,
             'isOwner'  => $isOwner,
             'canInit'  => $canInit,
         ]);
@@ -651,6 +665,54 @@ class PerencanaanController extends Controller
             $inds->count(),
             $inds->filter(fn ($i) => $i->target_tw1 || $i->target_tw2 || $i->target_tw3 || $i->target_tw4)->count(),
         ];
+    }
+
+    /**
+     * Gabungkan sasaran + IKU dari SEMUA PK dalam koleksi (flat merge by sasaran kode).
+     * Digunakan agar semua ketua tim bisa view meski data tersebar di beberapa PK.
+     *
+     * @param  \Illuminate\Support\Collection<int, PerjanjianKinerja>  $pks
+     */
+    private function buildMergedPkSasarans($pks): array
+    {
+        $sasaranMap = [];
+
+        foreach ($pks as $pk) {
+            $pk->load([
+                'sasarans'              => fn ($q) => $q->orderBy('kode'),
+                'sasarans.indikators'   => fn ($q) => $q->orderBy('kode'),
+                'sasarans.indikators.picTimKerjas',
+            ]);
+
+            foreach ($pk->sasarans as $s) {
+                if (! isset($sasaranMap[$s->kode])) {
+                    $sasaranMap[$s->kode] = [
+                        'id'         => $s->id,
+                        'kode'       => $s->kode,
+                        'nama'       => $s->nama,
+                        'indikators' => [],
+                    ];
+                }
+                foreach ($s->indikators as $iku) {
+                    $sasaranMap[$s->kode]['indikators'][] = [
+                        'id'             => $iku->id,
+                        'kode'           => $iku->kode,
+                        'nama'           => $iku->nama,
+                        'satuan'         => $iku->satuan,
+                        'target'         => $iku->target,
+                        'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => [
+                            'id'           => $t->id,
+                            'nama'         => $t->nama,
+                            'kode'         => $t->kode,
+                            'nama_singkat' => $t->nama_singkat,
+                        ])->toArray(),
+                    ];
+                }
+            }
+        }
+
+        ksort($sasaranMap);
+        return array_values($sasaranMap);
     }
 
     /**
