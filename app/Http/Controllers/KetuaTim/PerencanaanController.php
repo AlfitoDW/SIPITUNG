@@ -26,10 +26,14 @@ class PerencanaanController extends Controller
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        // Satu PK awal untuk semua (milik TK-PK); tim lain hanya view
-        $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('jenis', 'awal')
-            ->first();
+        // Satu PK awal untuk semua — selalu milik TK-PK; tim lain hanya view
+        $tkPk = TimKerja::where('kode', 'TK-PK')->first();
+        $pk   = $tkPk
+            ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+                ->where('tim_kerja_id', $tkPk->id)
+                ->where('jenis', 'awal')
+                ->first()
+            : null;
 
         $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
         $canInit = $request->user()->timkerja?->kode === 'TK-PK';
@@ -93,10 +97,14 @@ class PerencanaanController extends Controller
         $tahun      = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        // Satu PK revisi untuk semua (milik TK-PK); tim lain hanya view
-        $pk = PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
-            ->where('jenis', 'revisi')
-            ->first();
+        // Satu PK revisi untuk semua — selalu milik TK-PK; tim lain hanya view
+        $tkPk = TimKerja::where('kode', 'TK-PK')->first();
+        $pk   = $tkPk
+            ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+                ->where('tim_kerja_id', $tkPk->id)
+                ->where('jenis', 'revisi')
+                ->first()
+            : null;
 
         $isOwner = $pk && $pk->tim_kerja_id === $timKerjaId;
         $canInit = $request->user()->timkerja?->kode === 'TK-PK';
