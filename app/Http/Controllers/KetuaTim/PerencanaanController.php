@@ -712,7 +712,8 @@ class PerencanaanController extends Controller
         }
 
         ksort($sasaranMap);
-        return array_values($sasaranMap);
+        // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
+        return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
 
     /**

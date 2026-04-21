@@ -21,13 +21,17 @@ class DashboardController extends Controller
         $tahun      = TahunAnggaran::forSession();
 
         // ── Perencanaan ───────────────────────────────────────────────────────────
-        // PK adalah dokumen global milik TK-PK — semua tim bisa lihat statusnya
-        $pkAwal = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+        // PK adalah dokumen global milik TK-PK — ambil spesifik dari TK-PK
+        $tkPkId = \App\Models\TimKerja::where('kode', 'TK-PK')->value('id');
+
+        $pkAwal = ($tahun && $tkPkId) ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
+            ->where('tim_kerja_id', $tkPkId)
             ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
-        $pkRevisi = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
+        $pkRevisi = ($tahun && $tkPkId) ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'revisi')
+            ->where('tim_kerja_id', $tkPkId)
             ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
         // Ambil RA dengan status TERBAIK untuk tim ini agar card dashboard selalu akurat.

@@ -19,21 +19,26 @@ class PersetujuanController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user  = auth()->user();
 
-        $pksAwal = PerjanjianKinerja::with(['timKerja', 'sasarans.indikators.picTimKerjas'])
+        // Bangun merged sasarans dari SEMUA PK per jenis (bukan hanya yang submitted)
+        // agar IKU yang tersebar di beberapa PK tetap tampil di card persetujuan
+        $mergedAwal   = $this->buildMergedSasarans($tahun->id, 'awal');
+        $mergedRevisi = $this->buildMergedSasarans($tahun->id, 'revisi');
+
+        $pksAwal = PerjanjianKinerja::with(['timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
             ->whereNotIn('status', ['draft'])
             ->orderByRaw("FIELD(status,'submitted','kabag_approved','rejected','ppk_approved')")
             ->get()
-            ->map(fn ($pk) => $this->mapPk($pk));
+            ->map(fn ($pk) => $this->mapPk($pk, $mergedAwal));
 
-        $pksRevisi = PerjanjianKinerja::with(['timKerja', 'sasarans.indikators.picTimKerjas'])
+        $pksRevisi = PerjanjianKinerja::with(['timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'revisi')
             ->whereNotIn('status', ['draft'])
             ->orderByRaw("FIELD(status,'submitted','kabag_approved','rejected','ppk_approved')")
             ->get()
-            ->map(fn ($pk) => $this->mapPk($pk));
+            ->map(fn ($pk) => $this->mapPk($pk, $mergedRevisi));
 
         $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran'])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -71,7 +76,12 @@ class PersetujuanController extends Controller
         ]);
     }
 
-    private function mapPk(PerjanjianKinerja $pk): array
+    /**
+     * Map PK ke array untuk frontend.
+     * $mergedSasarans: hasil buildMergedSasarans — digunakan sebagai sumber IKU
+     * agar IKU yang tersebar di beberapa PK tetap tampil meski PK ini sendiri sudah kosong.
+     */
+    private function mapPk(PerjanjianKinerja $pk, array $mergedSasarans): array
     {
         return [
             'id'                => $pk->id,
@@ -82,20 +92,47 @@ class PersetujuanController extends Controller
             'rekomendasi_ppk'   => $pk->rekomendasi_ppk,
             'rejected_by'       => $pk->rejected_by,
             'updated_at'        => $pk->updated_at?->format('d M Y H:i'),
-            'sasarans'          => $pk->sasarans->map(fn ($s) => [
-                'id'         => $s->id,
-                'kode'       => $s->kode,
-                'nama'       => $s->nama,
-                'indikators' => $s->indikators->map(fn ($i) => [
-                    'id'             => $i->id,
-                    'kode'           => $i->kode,
-                    'nama'           => $i->nama,
-                    'satuan'         => $i->satuan,
-                    'target'         => $i->target,
-                    'pic_tim_kerjas' => $i->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama']))->values(),
-                ])->values(),
-            ])->values(),
+            'sasarans'          => $mergedSasarans,
         ];
+    }
+
+    /**
+     * Bangun merged sasarans dari SEMUA PK untuk tahun & jenis tertentu.
+     * Menggabungkan IKU yang mungkin tersebar di beberapa PK milik tim kerja berbeda.
+     */
+    private function buildMergedSasarans(int $tahunId, string $jenis): array
+    {
+        $pks = PerjanjianKinerja::with([
+            'sasarans'                    => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators'         => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators.picTimKerjas',
+        ])
+            ->where('tahun_anggaran_id', $tahunId)
+            ->where('jenis', $jenis)
+            ->get();
+
+        $sasaranMap = [];
+        foreach ($pks as $pk) {
+            foreach ($pk->sasarans as $s) {
+                if (! isset($sasaranMap[$s->kode])) {
+                    $sasaranMap[$s->kode] = ['id' => $s->id, 'kode' => $s->kode, 'nama' => $s->nama, 'indikators' => []];
+                }
+                foreach ($s->indikators as $i) {
+                    $sasaranMap[$s->kode]['indikators'][] = [
+                        'id'             => $i->id,
+                        'kode'           => $i->kode,
+                        'nama'           => $i->nama,
+                        'satuan'         => $i->satuan,
+                        'target'         => $i->target,
+                        'pic_tim_kerjas' => $i->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama']))->values(),
+                    ];
+                }
+            }
+        }
+
+        ksort($sasaranMap);
+        // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
+        return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
 
     private function mapRa(RencanaAksi $ra): array
