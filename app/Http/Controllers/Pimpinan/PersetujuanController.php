@@ -45,15 +45,32 @@ class PersetujuanController extends Controller
             ->get()
             ->keyBy(fn ($r) => $r->tim_kerja_id . '|' . ($r->peer_tim_kerja_id ?? 'null'));
 
-        // Tampilkan semua RA yang sudah submit (termasuk co-PIC empty RA).
-        // mapRa() akan meminjam indikators dari mirror RA jika RA ini kosong,
-        // tapi HANYA dari exact mirror (peer↔tim), mencegah cross-contamination antar kolaborasi.
+        // Kumpulkan key RA yang sudah ada di hub (submitted/approved/rejected) untuk deteksi mirror.
+        // Ini mencegah co-PIC RA yang kosong muncul sebagai duplikat dari primary RA.
+        $submittedRaKeys = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
+            ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
+            ->get(['tim_kerja_id', 'peer_tim_kerja_id'])
+            ->mapWithKeys(fn ($ra) => [$ra->tim_kerja_id . '|' . ($ra->peer_tim_kerja_id ?? 'null') => true]);
+
+        // Tampilkan semua RA yang sudah submit. Co-PIC RA yang benar-benar kosong (tidak punya
+        // indikator sendiri) disembunyikan jika primary mirror RA-nya sudah ada di hub —
+        // mencegah tampilan duplikat ketika kedua tim submit secara independen.
         $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran', 'indikators.kegiatans'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
             ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
             ->get()
-            ->map(fn ($ra) => $this->mapRa($ra, $allRas));
+            ->filter(function ($ra) use ($submittedRaKeys) {
+                // Hanya filter keluar jika: RA ini tidak punya indikator sendiri (co-PIC kosong)
+                // DAN mirror primary RA-nya sudah ada di hub.
+                if ($ra->indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
+                    $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
+                    return ! isset($submittedRaKeys[$mirrorKey]);
+                }
+                return true;
+            })
+            ->map(fn ($ra) => $this->mapRa($ra, $allRas))
+            ->values();
 
         $laporans = LaporanPengukuran::with(['timKerja', 'periode'])
             ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))

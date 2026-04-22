@@ -342,8 +342,10 @@ class PerencanaanController extends Controller
 
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
-        // Cek apakah peer sudah submit RA untuk pasangan ini
-        if ($peerTimKerjaId !== null) {
+        // Blokir submit hanya jika RA ini benar-benar kosong (tidak punya indikator sendiri)
+        // DAN peer-nya sudah submit. Jika RA memiliki indikator sendiri (primary PIC berbeda),
+        // kedua tim boleh submit secara independen karena IKU-nya berbeda.
+        if ($peerTimKerjaId !== null && $ra->indikators()->count() === 0) {
             $peerRa = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
                 ->where('tim_kerja_id', $peerTimKerjaId)
                 ->where('peer_tim_kerja_id', $timKerjaId)
@@ -352,7 +354,7 @@ class PerencanaanController extends Controller
 
             if ($peerRa) {
                 $peerName = $peerRa->timKerja?->nama_singkat ?? $peerRa->timKerja?->nama ?? 'Tim lain';
-                abort(403, "{$peerName} telah mengajukan Rencana Aksi untuk IKU bersama ini. Hanya satu tim yang dapat mengajukan.");
+                abort(403, "{$peerName} telah mengajukan Rencana Aksi untuk IKU bersama ini. Rencana Aksi ini tidak memiliki IKU sendiri untuk diajukan.");
             }
         }
 
