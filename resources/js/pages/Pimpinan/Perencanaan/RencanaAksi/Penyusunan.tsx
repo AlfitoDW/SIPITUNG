@@ -1,13 +1,10 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
-import { CheckCircle2, XCircle, Clock, FileEdit, AlertTriangle, Eye } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { CheckCircle2, XCircle, Clock, FileEdit, ExternalLink, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -37,7 +34,7 @@ type Indikator = {
 type SasaranGroup = { kode: string; nama: string; indikators: Indikator[] };
 type RAStatus = { id: number; status: string; rekomendasi_kabag: string | null; tim_kerja: TimKerja | null };
 type Tahun = { id: number; tahun: number; label: string };
-type Props = { tahun: Tahun; sasarans: SasaranGroup[]; ras: RAStatus[]; role: 'kabag_umum' | 'ppk' };
+type Props = { tahun: Tahun; sasarans: SasaranGroup[]; ras: RAStatus[] };
 
 const RA_STATUS_CONFIG: Record<string, { label: string; className: string; icon: React.ElementType }> = {
     draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700 border-slate-300',   icon: FileEdit },
@@ -144,138 +141,76 @@ function KegiatanViewSheet({ iku, onClose }: { iku: Indikator; onClose: () => vo
     );
 }
 
-// ─── RA Actions Panel ─────────────────────────────────────────────────────────
+// ─── RA Status List (read-only) ───────────────────────────────────────────────
 
-type ActionTarget = { ra: RAStatus; action: 'approve' | 'reject' };
-
-function RaActionsPanel({ ras, role }: { ras: RAStatus[]; role: 'kabag_umum' | 'ppk' }) {
-    const [target, setTarget] = useState<ActionTarget | null>(null);
-    const [rekomendasi, setRekomendasi] = useState('');
-
-    const submittedRas = ras.filter(ra => ra.status === 'submitted');
-
-    function doAction() {
-        if (!target) return;
-        const url = `/pimpinan/perencanaan/rencana-aksi/${target.ra.id}/${target.action}`;
-        router.post(url, { rekomendasi }, {
-            onSuccess: () => { setTarget(null); setRekomendasi(''); },
-            preserveScroll: true,
-        });
-    }
-
+function RaStatusList({ ras }: { ras: RAStatus[] }) {
+    const submittedCount = ras.filter(ra => ra.status === 'submitted').length;
     return (
-        <>
-            <div className="rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-sm font-semibold">Status Rencana Aksi per Tim Kerja</h2>
-                    {submittedRas.length > 0 && role === 'kabag_umum' && (
-                        <span className="ml-auto text-xs text-amber-600 font-medium">{submittedRas.length} menunggu persetujuan Anda</span>
-                    )}
+        <div className="rounded-xl border shadow-sm overflow-hidden">
+            <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
+                <h2 className="text-sm font-semibold">Status Rencana Aksi per Tim Kerja</h2>
+                {submittedCount > 0 && (
+                    <span className="ml-auto text-xs text-amber-600 font-medium">{submittedCount} menunggu persetujuan</span>
+                )}
+                <Link
+                    href="/pimpinan/persetujuan?tab=ra"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
+                >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Buka Hub Persetujuan
+                </Link>
+            </div>
+            {ras.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    Belum ada Rencana Aksi yang disubmit.
                 </div>
-                {ras.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        Belum ada Rencana Aksi yang disubmit.
-                    </div>
-                ) : (
-                    <div className="divide-y">
-                        {ras.map(ra => {
-                            const cfg  = RA_STATUS_CONFIG[ra.status] ?? RA_STATUS_CONFIG['draft'];
-                            const Icon = cfg.icon;
-                            const canAct = ra.status === 'submitted' && role === 'kabag_umum';
-                            return (
-                                <div key={ra.id} className={`flex items-center gap-3 px-4 py-3 ${ra.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : ra.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-sm font-semibold truncate">{ra.tim_kerja?.nama ?? '—'}</span>
-                                            {ra.tim_kerja?.kode && (
-                                                <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">{ra.tim_kerja.kode}</span>
-                                            )}
-                                        </div>
-                                        {ra.rekomendasi_kabag && (
-                                            <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {ra.rekomendasi_kabag}</p>
+            ) : (
+                <div className="divide-y">
+                    {ras.map(ra => {
+                        const cfg  = RA_STATUS_CONFIG[ra.status] ?? RA_STATUS_CONFIG['draft'];
+                        const Icon = cfg.icon;
+                        return (
+                            <div key={ra.id} className={`flex items-center gap-3 px-4 py-3 ${ra.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : ra.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-semibold truncate">{ra.tim_kerja?.nama ?? '—'}</span>
+                                        {ra.tim_kerja?.kode && (
+                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">{ra.tim_kerja.kode}</span>
                                         )}
                                     </div>
-                                    <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                        <Icon className="h-3 w-3" />
-                                        {cfg.label}
-                                    </Badge>
-                                    {canAct && (
-                                        <div className="flex gap-1.5 shrink-0">
-                                            <Button size="sm" variant="outline"
-                                                className="h-7 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50"
-                                                onClick={() => { setTarget({ ra, action: 'approve' }); setRekomendasi(''); }}>
-                                                <CheckCircle2 className="h-3 w-3" /> Setujui
-                                            </Button>
-                                            <Button size="sm" variant="outline"
-                                                className="h-7 gap-1 text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                                onClick={() => { setTarget({ ra, action: 'reject' }); setRekomendasi(''); }}>
-                                                <XCircle className="h-3 w-3" /> Tolak
-                                            </Button>
-                                        </div>
+                                    {ra.rekomendasi_kabag && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {ra.rekomendasi_kabag}</p>
                                     )}
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            <AlertDialog open={target !== null} onOpenChange={v => !v && setTarget(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {target?.action === 'approve' ? 'Setujui' : 'Tolak'} Rencana Aksi ini?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <p>
-                                    RA milik <span className="font-semibold">{target?.ra.tim_kerja?.nama ?? '—'}</span> akan{' '}
-                                    {target?.action === 'approve'
-                                        ? <span>diubah ke status <span className="font-semibold text-green-700">Disetujui</span>.</span>
-                                        : <span>dikembalikan ke tim kerja dengan status <span className="font-semibold text-red-700">Ditolak</span>.</span>
-                                    }
-                                </p>
-                                {target?.action === 'reject' && (
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium">Catatan / Rekomendasi</label>
-                                        <Textarea
-                                            placeholder="Tulis alasan penolakan atau rekomendasi perbaikan..."
-                                            value={rekomendasi}
-                                            onChange={e => setRekomendasi(e.target.value)}
-                                            rows={3}
-                                        />
-                                    </div>
+                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
+                                    <Icon className="h-3 w-3" />
+                                    {cfg.label}
+                                </Badge>
+                                {ra.status === 'submitted' && (
+                                    <Link href="/pimpinan/persetujuan?tab=ra">
+                                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0">
+                                            <Eye className="h-3 w-3" /> Review
+                                        </Button>
+                                    </Link>
                                 )}
                             </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setTarget(null)}>Batal</AlertDialogCancel>
-                        <AlertDialogAction
-                            className={target?.action === 'approve' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}
-                            onClick={doAction}
-                        >
-                            {target?.action === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Penyusunan({ tahun, sasarans, ras, role }: Props) {
+export default function Penyusunan({ tahun, sasarans, ras }: Props) {
     const [viewKegiatan, setViewKegiatan] = useState<Indikator | null>(null);
 
-    const roleLabel   = role === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
-    const pendingCount = ras.filter(ra => ra.status === 'submitted').length;
-
-    const totalIku        = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
-    const filledIku       = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 && i.target_tw2 && i.target_tw3 && i.target_tw4).length, 0);
-    const totalKegiatan   = sasarans.reduce((s, sar) => s + sar.indikators.reduce((a, i) => a + i.kegiatans.length, 0), 0);
+    const totalIku      = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
+    const filledIku     = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 && i.target_tw2 && i.target_tw3 && i.target_tw4).length, 0);
+    const totalKegiatan = sasarans.reduce((s, sar) => s + sar.indikators.reduce((a, i) => a + i.kegiatans.length, 0), 0);
+    const pendingCount  = ras.filter(ra => ra.status === 'submitted').length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -283,7 +218,7 @@ export default function Penyusunan({ tahun, sasarans, ras, role }: Props) {
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold tracking-tight">Review Rencana Aksi</h1>
-                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label} · Anda login sebagai <span className="font-medium">{roleLabel}</span></p>
+                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
                 </div>
 
                 {/* Summary */}
@@ -301,138 +236,124 @@ export default function Penyusunan({ tahun, sasarans, ras, role }: Props) {
                         <span className={`font-bold ${totalKegiatan > 0 ? 'text-blue-600' : 'text-muted-foreground'}`}>{totalKegiatan}</span>
                     </div>
                     {pendingCount > 0 && (
-                        <div className="rounded-lg border bg-card px-4 py-2 text-sm">
-                            <span className="text-muted-foreground">Menunggu persetujuan </span>
-                            <span className="font-bold text-amber-600">{pendingCount} RA</span>
-                        </div>
+                        <Link href="/pimpinan/persetujuan?tab=ra" className="rounded-lg border bg-amber-50 border-amber-300 px-4 py-2 text-sm flex items-center gap-1.5 hover:bg-amber-100 transition-colors">
+                            <span className="text-amber-700">{pendingCount} RA menunggu persetujuan</span>
+                            <ExternalLink className="h-3.5 w-3.5 text-amber-600" />
+                        </Link>
                     )}
                 </div>
 
-                <Tabs defaultValue="review">
-                    <TabsList>
-                        <TabsTrigger value="review">Review IKU</TabsTrigger>
-                        <TabsTrigger value="actions" className="gap-1.5">
-                            Persetujuan RA
-                            {pendingCount > 0 && (
-                                <Badge className="h-4 min-w-4 px-1 text-[10px] bg-amber-500 text-white">{pendingCount}</Badge>
-                            )}
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="review" className="mt-4">
-                        {sasarans.length === 0 ? (
-                            <p className="text-muted-foreground">Belum ada data IKU untuk tahun ini.</p>
-                        ) : (
-                            <div className="rounded-xl border shadow-sm overflow-x-auto">
-                                <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-8">#</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-52">Sasaran</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator Kinerja Utama</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-32">Tim Kerja</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-32">Status RA</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Satuan</TableHead>
-                                            <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
-                                            <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
-                                            <TableHead rowSpan={2} className="text-center align-middle font-semibold text-white w-24">Kegiatan</TableHead>
-                                        </TableRow>
-                                        <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                            {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
-                                                <TableHead key={tw} className={`text-center font-semibold text-white w-16${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(() => {
-                                            let rowNum = 0;
-                                            return sasarans.flatMap((sasaran) => {
-                                                const color = getColor(sasaran.kode);
-                                                const count = sasaran.indikators.length;
-                                                if (count === 0) return [];
-                                                return sasaran.indikators.map((iku, idx) => {
-                                                    rowNum++;
-                                                    const statusCfg = iku.ra_status ? (RA_STATUS_CONFIG[iku.ra_status] ?? RA_STATUS_CONFIG['draft']) : null;
-                                                    const StatusIcon = statusCfg?.icon;
-                                                    const kegiatanCount = iku.kegiatans.length;
-                                                    return (
-                                                        <TableRow key={`${sasaran.kode}-${iku.kode}`} className="align-top hover:bg-muted/30">
-                                                            <TableCell className="text-center text-xs text-muted-foreground align-middle">{rowNum}</TableCell>
-                                                            {idx === 0 && (
-                                                                <TableCell rowSpan={count} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
-                                                                    <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
-                                                                    <p className="leading-snug text-foreground">{sasaran.nama}</p>
-                                                                </TableCell>
-                                                            )}
-                                                            <TableCell className="text-sm align-top">
-                                                                <span className="block text-xs font-semibold text-muted-foreground">{iku.kode}</span>
-                                                                <span className="leading-snug">{iku.nama}</span>
-                                                            </TableCell>
-                                                            <TableCell className="text-center align-middle">
-                                                                <div className="flex flex-col gap-0.5 items-center">
-                                                                    {iku.pic_tim_kerjas.length > 0
-                                                                        ? iku.pic_tim_kerjas.map((t, i) => (
-                                                                            <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs leading-tight ${i === 0
-                                                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium'
-                                                                                : 'border border-slate-300 text-slate-500 text-[10px]'
-                                                                            }`}>
-                                                                                {t.nama_singkat ?? t.nama}
-                                                                            </span>
-                                                                        ))
-                                                                        : <span className="text-xs text-muted-foreground">—</span>
-                                                                    }
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-center align-middle px-2">
-                                                                {statusCfg && StatusIcon ? (
-                                                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold border ${statusCfg.className}`}>
-                                                                        <StatusIcon className="h-3 w-3" />
-                                                                        {statusCfg.label}
+                {/* IKU Table */}
+                {sasarans.length === 0 ? (
+                    <p className="text-muted-foreground">Belum ada data IKU untuk tahun ini.</p>
+                ) : (
+                    <div className="rounded-xl border shadow-sm overflow-x-auto">
+                        <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-8">#</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-52">Sasaran</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator Kinerja Utama</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-32">Tim Kerja</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-32">Status RA</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Satuan</TableHead>
+                                    <TableHead rowSpan={2} className="border-r border-white/20 text-center align-middle font-semibold text-white w-20">Target</TableHead>
+                                    <TableHead colSpan={4} className="text-center font-semibold text-white border-b border-white/20">Triwulan</TableHead>
+                                    <TableHead rowSpan={2} className="text-center align-middle font-semibold text-white w-24">Kegiatan</TableHead>
+                                </TableRow>
+                                <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
+                                    {(['I', 'II', 'III', 'IV'] as const).map((tw, i) => (
+                                        <TableHead key={tw} className={`text-center font-semibold text-white w-16${i < 3 ? ' border-r border-white/20' : ''}`}>{tw}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(() => {
+                                    let rowNum = 0;
+                                    return sasarans.flatMap((sasaran) => {
+                                        const color = getColor(sasaran.kode);
+                                        const count = sasaran.indikators.length;
+                                        if (count === 0) return [];
+                                        return sasaran.indikators.map((iku, idx) => {
+                                            rowNum++;
+                                            const statusCfg = iku.ra_status ? (RA_STATUS_CONFIG[iku.ra_status] ?? RA_STATUS_CONFIG['draft']) : null;
+                                            const StatusIcon = statusCfg?.icon;
+                                            const kegiatanCount = iku.kegiatans.length;
+                                            return (
+                                                <TableRow key={`${sasaran.kode}-${iku.kode}`} className="align-top hover:bg-muted/30">
+                                                    <TableCell className="text-center text-xs text-muted-foreground align-middle">{rowNum}</TableCell>
+                                                    {idx === 0 && (
+                                                        <TableCell rowSpan={count} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
+                                                            <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>
+                                                            <p className="leading-snug text-foreground">{sasaran.nama}</p>
+                                                        </TableCell>
+                                                    )}
+                                                    <TableCell className="text-sm align-top">
+                                                        <span className="block text-xs font-semibold text-muted-foreground">{iku.kode}</span>
+                                                        <span className="leading-snug">{iku.nama}</span>
+                                                    </TableCell>
+                                                    <TableCell className="text-center align-middle">
+                                                        <div className="flex flex-col gap-0.5 items-center">
+                                                            {iku.pic_tim_kerjas.length > 0
+                                                                ? iku.pic_tim_kerjas.map((t, i) => (
+                                                                    <span key={t.id} className={`inline-block rounded px-1.5 py-0.5 text-xs leading-tight ${i === 0
+                                                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-medium'
+                                                                        : 'border border-slate-300 text-slate-500 text-[10px]'
+                                                                    }`}>
+                                                                        {t.nama_singkat ?? t.nama}
                                                                     </span>
-                                                                ) : (
-                                                                    <span className="text-xs text-muted-foreground italic">—</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
-                                                            <TableCell className="text-center align-middle">
-                                                                {iku.target
-                                                                    ? <span className="text-sm font-semibold">{iku.target}</span>
-                                                                    : <span className="text-xs text-amber-500 italic">—</span>}
-                                                            </TableCell>
-                                                            {(['target_tw1', 'target_tw2', 'target_tw3', 'target_tw4'] as const).map(tw => (
-                                                                <TableCell key={tw} className="text-center text-sm align-middle">
-                                                                    {iku[tw] ? <span className="font-medium">{iku[tw]}</span> : <span className="text-muted-foreground">—</span>}
-                                                                </TableCell>
-                                                            ))}
-                                                            <TableCell className="text-center align-middle">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-7 gap-1.5 text-xs"
-                                                                    onClick={() => setViewKegiatan(iku)}
-                                                                >
-                                                                    <Eye className="h-3.5 w-3.5" />
-                                                                    {kegiatanCount > 0
-                                                                        ? <span className="font-semibold text-blue-600">{kegiatanCount}</span>
-                                                                        : <span className="text-muted-foreground">0</span>
-                                                                    }
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                });
-                                            });
-                                        })()}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
-                    </TabsContent>
+                                                                ))
+                                                                : <span className="text-xs text-muted-foreground">—</span>
+                                                            }
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center align-middle px-2">
+                                                        {statusCfg && StatusIcon ? (
+                                                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold border ${statusCfg.className}`}>
+                                                                <StatusIcon className="h-3 w-3" />
+                                                                {statusCfg.label}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground italic">—</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-sm text-muted-foreground align-middle">{iku.satuan}</TableCell>
+                                                    <TableCell className="text-center align-middle">
+                                                        {iku.target
+                                                            ? <span className="text-sm font-semibold">{iku.target}</span>
+                                                            : <span className="text-xs text-amber-500 italic">—</span>}
+                                                    </TableCell>
+                                                    {(['target_tw1', 'target_tw2', 'target_tw3', 'target_tw4'] as const).map(tw => (
+                                                        <TableCell key={tw} className="text-center text-sm align-middle">
+                                                            {iku[tw] ? <span className="font-medium">{iku[tw]}</span> : <span className="text-muted-foreground">—</span>}
+                                                        </TableCell>
+                                                    ))}
+                                                    <TableCell className="text-center align-middle">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 gap-1.5 text-xs"
+                                                            onClick={() => setViewKegiatan(iku)}
+                                                        >
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                            {kegiatanCount > 0
+                                                                ? <span className="font-semibold text-blue-600">{kegiatanCount}</span>
+                                                                : <span className="text-muted-foreground">0</span>
+                                                            }
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        });
+                                    });
+                                })()}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
 
-                    <TabsContent value="actions" className="mt-4">
-                        <RaActionsPanel ras={ras} role={role} />
-                    </TabsContent>
-                </Tabs>
+                {/* RA Status List */}
+                {ras.length > 0 && <RaStatusList ras={ras} />}
             </div>
 
             {viewKegiatan && (

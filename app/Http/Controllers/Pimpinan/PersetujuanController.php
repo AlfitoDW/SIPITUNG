@@ -38,16 +38,22 @@ class PersetujuanController extends Controller
             ->get()
             ->map(fn ($pk) => $this->mapPk($pk, $mergedRevisi));
 
-        // Hanya tampilkan RA yang punya indikator sendiri (primary PIC).
-        // Co-PIC empty RAs tidak perlu direview terpisah — kontribusinya sudah
-        // masuk ke RAI milik primary PIC dan disetujui bersama RA primary PIC.
+        // Preload semua RA (semua status) untuk dipakai mirror lookup di mapRa.
+        // Key: "tim_kerja_id|peer_tim_kerja_id" agar lookup O(1).
+        $allRas = RencanaAksi::with(['indikators.sasaran'])
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->get()
+            ->keyBy(fn ($r) => $r->tim_kerja_id . '|' . ($r->peer_tim_kerja_id ?? 'null'));
+
+        // Tampilkan semua RA yang sudah submit (termasuk co-PIC empty RA).
+        // mapRa() akan meminjam indikators dari mirror RA jika RA ini kosong,
+        // tapi HANYA dari exact mirror (peer↔tim), mencegah cross-contamination antar kolaborasi.
         $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
-            ->whereHas('indikators')
             ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
             ->get()
-            ->map(fn ($ra) => $this->mapRa($ra));
+            ->map(fn ($ra) => $this->mapRa($ra, $allRas));
 
         $laporans = LaporanPengukuran::with(['timKerja', 'periode'])
             ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
@@ -136,9 +142,20 @@ class PersetujuanController extends Controller
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
 
-    private function mapRa(RencanaAksi $ra): array
+    private function mapRa(RencanaAksi $ra, \Illuminate\Support\Collection $allRas): array
     {
         $indikators = $ra->indikators;
+
+        // Co-PIC RA (kosong): pinjam indikators dari EXACT mirror RA saja.
+        // Mirror = RA milik peer yang peer_tim_kerja_id-nya menunjuk kembali ke tim ini.
+        // Dengan ini, kolaborasi Penjamu↔KK tidak ikut membawa IKU dari Penjamu↔Belmawa.
+        if ($indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
+            $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
+            $mirrorRa  = $allRas->get($mirrorKey);
+            if ($mirrorRa && $mirrorRa->indikators->isNotEmpty()) {
+                $indikators = $mirrorRa->indikators;
+            }
+        }
 
         return [
             'id' => $ra->id,
