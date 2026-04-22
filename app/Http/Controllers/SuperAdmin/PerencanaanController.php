@@ -227,7 +227,41 @@ class PerencanaanController extends Controller
             'tahun' => $tahun,
             'sasarans' => array_values($sasaranMap),
             'ras' => $raStatusList,
+            'batasRa' => $tahun->batas_pengisian_ra?->toIso8601String(),
+            'serverNow' => now()->toIso8601String(),
         ]);
+    }
+
+    // ─── RA Batas Pengisian ──────────────────────────────────────────────────────
+
+    public function raBatasUpdate(Request $request): RedirectResponse
+    {
+        $tahun = TahunAnggaran::forSession();
+
+        $data = $request->validate([
+            'batas_pengisian_ra' => ['nullable', 'date'],
+        ]);
+
+        // Normalisasi datetime-local (YYYY-MM-DDTHH:MM) ke format Y-m-d H:i:s
+        // lalu konversi dari WIB (Asia/Jakarta) ke UTC sebelum disimpan.
+        // Ini penting karena input datetime-local selalu dalam waktu lokal browser (WIB).
+        if (! empty($data['batas_pengisian_ra'])) {
+            $raw = str_replace('T', ' ', (string) $data['batas_pengisian_ra']);
+            if (! str_contains($raw, ':')) {
+                $raw .= ' 00:00:00';
+            } elseif (substr_count($raw, ':') === 1) {
+                $raw .= ':00';
+            }
+            $data['batas_pengisian_ra'] = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
+                ->setTimezone('UTC')
+                ->format('Y-m-d H:i:s');
+        }
+
+        $tahun->update(['batas_pengisian_ra' => $data['batas_pengisian_ra'] ?: null]);
+
+        return back()->with('success', $data['batas_pengisian_ra']
+            ? 'Batas waktu pengisian RA berhasil disimpan.'
+            : 'Batas waktu pengisian RA berhasil dihapus.');
     }
 
     // ─── Master Sasaran CRUD ─────────────────────────────────────────────────────

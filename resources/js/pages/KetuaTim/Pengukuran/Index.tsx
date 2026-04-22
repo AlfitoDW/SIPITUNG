@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Pencil, Users, Send, CheckCircle2, Circle, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { DeadlineCountdown } from '@/components/deadline-countdown';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ function targetPlaceholder(satuan: string): string {
 }
 
 type PicTimKerja = { id: number; nama: string; kode: string; nama_singkat: string | null };
-type Periode     = { id: number; triwulan: string; is_active: boolean };
+type Periode     = { id: number; triwulan: string; is_active: boolean; tanggal_selesai: string | null };
 type IKUItem = {
     iku_id: number;
     sasaran_kode: string; sasaran_nama: string;
@@ -69,6 +70,7 @@ type Props = {
     ikuList: IKUItem[];
     timKerjaId: number;
     collabGroups: CollabGroup[];
+    serverNow: string;
 };
 
 const TW_LABELS: Record<string, string> = {
@@ -202,7 +204,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
 // ─── Group Card ───────────────────────────────────────────────────────────────
 
 function CollabGroupCard({
-    group, ikuList, periode, timKerjaId, onSubmit, onEdit, isLoading,
+    group, ikuList, periode, timKerjaId, onSubmit, onEdit, isLoading, deadlinePassed,
 }: {
     group: CollabGroup;
     ikuList: IKUItem[];
@@ -211,6 +213,7 @@ function CollabGroupCard({
     onSubmit: (group: CollabGroup) => void;
     onEdit: (iku: IKUItem) => void;
     isLoading: boolean;
+    deadlinePassed: boolean;
 }) {
     const groupIkus   = ikuList.filter(i => group.iku_ids.includes(i.iku_id));
     const grouped     = groupIkus.map((row, i) => {
@@ -232,6 +235,7 @@ function CollabGroupCard({
     const peerName = isSolo ? 'IKU Mandiri' : group.peer_nama;
 
     const canSubmit = periode.is_active
+        && !deadlinePassed
         && group.filled_count > 0
         && !isSubmitted
         && !isApproved
@@ -367,7 +371,7 @@ function CollabGroupCard({
                             </th>
                             <th className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-24">Realisasi</th>
                             <th className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-28">Terisi Oleh</th>
-                            {periode.is_active && (
+                            {periode.is_active && !deadlinePassed && (
                                 <th className="border border-white/20 px-2 py-2 text-center text-white font-semibold w-16">Aksi</th>
                             )}
                         </tr>
@@ -461,7 +465,7 @@ function CollabGroupCard({
                                         )}
                                     </td>
 
-                                    {periode.is_active && (
+                                    {periode.is_active && !deadlinePassed && (
                                         <td className="border border-border px-2 py-2 text-center align-middle">
                                             {(!isLocked) ? (
                                                 <Button size="sm"
@@ -533,10 +537,20 @@ function SubmitGroupDialog({ group, periode, onClose, onConfirm }: {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function PengukuranIndex({ tahun, periodes, periode, ikuList, timKerjaId, collabGroups }: Props) {
+export default function PengukuranIndex({ tahun, periodes, periode, ikuList, timKerjaId, collabGroups, serverNow }: Props) {
     const [editing, setEditing]             = useState<IKUItem | null>(null);
     const [submitGroup, setSubmitGroup]     = useState<CollabGroup | null>(null);
     const isLoading = useNavigationLoading();
+
+    // Deadline state — dikunci jika tanggal_selesai periode sudah lewat
+    const [deadlinePassed, setDeadlinePassed] = useState(() => {
+        if (!periode?.tanggal_selesai) return false;
+        return new Date(periode.tanggal_selesai).getTime() <= new Date(serverNow).getTime();
+    });
+    const handleDeadlineExpire = useCallback(() => setDeadlinePassed(true), []);
+
+    // Form dapat diisi jika periode aktif DAN deadline belum lewat
+    const canEdit = !!periode?.is_active && !deadlinePassed;
 
     function changePeriode(id: string) {
         router.get('/ketua-tim/pengukuran', { periode_id: id }, { preserveState: false });
@@ -572,6 +586,16 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                     </div>
                 </div>
 
+                {/* Deadline countdown untuk periode aktif */}
+                {periode && (
+                    <DeadlineCountdown
+                        deadline={periode.tanggal_selesai}
+                        serverNow={serverNow}
+                        label={`Pengisian ${TW_LABELS[periode.triwulan] ?? periode.triwulan}`}
+                        onExpire={handleDeadlineExpire}
+                    />
+                )}
+
                 {/* Periode selector */}
                 <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-sm text-muted-foreground">Periode:</span>
@@ -605,7 +629,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/30">
                         Periode ini sedang ditutup. Anda tidak dapat mengisi realisasi.
                     </div>
-                ) : ikuList.length === 0 ? (
+                ) : deadlinePassed ? null : ikuList.length === 0 ? (
                     <p className="text-muted-foreground">Tim Anda belum ditugaskan sebagai PIC IKU manapun. Hubungi SuperAdmin.</p>
                 ) : null}
 
@@ -652,6 +676,7 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
                         onSubmit={setSubmitGroup}
                         onEdit={setEditing}
                         isLoading={isLoading}
+                        deadlinePassed={deadlinePassed}
                     />
                 ))}
             </div>

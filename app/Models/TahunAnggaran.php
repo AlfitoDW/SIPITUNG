@@ -14,6 +14,7 @@ class TahunAnggaran extends Model
         'label',
         'is_active',
         'is_default',
+        'batas_pengisian_ra',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class TahunAnggaran extends Model
         return [
             'is_active' => 'boolean',
             'is_default' => 'boolean',
+            'batas_pengisian_ra' => 'datetime',
         ];
     }
 

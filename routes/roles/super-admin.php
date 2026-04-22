@@ -51,6 +51,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::get('penyusunan', [PerencanaanController::class, 'rencanaAksi'])->name('penyusunan');
         Route::get('progress', fn () => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Progress'))->name('progress');
 
+        Route::patch('batas', [PerencanaanController::class, 'raBatasUpdate'])->name('batas.update');
         Route::patch('{ra}/reopen', [PerencanaanController::class, 'raReopen'])->name('reopen');
     });
 

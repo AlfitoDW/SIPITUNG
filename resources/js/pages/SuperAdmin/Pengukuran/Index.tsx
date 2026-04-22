@@ -39,6 +39,17 @@ const TW_COLORS: Record<string, string> = {
     TW4: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30',
 };
 
+/** Konversi ISO/date string ke format datetime-local (YYYY-MM-DDTHH:MM) */
+function toDatetimeLocal(val: string | null): string {
+    if (!val) return '';
+    // new Date() parse ISO8601 dgn offset timezone secara benar → local methods beri waktu WIB
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
 function PeriodeDialog({ open, onClose, triwulan, existing }: {
     open: boolean; onClose: () => void;
     tahunId: number; triwulan: string; existing?: Periode;
@@ -46,7 +57,7 @@ function PeriodeDialog({ open, onClose, triwulan, existing }: {
     const form = useForm({
         triwulan,
         tanggal_mulai: existing?.tanggal_mulai ?? '',
-        tanggal_selesai: existing?.tanggal_selesai ?? '',
+        tanggal_selesai: toDatetimeLocal(existing?.tanggal_selesai ?? null),
     });
 
     function submit(e: React.SyntheticEvent) {
@@ -67,9 +78,12 @@ function PeriodeDialog({ open, onClose, triwulan, existing }: {
                             onChange={e => form.setData('tanggal_mulai', e.target.value)} />
                     </div>
                     <div className="grid gap-1.5">
-                        <Label>Tanggal Selesai</Label>
-                        <Input type="date" value={form.data.tanggal_selesai}
+                        <Label>Batas Waktu Pengisian (Tanggal &amp; Jam)</Label>
+                        <Input type="datetime-local" value={form.data.tanggal_selesai}
                             onChange={e => form.setData('tanggal_selesai', e.target.value)} />
+                        <p className="text-xs text-muted-foreground">
+                            Setelah waktu ini, Tim Kerja tidak dapat menyimpan realisasi.
+                        </p>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
@@ -91,7 +105,12 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
 
     function formatDate(d: string | null) {
         if (!d) return '—';
-        return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        const dt = new Date(d);
+        // Jika punya komponen jam, tampilkan jam juga
+        if (dt.getHours() !== 0 || dt.getMinutes() !== 0 || dt.getSeconds() !== 0) {
+            return dt.toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     }
 
     return (
@@ -128,7 +147,7 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
                                         <>
                                             <div className="text-sm text-muted-foreground space-y-0.5">
                                                 <p>Mulai: <span className="text-foreground">{formatDate(periode.tanggal_mulai)}</span></p>
-                                                <p>Selesai: <span className="text-foreground">{formatDate(periode.tanggal_selesai)}</span></p>
+                                                <p>Batas pengisian: <span className="text-foreground font-medium">{formatDate(periode.tanggal_selesai)}</span></p>
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm">{periode.is_active ? 'Buka' : 'Tutup'}</span>

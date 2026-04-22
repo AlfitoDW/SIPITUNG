@@ -1,12 +1,16 @@
 import { Head, router } from '@inertiajs/react';
-import { Eye, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle } from 'lucide-react';
+import { Eye, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle, CalendarClock, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DeadlineCountdown } from '@/components/deadline-countdown';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -27,7 +31,7 @@ type Indikator = {
 type Sasaran   = { kode: string; nama: string; indikators: Indikator[] };
 type Tahun     = { id: number; tahun: number; label: string };
 type RaStatus  = { id: number; status: 'draft' | 'submitted' | 'kabag_approved' | 'rejected'; rekomendasi_kabag: string | null; tim_kerja: TimKerja | null };
-type Props     = { tahun: Tahun; sasarans: Sasaran[]; ras: RaStatus[] };
+type Props     = { tahun: Tahun; sasarans: Sasaran[]; ras: RaStatus[]; batasRa: string | null; serverNow: string };
 
 const RA_STATUS_CONFIG = {
     draft:          { label: 'Draft',          icon: FileEdit,     className: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300' },
@@ -137,10 +141,10 @@ function RaStatusPanel({ ras }: { ras: RaStatus[] }) {
 }
 
 const sasaranColors: Record<string, { bg: string; badge: string; accent: string }> = {
-    'S 1': { bg: 'bg-blue-50 dark:bg-blue-950/40',       badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
-    'S 2': { bg: 'bg-emerald-50 dark:bg-emerald-950/40', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', accent: 'border-l-4 border-l-emerald-500' },
-    'S 3': { bg: 'bg-violet-50 dark:bg-violet-950/40',   badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',    accent: 'border-l-4 border-l-violet-500' },
-    'S 4': { bg: 'bg-amber-50 dark:bg-amber-950/40',     badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
+    'S 1': { bg: 'bg-slate-50/70 dark:bg-slate-800/30',  badge: 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300',         accent: 'border-l-4 border-l-[#003580]' },
+    'S 2': { bg: 'bg-slate-50/70 dark:bg-slate-800/30',  badge: 'bg-teal-600/10 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',            accent: 'border-l-4 border-l-teal-500' },
+    'S 3': { bg: 'bg-slate-50/70 dark:bg-slate-800/30',  badge: 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',     accent: 'border-l-4 border-l-indigo-400' },
+    'S 4': { bg: 'bg-slate-50/70 dark:bg-slate-800/30',  badge: 'bg-amber-500/10 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',         accent: 'border-l-4 border-l-amber-400' },
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
@@ -154,10 +158,10 @@ function TwCell({ value }: { value: string | null }) {
 
 const TW_CONFIG = [
     null,
-    { label: 'Triwulan I',   roman: 'I',   pill: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200',   border: 'border-blue-200 dark:border-blue-800',   accent: 'border-l-2 border-l-blue-400' },
-    { label: 'Triwulan II',  roman: 'II',  pill: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200', border: 'border-emerald-200 dark:border-emerald-800', accent: 'border-l-2 border-l-emerald-400' },
-    { label: 'Triwulan III', roman: 'III', pill: 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200',   border: 'border-violet-200 dark:border-violet-800',   accent: 'border-l-2 border-l-violet-400' },
-    { label: 'Triwulan IV',  roman: 'IV',  pill: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',     border: 'border-amber-200 dark:border-amber-800',     accent: 'border-l-2 border-l-amber-400' },
+    { label: 'Triwulan I',   roman: 'I',   pill: 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/50 dark:text-blue-300',       border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-[#003580]' },
+    { label: 'Triwulan II',  roman: 'II',  pill: 'bg-teal-600/10 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',         border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-teal-500' },
+    { label: 'Triwulan III', roman: 'III', pill: 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300', border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-indigo-400' },
+    { label: 'Triwulan IV',  roman: 'IV',  pill: 'bg-amber-500/10 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',     border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-amber-400' },
 ] as const;
 
 // ─── Kegiatan View Sheet ──────────────────────────────────────────────────────
@@ -242,9 +246,131 @@ function KegiatanViewSheet({ iku, onClose }: { iku: Indikator; onClose: () => vo
     );
 }
 
+/** Konversi ISO string → format datetime-local input (YYYY-MM-DDTHH:MM) */
+function toDatetimeLocal(iso: string | null): string {
+    if (!iso) return '';
+    // new Date() parse ISO8601 dgn offset timezone secara benar → local methods beri waktu WIB
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
+// ─── Deadline Panel ───────────────────────────────────────────────────────────
+
+function DeadlinePanel({ batasRa, serverNow }: { batasRa: string | null; serverNow: string }) {
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [value, setValue] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [confirmClear, setConfirmClear] = useState(false);
+
+    function openDialog() {
+        setValue(toDatetimeLocal(batasRa));
+        setDialogOpen(true);
+    }
+
+    function save() {
+        setSaving(true);
+        router.patch('/super-admin/perencanaan/rencana-aksi/batas', {
+            batas_pengisian_ra: value || null,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => setDialogOpen(false),
+            onFinish: () => setSaving(false),
+        });
+    }
+
+    function clearDeadline() {
+        setSaving(true);
+        router.patch('/super-admin/perencanaan/rencana-aksi/batas', {
+            batas_pengisian_ra: null,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => setConfirmClear(false),
+            onFinish: () => setSaving(false),
+        });
+    }
+
+    return (
+        <>
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-blue-500" />
+                    <h2 className="text-sm font-semibold">Batas Waktu Pengisian Rencana Aksi</h2>
+                </div>
+                <div className="px-4 py-4 flex flex-col gap-3">
+                    <DeadlineCountdown deadline={batasRa} serverNow={serverNow} label="Pengisian RA" />
+                    {!batasRa && (
+                        <p className="text-sm text-muted-foreground italic">Belum ada batas waktu. Tim Kerja dapat mengisi tanpa batas waktu.</p>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                        <Button size="sm" variant="outline" className="gap-1.5" onClick={openDialog}>
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            {batasRa ? 'Ubah Batas Waktu' : 'Atur Batas Waktu'}
+                        </Button>
+                        {batasRa && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
+                                onClick={() => setConfirmClear(true)}
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Hapus Batas Waktu
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Set deadline dialog */}
+            <Dialog open={dialogOpen} onOpenChange={(v) => !v && setDialogOpen(false)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>{batasRa ? 'Ubah' : 'Atur'} Batas Waktu Pengisian RA</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-1.5 py-2">
+                        <Label>Tanggal & Jam Berakhir</Label>
+                        <Input
+                            type="datetime-local"
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Setelah waktu ini, Tim Kerja tidak dapat menyimpan atau mengubah Rencana Aksi.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Batal</Button>
+                        <Button onClick={save} disabled={!value || saving} loading={saving}>Simpan</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Confirm clear dialog */}
+            <AlertDialog open={confirmClear} onOpenChange={(v) => !v && setConfirmClear(false)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus batas waktu?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tim Kerja akan dapat mengisi Rencana Aksi tanpa batas waktu.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={clearDeadline} disabled={saving} className="bg-red-600 text-white hover:bg-red-700">
+                            Ya, Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Penyusunan({ tahun, sasarans, ras }: Props) {
+export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }: Props) {
     const [viewKegiatan, setViewKegiatan] = useState<Indikator | null>(null);
 
     const totalIku  = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
@@ -386,7 +512,8 @@ export default function Penyusunan({ tahun, sasarans, ras }: Props) {
                         )}
                     </TabsContent>
 
-                    <TabsContent value="status" className="mt-4">
+                    <TabsContent value="status" className="mt-4 flex flex-col gap-4">
+                        <DeadlinePanel batasRa={batasRa} serverNow={serverNow} />
                         <RaStatusPanel ras={ras} />
                     </TabsContent>
                 </Tabs>

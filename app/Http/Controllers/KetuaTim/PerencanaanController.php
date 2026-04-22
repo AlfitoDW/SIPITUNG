@@ -291,6 +291,8 @@ class PerencanaanController extends Controller
         return Inertia::render('KetuaTim/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,
             'raGroups' => $groupsData,
+            'batasRa' => $tahun->batas_pengisian_ra?->toIso8601String(),
+            'serverNow' => now()->toIso8601String(),
         ]);
     }
 
@@ -315,6 +317,9 @@ class PerencanaanController extends Controller
 
         abort_if(! $isOwner && ! $isCoPic, 403);
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $batasRa = $ra->tahunAnggaran?->batas_pengisian_ra;
+        abort_if($batasRa && now()->isAfter($batasRa), 403, 'Batas waktu pengisian Rencana Aksi telah berakhir.');
 
         $data = $request->validate([
             'target_tw1' => ['nullable', 'string', 'max:50'],
@@ -341,6 +346,9 @@ class PerencanaanController extends Controller
             ->firstOrFail();
 
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $batasRaSubmit = $tahun->batas_pengisian_ra;
+        abort_if($batasRaSubmit && now()->isAfter($batasRaSubmit), 403, 'Batas waktu pengisian Rencana Aksi telah berakhir.');
 
         // Blokir submit hanya jika RA ini benar-benar kosong (tidak punya indikator sendiri)
         // DAN peer-nya sudah submit. Jika RA memiliki indikator sendiri (primary PIC berbeda),
@@ -401,6 +409,9 @@ class PerencanaanController extends Controller
         abort_if(! $isOwner && ! $isCoPic, 403);
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
+        $batasKgStore = $ra->tahunAnggaran?->batas_pengisian_ra;
+        abort_if($batasKgStore && now()->isAfter($batasKgStore), 403, 'Batas waktu pengisian Rencana Aksi telah berakhir.');
+
         $data = $request->validate([
             'triwulan' => ['required', 'integer', 'min:1', 'max:4'],
             'nama_kegiatan' => ['required', 'string', 'max:500'],
@@ -435,6 +446,9 @@ class PerencanaanController extends Controller
         abort_if(! $isOwner && ! $isCoPic, 403);
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
+        $batasKgUpdate = $ra->tahunAnggaran?->batas_pengisian_ra;
+        abort_if($batasKgUpdate && now()->isAfter($batasKgUpdate), 403, 'Batas waktu pengisian Rencana Aksi telah berakhir.');
+
         $data = $request->validate([
             'nama_kegiatan' => ['required', 'string', 'max:500'],
         ]);
@@ -458,6 +472,9 @@ class PerencanaanController extends Controller
 
         abort_if(! $isOwner && ! $isCoPic, 403);
         abort_if(! $ra->isEditable(), 403, 'Dokumen tidak dapat diubah.');
+
+        $batasKgDestroy = $ra->tahunAnggaran?->batas_pengisian_ra;
+        abort_if($batasKgDestroy && now()->isAfter($batasKgDestroy), 403, 'Batas waktu pengisian Rencana Aksi telah berakhir.');
 
         $kegiatan->delete();
 

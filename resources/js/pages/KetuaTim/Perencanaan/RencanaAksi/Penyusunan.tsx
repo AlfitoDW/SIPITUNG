@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Pencil, Send, CheckCircle2, Circle, Lock, Loader2, AlertCircle, Users, List, Plus, Trash2, Save, X } from 'lucide-react';
-import { useState } from 'react';
+import { DeadlineCountdown } from '@/components/deadline-countdown';
+import { useState, useCallback } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,32 +47,34 @@ type RaGroup = {
     collab_rejected: { submitted_by: string; rekomendasi_kabag: string | null } | null;
 };
 type Tahun = { id: number; tahun: number; label: string };
-type Props = { tahun: Tahun; raGroups: RaGroup[] };
+type Props = { tahun: Tahun; raGroups: RaGroup[]; batasRa: string | null; serverNow: string };
 
 const STATUS_CONFIG = {
-    draft:          { label: 'Draft',          className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    kabag_approved: { label: 'Disetujui',      className: 'bg-green-100 text-green-800 border-green-400' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-800 border-red-400' },
+    draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-600 border-slate-300' },
+    submitted:      { label: 'Menunggu Kabag', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+    kabag_approved: { label: 'Disetujui',      className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    rejected:       { label: 'Ditolak',        className: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
 
+// Warna sasaran: berbasis slate dengan pembeda numerik via left-border dan badge tint
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
-    'S 1': { sasaranBg: 'bg-blue-50 dark:bg-blue-950/40',       kodeBadge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
-    'S 2': { sasaranBg: 'bg-emerald-50 dark:bg-emerald-950/40', kodeBadge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', accent: 'border-l-4 border-l-emerald-500' },
-    'S 3': { sasaranBg: 'bg-violet-50 dark:bg-violet-950/40',   kodeBadge: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',    accent: 'border-l-4 border-l-violet-500' },
-    'S 4': { sasaranBg: 'bg-amber-50 dark:bg-amber-950/40',     kodeBadge: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',        accent: 'border-l-4 border-l-amber-500' },
+    'S 1': { sasaranBg: 'bg-slate-50/70 dark:bg-slate-800/30',  kodeBadge: 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300',         accent: 'border-l-4 border-l-[#003580]' },
+    'S 2': { sasaranBg: 'bg-slate-50/70 dark:bg-slate-800/30',  kodeBadge: 'bg-teal-600/10 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',            accent: 'border-l-4 border-l-teal-500' },
+    'S 3': { sasaranBg: 'bg-slate-50/70 dark:bg-slate-800/30',  kodeBadge: 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',     accent: 'border-l-4 border-l-indigo-400' },
+    'S 4': { sasaranBg: 'bg-slate-50/70 dark:bg-slate-800/30',  kodeBadge: 'bg-amber-500/10 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',         accent: 'border-l-4 border-l-amber-400' },
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
 type TwForm = { target_tw1: string; target_tw2: string; target_tw3: string; target_tw4: string };
 const EMPTY_TW: TwForm = { target_tw1: '', target_tw2: '', target_tw3: '', target_tw4: '' };
 
+// TW chips: satu nada per triwulan, berbasis slate-navy agar tidak ramai
 const TW_CONFIG = [
     null,
-    { label: 'Triwulan I',   roman: 'I',   pill: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200',   border: 'border-blue-200 dark:border-blue-800',   accent: 'border-l-2 border-l-blue-400' },
-    { label: 'Triwulan II',  roman: 'II',  pill: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200', border: 'border-emerald-200 dark:border-emerald-800', accent: 'border-l-2 border-l-emerald-400' },
-    { label: 'Triwulan III', roman: 'III', pill: 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200',   border: 'border-violet-200 dark:border-violet-800',   accent: 'border-l-2 border-l-violet-400' },
-    { label: 'Triwulan IV',  roman: 'IV',  pill: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',     border: 'border-amber-200 dark:border-amber-800',     accent: 'border-l-2 border-l-amber-400' },
+    { label: 'Triwulan I',   roman: 'I',   pill: 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/50 dark:text-blue-300',       border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-[#003580]' },
+    { label: 'Triwulan II',  roman: 'II',  pill: 'bg-teal-600/10 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',         border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-teal-500' },
+    { label: 'Triwulan III', roman: 'III', pill: 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300', border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-indigo-400' },
+    { label: 'Triwulan IV',  roman: 'IV',  pill: 'bg-amber-500/10 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',     border: 'border-slate-200 dark:border-slate-700', accent: 'border-l-2 border-l-amber-400' },
 ] as const;
 
 // ─── Kegiatan Sheet ───────────────────────────────────────────────────────────
@@ -261,11 +264,12 @@ function KegiatanSheet({ iku, isEditable, peerNama, onClose }: {
 
 // ─── Group Card ───────────────────────────────────────────────────────────────
 
-function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
+function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan, isDeadlinePassed }: {
     group: RaGroup;
     onEdit: (iku: Indikator) => void;
     onSubmit: (group: RaGroup) => void;
     onOpenKegiatan: (iku: Indikator, editable: boolean, peerNama?: string | null) => void;
+    isDeadlinePassed: boolean;
 }) {
     const ra             = group.ra;
     const isSubmitted    = ra.status === 'submitted';
@@ -274,7 +278,7 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
     const collabLocked   = group.collaborator?.status === 'submitted';
     const collabApproved = group.collaborator?.status === 'kabag_approved';
     const isLocked       = collabLocked || collabApproved || isSubmitted || isApproved;
-    const isEditable     = !isLocked && (ra.status === 'draft' || ra.status === 'rejected');
+    const isEditable     = !isDeadlinePassed && !isLocked && (ra.status === 'draft' || ra.status === 'rejected');
 
     const isSolo     = group.peer_id === null;
     const peerName   = isSolo ? 'IKU Mandiri' : group.peer_nama;
@@ -289,12 +293,12 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
     const canSubmit = isEditable && totalInd > 0;
 
     const headerClass = isApproved || collabApproved
-        ? 'border-green-300 bg-green-50/50 dark:bg-green-950/20'
+        ? 'border-emerald-200 dark:border-emerald-800'
         : collabLocked || isSubmitted
-        ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20'
+        ? 'border-sky-200 dark:border-sky-800'
         : isRejected
-        ? 'border-red-300 bg-red-50/50 dark:bg-red-950/20'
-        : 'border-border bg-card';
+        ? 'border-rose-200 dark:border-rose-800'
+        : 'border-border';
 
     return (
         <div className={`rounded-xl border shadow-sm overflow-hidden ${headerClass}`}>
@@ -319,7 +323,7 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
                         <Badge variant="outline" className={STATUS_CONFIG.kabag_approved.className}>Disetujui</Badge>
                     )}
                     {collabApproved && (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400 text-xs">
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
                             Selesai (via {group.collaborator!.submitted_by})
                         </Badge>
                     )}
@@ -327,7 +331,7 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
                         <Badge variant="outline" className={STATUS_CONFIG.submitted.className}>Menunggu Kabag</Badge>
                     )}
                     {collabLocked && (
-                        <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-400 text-xs">
+                        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300 text-xs">
                             <Lock className="h-3 w-3 mr-1" />
                             Terkunci — {group.collaborator!.submitted_by} telah submit
                         </Badge>
@@ -341,7 +345,7 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
                 </div>
 
                 {canSubmit && (
-                    <Button size="sm" onClick={() => onSubmit(group)} className="gap-1.5 h-8 text-xs">
+                    <Button size="sm" onClick={() => onSubmit(group)} className="gap-1.5 h-8 text-xs" style={{ backgroundColor: '#003580' }}>
                         <Send className="h-3 w-3" />
                         {isRejected ? 'Submit Ulang' : 'Submit ke Kabag'}
                     </Button>
@@ -352,50 +356,53 @@ function RaGroupCard({ group, onEdit, onSubmit, onOpenKegiatan }: {
             <div className="px-4 py-2 border-b bg-muted/10">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-muted-foreground">Kesiapan</span>
-                    <span className="text-xs text-muted-foreground">{progress}%</span>
+                    <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-1.5" />
+                <Progress value={progress} className="h-1" />
             </div>
 
             {/* Inline banners */}
-            <div className="space-y-2 px-4 py-2.5">
+            <div className="space-y-1.5 px-4 py-2.5">
                 {isRejected && !collabApproved && (
-                    <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-xs text-red-800 dark:text-red-400">
-                        <span className="font-semibold">Dikembalikan Kabag Umum.</span>
-                        {ra.rekomendasi_kabag ? ` Rekomendasi: "${ra.rekomendasi_kabag}"` : ' Silakan perbaiki dan submit ulang.'}
+                    <div className="flex items-start gap-2.5 rounded-md border-l-2 border-l-rose-400 border border-rose-100 bg-rose-50/50 dark:bg-rose-950/20 px-3 py-2 text-xs text-rose-800 dark:text-rose-400">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-rose-500" />
+                        <span><span className="font-semibold">Dikembalikan Kabag Umum.</span>
+                        {ra.rekomendasi_kabag ? ` Rekomendasi: "${ra.rekomendasi_kabag}"` : ' Silakan perbaiki dan submit ulang.'}</span>
                     </div>
                 )}
                 {isApproved && (
-                    <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-xs text-green-800 dark:text-green-400">
+                    <div className="flex items-center gap-2.5 rounded-md border-l-2 border-l-emerald-400 border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         <span className="font-semibold">Disetujui Kabag Umum.</span>
                     </div>
                 )}
                 {isSubmitted && (
-                    <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 px-3 py-2 text-xs text-yellow-800 dark:text-yellow-400 flex items-center gap-1.5">
-                        <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                    <div className="flex items-center gap-2.5 rounded-md border-l-2 border-l-sky-400 border border-sky-100 bg-sky-50/50 dark:bg-sky-950/20 px-3 py-2 text-xs text-sky-800 dark:text-sky-400">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-sky-500" />
                         <span><span className="font-semibold">Menunggu review Kabag Umum.</span> Dokumen tidak dapat diubah.</span>
                     </div>
                 )}
                 {collabLocked && (
-                    <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
-                        <Lock className="inline h-3 w-3 mr-1" />
-                        <span className="font-semibold">{group.collaborator!.submitted_by}</span> telah mengajukan RA untuk kelompok IKU ini. Menunggu review Kabag.
+                    <div className="flex items-center gap-2.5 rounded-md border-l-2 border-l-slate-400 border border-slate-200 bg-slate-50/80 dark:bg-slate-800/30 px-3 py-2 text-xs text-slate-700 dark:text-slate-400">
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                        <span><span className="font-semibold">{group.collaborator!.submitted_by}</span> telah mengajukan RA untuk kelompok IKU ini. Menunggu review Kabag.</span>
                     </div>
                 )}
                 {collabApproved && (
-                    <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-xs text-green-800 dark:text-green-400">
-                        <span className="font-semibold">Selesai</span> — RA kelompok ini telah diajukan dan disetujui oleh{' '}
-                        <span className="font-semibold">{group.collaborator!.submitted_by}</span>.
+                    <div className="flex items-center gap-2.5 rounded-md border-l-2 border-l-emerald-400 border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        <span><span className="font-semibold">Selesai</span> — RA diajukan dan disetujui oleh{' '}
+                        <span className="font-semibold">{group.collaborator!.submitted_by}</span>.</span>
                     </div>
                 )}
                 {group.collab_rejected && !isApproved && !collabApproved && (
-                    <div className="rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-950/30 px-3 py-2 text-xs text-orange-800 dark:text-orange-400">
-                        <AlertCircle className="inline h-3 w-3 mr-1" />
-                        RA yang diajukan <span className="font-semibold">{group.collab_rejected.submitted_by}</span> ditolak.
+                    <div className="flex items-start gap-2.5 rounded-md border-l-2 border-l-amber-400 border border-amber-100 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                        <span>RA yang diajukan <span className="font-semibold">{group.collab_rejected.submitted_by}</span> ditolak.
                         {' '}Tim Anda dapat mengajukan sendiri untuk kelompok ini.
                         {group.collab_rejected.rekomendasi_kabag && (
-                            <span className="block mt-1 italic">Catatan Kabag: "{group.collab_rejected.rekomendasi_kabag}"</span>
-                        )}
+                            <span className="block mt-1 italic text-amber-700/70">Catatan Kabag: "{group.collab_rejected.rekomendasi_kabag}"</span>
+                        )}</span>
                     </div>
                 )}
             </div>
@@ -543,13 +550,20 @@ function SubmitRaDialog({ group, onClose, onConfirm, submitting }: {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Penyusunan({ tahun, raGroups }: Props) {
+export default function Penyusunan({ tahun, raGroups, batasRa, serverNow }: Props) {
     const [editDialog, setEditDialog]     = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
     const [form, setForm]                 = useState<TwForm>(EMPTY_TW);
     const [submitGroup, setSubmitGroup]   = useState<RaGroup | null>(null);
     const [saving, setSaving]             = useState(false);
     const [submitting, setSubmitting]     = useState(false);
     const [kegiatanSheet, setKegiatanSheet] = useState<{ iku: Indikator; editable: boolean; peerNama?: string | null } | null>(null);
+
+    // Deadline state — init dari server time agar langsung terkunci jika sudah lewat
+    const [deadlinePassed, setDeadlinePassed] = useState(() => {
+        if (!batasRa) return false;
+        return new Date(batasRa).getTime() <= new Date(serverNow).getTime();
+    });
+    const handleDeadlineExpire = useCallback(() => setDeadlinePassed(true), []);
 
     function openEdit(iku: Indikator) {
         setForm({
@@ -612,6 +626,14 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                     <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
                 </div>
 
+                {/* Deadline countdown */}
+                <DeadlineCountdown
+                    deadline={batasRa}
+                    serverNow={serverNow}
+                    label="Pengisian Rencana Aksi"
+                    onExpire={handleDeadlineExpire}
+                />
+
                 {/* Overall progress */}
                 {raGroups.length > 0 && (
                     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
@@ -649,6 +671,7 @@ export default function Penyusunan({ tahun, raGroups }: Props) {
                             onEdit={openEdit}
                             onSubmit={setSubmitGroup}
                             onOpenKegiatan={(iku, editable, peerNama) => setKegiatanSheet({ iku, editable, peerNama })}
+                            isDeadlinePassed={deadlinePassed}
                         />
                     ))
                 )}

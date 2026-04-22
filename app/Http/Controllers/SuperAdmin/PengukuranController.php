@@ -68,6 +68,20 @@ class PengukuranController extends Controller
             'tanggal_selesai' => ['nullable', 'date', 'after_or_equal:tanggal_mulai'],
         ]);
 
+        // Normalisasi datetime-local (YYYY-MM-DDTHH:MM) ke Y-m-d H:i:s
+        // lalu konversi dari WIB (Asia/Jakarta) ke UTC sebelum disimpan.
+        if (! empty($data['tanggal_selesai'])) {
+            $raw = str_replace('T', ' ', (string) $data['tanggal_selesai']);
+            if (! str_contains($raw, ':')) {
+                $raw .= ' 00:00:00';
+            } elseif (substr_count($raw, ':') === 1) {
+                $raw .= ':00';
+            }
+            $data['tanggal_selesai'] = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
+                ->setTimezone('UTC')
+                ->format('Y-m-d H:i:s');
+        }
+
         PeriodePengukuran::updateOrCreate(
             ['tahun_anggaran_id' => $tahun->id, 'triwulan' => $data['triwulan']],
             [

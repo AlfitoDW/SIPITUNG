@@ -106,6 +106,7 @@ class PengukuranController extends Controller
             'ikuList' => $ikuList,
             'timKerjaId' => $timKerjaId,
             'collabGroups' => $collabGroups,
+            'serverNow' => now()->toIso8601String(),
         ]);
     }
 
@@ -133,6 +134,12 @@ class PengukuranController extends Controller
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('is_active', true)
             ->firstOrFail();
+
+        abort_if(
+            $periode->tanggal_selesai && now()->isAfter($periode->tanggal_selesai),
+            403,
+            'Batas waktu pengisian periode ini telah berakhir.'
+        );
 
         // Pastikan tidak ada laporan yang sudah submitted/approved untuk kelompok IKU ini
         $peerIds = DB::table('indikator_kinerja_pic')
@@ -185,6 +192,12 @@ class PengukuranController extends Controller
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('is_active', true)
             ->firstOrFail();
+
+        abort_if(
+            $periode->tanggal_selesai && now()->isAfter($periode->tanggal_selesai),
+            403,
+            'Batas waktu pengisian periode ini telah berakhir.'
+        );
 
         // Dapatkan IKU untuk kelompok ini
         $ikuIds = $this->getIkuIdsForGroup($timKerjaId, $tahun->id, $peerTimKerjaId);

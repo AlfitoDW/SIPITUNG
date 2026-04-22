@@ -24,7 +24,7 @@ class PeriodePengukuran extends Model
         return [
             'is_active' => 'boolean',
             'tanggal_mulai' => 'date',
-            'tanggal_selesai' => 'date',
+            'tanggal_selesai' => 'datetime',
         ];
     }
 
