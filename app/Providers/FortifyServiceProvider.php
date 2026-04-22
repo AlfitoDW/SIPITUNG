@@ -4,8 +4,8 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
-use App\Models\User;
 use App\Models\TahunAnggaran;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -27,7 +27,8 @@ class FortifyServiceProvider extends ServiceProvider
         // Always redirect to /dashboard after login so DashboardController
         // can route the user to the correct role-based page, regardless of
         // any stored intended URL from a previous session.
-        $this->app->instance(LoginResponse::class, new class implements LoginResponse {
+        $this->app->instance(LoginResponse::class, new class implements LoginResponse
+        {
             public function toResponse($request)
             {
                 return redirect()->route('dashboard');

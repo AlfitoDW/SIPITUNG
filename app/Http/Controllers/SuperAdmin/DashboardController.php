@@ -17,14 +17,13 @@ class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $tahun         = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaTotal = TimKerja::count();
 
-        $makeStats = fn($data, array $statuses) =>
-            collect($statuses)->mapWithKeys(fn($s) => [$s => $data->get($s, 0)]);
+        $makeStats = fn ($data, array $statuses) => collect($statuses)->mapWithKeys(fn ($s) => [$s => $data->get($s, 0)]);
 
         // ── Perencanaan ───────────────────────────────────────────────────────────
-        $perencanaanStatuses = ['draft', 'submitted', 'kabag_approved', 'ppk_approved', 'rejected'];
+        $perencanaanStatuses = ['draft', 'submitted', 'kabag_approved', 'rejected'];
 
         $pkAwal = $tahun ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal')
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status') : collect();
@@ -46,7 +45,7 @@ class DashboardController extends Controller
             : collect();
 
         // ── Keuangan — Permohonan Dana ─────────────────────────────────────────
-        $pdStatuses = ['draft', 'submitted', 'kabag_approved', 'bendahara_checked', 'katimku_approved', 'ppk_approved', 'dicairkan', 'rejected'];
+        $pdStatuses = ['draft', 'submitted', 'kabag_approved', 'bendahara_checked', 'katimku_approved', 'dicairkan', 'rejected'];
 
         $pd = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
             ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status') : collect();
@@ -55,14 +54,14 @@ class DashboardController extends Controller
             ->where('status', 'dicairkan')->sum('total_anggaran') : 0;
 
         return Inertia::render('SuperAdmin/Dashboard', [
-            'tahun'          => $tahun,
-            'timKerjaTotal'  => $timKerjaTotal,
-            'pkAwal'         => $makeStats($pkAwal, $perencanaanStatuses),
-            'pkRevisi'       => $makeStats($pkRevisi, $perencanaanStatuses),
-            'ra'             => $makeStats($ra, $perencanaanStatuses),
-            'pengukuran'     => $makeStats($laporanStats, $pengukuranStatuses),
+            'tahun' => $tahun,
+            'timKerjaTotal' => $timKerjaTotal,
+            'pkAwal' => $makeStats($pkAwal, $perencanaanStatuses),
+            'pkRevisi' => $makeStats($pkRevisi, $perencanaanStatuses),
+            'ra' => $makeStats($ra, $perencanaanStatuses),
+            'pengukuran' => $makeStats($laporanStats, $pengukuranStatuses),
             'permohonanDana' => $makeStats($pd, $pdStatuses),
-            'nilaiCair'      => $nilaiCair,
+            'nilaiCair' => $nilaiCair,
         ]);
     }
 }

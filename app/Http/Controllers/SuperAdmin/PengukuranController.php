@@ -10,14 +10,13 @@ use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PengukuranController extends Controller
 {
@@ -32,7 +31,7 @@ class PengukuranController extends Controller
             ->get();
 
         return Inertia::render('SuperAdmin/Pengukuran/Index', [
-            'tahun'    => $tahun,
+            'tahun' => $tahun,
             'periodes' => $periodes,
         ]);
     }
@@ -48,13 +47,14 @@ class PengukuranController extends Controller
         );
 
         $laporan->update([
-            'status'            => 'draft',
+            'status' => 'draft',
             'rekomendasi_kabag' => null,
-            'approved_at'       => null,
-            'approved_by'       => null,
+            'approved_at' => null,
+            'approved_by' => null,
         ]);
 
         $nama = $laporan->timKerja?->nama_singkat ?? $laporan->timKerja?->nama ?? 'Tim Kerja';
+
         return back()->with('success', "Laporan {$nama} ({$laporan->periode?->triwulan}) berhasil dibuka kembali ke Draft.");
     }
 
@@ -63,17 +63,17 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $data = $request->validate([
-            'triwulan'        => ['required', 'in:TW1,TW2,TW3,TW4'],
-            'tanggal_mulai'   => ['nullable', 'date'],
+            'triwulan' => ['required', 'in:TW1,TW2,TW3,TW4'],
+            'tanggal_mulai' => ['nullable', 'date'],
             'tanggal_selesai' => ['nullable', 'date', 'after_or_equal:tanggal_mulai'],
         ]);
 
         PeriodePengukuran::updateOrCreate(
             ['tahun_anggaran_id' => $tahun->id, 'triwulan' => $data['triwulan']],
             [
-                'tanggal_mulai'   => $data['tanggal_mulai'],
+                'tanggal_mulai' => $data['tanggal_mulai'],
                 'tanggal_selesai' => $data['tanggal_selesai'],
-                'is_active'       => false,
+                'is_active' => false,
             ]
         );
 
@@ -101,7 +101,7 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : $periodes->first();
 
@@ -111,10 +111,10 @@ class PengukuranController extends Controller
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans'                         => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators'              => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('kode'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
                 'sasarans.indikators.picTimKerjas',
-                'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+                'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
             ])
                 ->where('tahun_anggaran_id', $tahun->id)
@@ -126,32 +126,32 @@ class PengukuranController extends Controller
             $allSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
             $raIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds)
                 ->get()
-                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+                ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
             foreach ($pks as $pk) {
                 foreach ($pk->sasarans as $sasaran) {
                     foreach ($sasaran->indikators as $iku) {
-                        $r        = $iku->realisasis->first();
-                        $raInd    = $raIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                        $r = $iku->realisasis->first();
+                        $raInd = $raIndMap->get($iku->sasaran_id.'_'.$iku->kode);
                         $targetTw = $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"};
                         $matrix[] = [
-                            'sasaran_kode'           => $sasaran->kode,
-                            'sasaran_nama'           => $sasaran->nama,
-                            'iku_id'                 => $iku->id,
-                            'iku_kode'               => $iku->kode,
-                            'iku_nama'               => $iku->nama,
-                            'iku_satuan'             => $iku->satuan,
-                            'iku_target'             => $iku->target,
-                            'iku_target_tw'          => $targetTw,
+                            'sasaran_kode' => $sasaran->kode,
+                            'sasaran_nama' => $sasaran->nama,
+                            'iku_id' => $iku->id,
+                            'iku_kode' => $iku->kode,
+                            'iku_nama' => $iku->nama,
+                            'iku_satuan' => $iku->satuan,
+                            'iku_target' => $iku->target,
+                            'iku_target_tw' => $targetTw,
                             // Semua PIC (primary + co-PIC)
-                            'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode'])),
-                            'realisasi'              => $r?->realisasi,
-                            'progress_kegiatan'      => $r?->progress_kegiatan,
-                            'kendala'                => $r?->kendala,
+                            'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode'])),
+                            'realisasi' => $r?->realisasi,
+                            'progress_kegiatan' => $r?->progress_kegiatan,
+                            'kendala' => $r?->kendala,
                             'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
-                            'catatan'                => $r?->catatan,
+                            'catatan' => $r?->catatan,
                             // Tim yang mengisi duluan
-                            'input_by_tim_kerja'     => $r?->inputByTimKerja?->only(['id', 'nama', 'kode']),
+                            'input_by_tim_kerja' => $r?->inputByTimKerja?->only(['id', 'nama', 'kode']),
                         ];
                     }
                 }
@@ -167,16 +167,16 @@ class PengukuranController extends Controller
             ->orderBy('tim_kerja_id')
             ->get()
             ->map(fn ($l) => [
-                'id'                => $l->id,
-                'status'            => $l->status,
+                'id' => $l->id,
+                'status' => $l->status,
                 'rekomendasi_kabag' => $l->rekomendasi_kabag,
-                'submitted_at'      => $l->submitted_at?->format('d M Y H:i'),
-                'approved_at'       => $l->approved_at?->format('d M Y H:i'),
-                'periode_triwulan'  => $l->periode?->triwulan ?? '',
-                'tim_kerja'         => $l->timKerja ? [
-                    'id'           => $l->timKerja->id,
-                    'nama'         => $l->timKerja->nama,
-                    'kode'         => $l->timKerja->kode,
+                'submitted_at' => $l->submitted_at?->format('d M Y H:i'),
+                'approved_at' => $l->approved_at?->format('d M Y H:i'),
+                'periode_triwulan' => $l->periode?->triwulan ?? '',
+                'tim_kerja' => $l->timKerja ? [
+                    'id' => $l->timKerja->id,
+                    'nama' => $l->timKerja->nama,
+                    'kode' => $l->timKerja->kode,
                     'nama_singkat' => $l->timKerja->nama_singkat,
                 ] : null,
             ])
@@ -184,10 +184,10 @@ class PengukuranController extends Controller
             ->all();
 
         return Inertia::render('SuperAdmin/Pengukuran/Realisasi', [
-            'tahun'    => $tahun,
+            'tahun' => $tahun,
             'periodes' => $periodes,
-            'periode'  => $periode,
-            'matrix'   => $matrix,
+            'periode' => $periode,
+            'matrix' => $matrix,
             'laporans' => $laporans,
         ]);
     }
@@ -206,8 +206,8 @@ class PengukuranController extends Controller
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans'                       => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'            => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -220,7 +220,7 @@ class PengukuranController extends Controller
         $xlsSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
         $xlsRaIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $xlsSasaranIds)
             ->get()
-            ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+            ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
         // ── Flatten rows ───────────────────────────────────────────────────────
         $dataRows = [];
@@ -228,17 +228,17 @@ class PengukuranController extends Controller
             foreach ($pk->sasarans as $sasaran) {
                 foreach ($sasaran->indikators as $iku) {
                     $realisasiByPeriode = $iku->realisasis->keyBy('periode_pengukuran_id');
-                    $picNamas           = $iku->picTimKerjas->pluck('nama')->implode(', ');
-                    $anyR               = $iku->realisasis->first();
-                    $xlsRaInd           = $xlsRaIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                    $picNamas = $iku->picTimKerjas->pluck('nama')->implode(', ');
+                    $anyR = $iku->realisasis->first();
+                    $xlsRaInd = $xlsRaIndMap->get($iku->sasaran_id.'_'.$iku->kode);
 
                     $twData = [];
                     foreach (['TW1', 'TW2', 'TW3', 'TW4'] as $tw) {
-                        $p           = $allPeriodes->get($tw);
-                        $r           = $p ? $realisasiByPeriode->get($p->id) : null;
-                        $twKey2      = strtolower($tw);
+                        $p = $allPeriodes->get($tw);
+                        $r = $p ? $realisasiByPeriode->get($p->id) : null;
+                        $twKey2 = strtolower($tw);
                         $twData[$tw] = [
-                            'target'    => $xlsRaInd?->{"target_{$twKey2}"} ?? $iku->{'target_' . $twKey2},
+                            'target' => $xlsRaInd?->{"target_{$twKey2}"} ?? $iku->{'target_'.$twKey2},
                             'realisasi' => $r?->realisasi,
                         ];
                     }
@@ -246,32 +246,32 @@ class PengukuranController extends Controller
                     $dataRows[] = [
                         'sasaran_kode' => $sasaran->kode,
                         'sasaran_nama' => $sasaran->nama,
-                        'iku_kode'     => $iku->kode,
-                        'iku_nama'     => $iku->nama,
-                        'iku_satuan'   => $iku->satuan,
-                        'iku_target'   => $iku->target,
-                        'pic_namas'    => $picNamas ?: '-',
-                        'diisi_oleh'   => $anyR?->inputByTimKerja?->nama ?? '-',
-                        'tw'           => $twData,
+                        'iku_kode' => $iku->kode,
+                        'iku_nama' => $iku->nama,
+                        'iku_satuan' => $iku->satuan,
+                        'iku_target' => $iku->target,
+                        'pic_namas' => $picNamas ?: '-',
+                        'diisi_oleh' => $anyR?->inputByTimKerja?->nama ?? '-',
+                        'tw' => $twData,
                     ];
                 }
             }
         }
 
         // ── Build spreadsheet ──────────────────────────────────────────────────
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(12);
-        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Realisasi Kinerja');
 
         // ── Title row ─────────────────────────────────────────────────────────
         $sheet->mergeCells('A1:Q1');
         $sheet->setCellValue('A1', "Realisasi Kinerja — {$tahun->label}");
         $sheet->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+            'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ]);
         $sheet->getRowDimension(1)->setRowHeight(28);
 
@@ -279,21 +279,21 @@ class PengukuranController extends Controller
         // Columns: A=No B=Sasaran C=IKU Kode D=Indikator E=Satuan F=Target PK G=PIC H=Diisi Oleh
         //          I-J=TW1 K-L=TW2 M-N=TW3 O-P=TW4 Q=Status
         $headerStyle = [
-            'font'      => ['bold' => true, 'name' => 'Times New Roman', 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+            'font' => ['bold' => true, 'name' => 'Times New Roman', 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
         $subHeaderStyle = [
-            'font'      => ['bold' => false, 'name' => 'Times New Roman', 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '004099']],
+            'font' => ['bold' => false, 'name' => 'Times New Roman', 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '004099']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
 
         // Row 2: static headers (rowspan via merge 2-3) + TW group headers
         $staticHeaders = ['No', 'Sasaran', 'Kode IKU', 'Indikator Kinerja', 'Satuan', 'Target PK', 'PIC Tim Kerja', 'Diisi Oleh'];
-        $staticCols    = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $staticCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         foreach ($staticHeaders as $i => $label) {
             $col = $staticCols[$i];
             $sheet->mergeCells("{$col}2:{$col}3");
@@ -342,9 +342,9 @@ class PengukuranController extends Controller
         }
 
         // ── Data rows ──────────────────────────────────────────────────────────
-        $startRow        = 4;
-        $currentRow      = $startRow;
-        $no              = 1;
+        $startRow = 4;
+        $currentRow = $startRow;
+        $no = 1;
         $prevSasaranKode = null;
         $sasaranStartRow = $startRow;
 
@@ -356,16 +356,16 @@ class PengukuranController extends Controller
 
         $dataCellStyle = [
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
         $centerCellStyle = [
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
 
         foreach ($sasaranGroups as $sasaranKode => $rows) {
-            $groupStartRow  = $currentRow;
-            $groupSize      = count($rows);
+            $groupStartRow = $currentRow;
+            $groupSize = count($rows);
 
             foreach ($rows as $dr) {
                 $sheet->getRowDimension($currentRow)->setRowHeight(-1); // auto-fit height
@@ -405,9 +405,9 @@ class PengukuranController extends Controller
 
                 // TW columns
                 foreach ($twColPairs as $tw => [$targetCol, $realisasiCol]) {
-                    $twInfo   = $dr['tw'][$tw];
-                    $targetV  = $twInfo['target'] ?? '-';
-                    $realV    = $twInfo['realisasi'] ?? '-';
+                    $twInfo = $dr['tw'][$tw];
+                    $targetV = $twInfo['target'] ?? '-';
+                    $realV = $twInfo['realisasi'] ?? '-';
 
                     $sheet->setCellValue("{$targetCol}{$currentRow}", $targetV);
                     $sheet->getStyle("{$targetCol}{$currentRow}")->applyFromArray($centerCellStyle);
@@ -431,10 +431,10 @@ class PengukuranController extends Controller
             }
 
             // Style Sasaran merged cell
-            $sheet->getStyle("B{$groupStartRow}:B" . ($groupStartRow + $groupSize - 1))->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'],
+            $sheet->getStyle("B{$groupStartRow}:B".($groupStartRow + $groupSize - 1))->applyFromArray([
+                'font' => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
-                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
             ]);
         }
 
@@ -444,7 +444,7 @@ class PengukuranController extends Controller
         // ── Sheet 2–5: Rencana Kegiatan per Triwulan ──────────────────────────────
         // Ambil SEMUA PK Awal (satu per tim kerja) agar tidak ada IKU yang terlewat
         $allPkAwals = PerjanjianKinerja::with([
-            'sasarans'            => fn ($q) => $q->orderBy('urutan'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
@@ -467,8 +467,8 @@ class PengukuranController extends Controller
             foreach ($pkAwal->sasarans as $sasaran) {
                 if (! isset($sasaranMap[$sasaran->kode])) {
                     $sasaranMap[$sasaran->kode] = [
-                        'kode'      => $sasaran->kode,
-                        'nama'      => $sasaran->nama,
+                        'kode' => $sasaran->kode,
+                        'nama' => $sasaran->nama,
                         'indikators' => [],
                     ];
                 }
@@ -490,9 +490,9 @@ class PengukuranController extends Controller
                     }
 
                     $sasaranMap[$sasaran->kode]['indikators'][$iku->kode] = [
-                        'iku_kode'    => $iku->kode,
-                        'iku_nama'    => $iku->nama,
-                        'pic_names'   => $picNames ?: '-',
+                        'iku_kode' => $iku->kode,
+                        'iku_nama' => $iku->nama,
+                        'pic_names' => $picNames ?: '-',
                         'tw_kegiatan' => $twKegiatan,
                     ];
                 }
@@ -514,10 +514,10 @@ class PengukuranController extends Controller
                 $allKgRows[] = [
                     'sasaran_kode' => $sasaran['kode'],
                     'sasaran_nama' => $sasaran['nama'],
-                    'iku_kode'     => $iku['iku_kode'],
-                    'iku_nama'     => $iku['iku_nama'],
-                    'pic_names'    => $iku['pic_names'],
-                    'tw_kegiatan'  => $iku['tw_kegiatan'],
+                    'iku_kode' => $iku['iku_kode'],
+                    'iku_nama' => $iku['iku_nama'],
+                    'pic_names' => $iku['pic_names'],
+                    'tw_kegiatan' => $iku['tw_kegiatan'],
                 ];
             }
         }
@@ -525,17 +525,17 @@ class PengukuranController extends Controller
         // Shared styles untuk sheet TW — selaras dengan sheet Realisasi Kinerja
         $kgWrapStyle = [
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
         $kgCenterStyle = [
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
         $kgSasaranHeaderStyle = [
-            'font'      => ['bold' => true, 'name' => 'Times New Roman', 'size' => 11, 'color' => ['rgb' => '1F3864']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
+            'font' => ['bold' => true, 'name' => 'Times New Roman', 'size' => 11, 'color' => ['rgb' => '1F3864']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER, 'indent' => 1],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
 
         $twSheetNames = [1 => 'Kegiatan TW I', 2 => 'Kegiatan TW II', 3 => 'Kegiatan TW III', 4 => 'Kegiatan TW IV'];
@@ -549,19 +549,21 @@ class PengukuranController extends Controller
         foreach ([1, 2, 3, 4] as $tw) {
             // Semua IKU ditampilkan — termasuk yang belum punya kegiatan di TW ini
             $twRows = $allKgRows;
-            if (empty($twRows)) continue;
+            if (empty($twRows)) {
+                continue;
+            }
 
             $shTw = $spreadsheet->createSheet();
             $shTw->setTitle($twSheetNames[$tw]);
 
             // ── Title ────────────────────────────────────────────────────────
             $shTw->mergeCells('A1:E1');
-            $shTw->setCellValue('A1', $twSheetTitles[$tw] . " — {$tahun->label}");
+            $shTw->setCellValue('A1', $twSheetTitles[$tw]." — {$tahun->label}");
             $shTw->getStyle('A1:E1')->applyFromArray([
-                'font'      => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+                'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
             ]);
             $shTw->getRowDimension(1)->setRowHeight(30);
 
@@ -581,15 +583,15 @@ class PengukuranController extends Controller
             }
 
             // ── Data rows ─────────────────────────────────────────────────────
-            $rowTw         = 3;
-            $noTw          = 1;
+            $rowTw = 3;
+            $noTw = 1;
             $prevSasaranTw = null;
 
             foreach ($twRows as $dr) {
                 // ── Sasaran section-header row (saat sasaran berganti) ─────────
                 if ($dr['sasaran_kode'] !== $prevSasaranTw) {
                     $shTw->mergeCells("A{$rowTw}:E{$rowTw}");
-                    $shTw->setCellValue("A{$rowTw}", $dr['sasaran_kode'] . '   —   ' . $dr['sasaran_nama']);
+                    $shTw->setCellValue("A{$rowTw}", $dr['sasaran_kode'].'   —   '.$dr['sasaran_nama']);
                     $shTw->getStyle("A{$rowTw}:E{$rowTw}")->applyFromArray($kgSasaranHeaderStyle);
                     $shTw->getRowDimension($rowTw)->setRowHeight(18);
                     $rowTw++;
@@ -597,9 +599,9 @@ class PengukuranController extends Controller
                 }
 
                 // ── IKU data row ───────────────────────────────────────────────
-                $items       = $dr['tw_kegiatan'][$tw];
+                $items = $dr['tw_kegiatan'][$tw];
                 $kegiatanStr = $items->isNotEmpty()
-                    ? $items->map(fn ($k, $i) => ($i + 1) . '. ' . $k->nama_kegiatan)->join("\n")
+                    ? $items->map(fn ($k, $i) => ($i + 1).'. '.$k->nama_kegiatan)->join("\n")
                     : '-';
 
                 $shTw->setCellValue("A{$rowTw}", $noTw++);
@@ -632,9 +634,9 @@ class PengukuranController extends Controller
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, $filename, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-            'Cache-Control'       => 'max-age=0',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 
@@ -652,8 +654,8 @@ class PengukuranController extends Controller
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans'                       => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'            => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -666,7 +668,7 @@ class PengukuranController extends Controller
         $pdfSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
         $pdfRaIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $pdfSasaranIds)
             ->get()
-            ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+            ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
         $matrix = [];
 
@@ -674,38 +676,38 @@ class PengukuranController extends Controller
             foreach ($pk->sasarans as $sasaran) {
                 foreach ($sasaran->indikators as $iku) {
                     $realisasiByPeriode = $iku->realisasis->keyBy('periode_pengukuran_id');
-                    $pdfRaInd           = $pdfRaIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                    $pdfRaInd = $pdfRaIndMap->get($iku->sasaran_id.'_'.$iku->kode);
 
                     $tw = [];
                     foreach (['TW1', 'TW2', 'TW3', 'TW4'] as $twKey) {
-                        $p     = $allPeriodes->get($twKey);
-                        $r     = $p ? $realisasiByPeriode->get($p->id) : null;
+                        $p = $allPeriodes->get($twKey);
+                        $r = $p ? $realisasiByPeriode->get($p->id) : null;
                         $twLow = strtolower($twKey);
-                        $tw[]  = [
-                            'tw'        => $twKey,
-                            'target'    => $pdfRaInd?->{"target_{$twLow}"} ?? $iku->{'target_' . $twLow},
+                        $tw[] = [
+                            'tw' => $twKey,
+                            'target' => $pdfRaInd?->{"target_{$twLow}"} ?? $iku->{'target_'.$twLow},
                             'realisasi' => $r?->realisasi,
                         ];
                     }
 
-                    $anyR     = $iku->realisasis->first();
+                    $anyR = $iku->realisasis->first();
                     $matrix[] = [
-                        'sasaran_kode'       => $sasaran->kode,
-                        'sasaran_nama'       => $sasaran->nama,
-                        'iku_kode'           => $iku->kode,
-                        'iku_nama'           => $iku->nama,
-                        'iku_satuan'         => $iku->satuan,
-                        'iku_target'         => $iku->target,
-                        'pic_tim_kerjas'     => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
+                        'sasaran_kode' => $sasaran->kode,
+                        'sasaran_nama' => $sasaran->nama,
+                        'iku_kode' => $iku->kode,
+                        'iku_nama' => $iku->nama,
+                        'iku_satuan' => $iku->satuan,
+                        'iku_target' => $iku->target,
+                        'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
                         'input_by_tim_kerja' => $anyR?->inputByTimKerja?->only(['id', 'nama']),
-                        'tw'                 => $tw,
+                        'tw' => $tw,
                     ];
                 }
             }
         }
 
         return Inertia::render('SuperAdmin/Pengukuran/ExportPdf', [
-            'tahun'  => $tahun,
+            'tahun' => $tahun,
             'matrix' => $matrix,
         ]);
     }
@@ -721,7 +723,7 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : $periodes->first();
 
@@ -730,10 +732,10 @@ class PengukuranController extends Controller
         $twKey = strtolower($periode->triwulan);
 
         $pks = PerjanjianKinerja::with([
-            'sasarans'                         => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'              => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
-            'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+            'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->where('periode_pengukuran_id', $periode->id),
         ])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -744,28 +746,28 @@ class PengukuranController extends Controller
         $allSasaranIds2 = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
         $raIndMap2 = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds2)
             ->get()
-            ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+            ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
         $matrix = [];
         foreach ($pks as $pk) {
             foreach ($pk->sasarans as $sasaran) {
                 foreach ($sasaran->indikators as $iku) {
-                    $r        = $iku->realisasis->first();
-                    $raInd2   = $raIndMap2->get($iku->sasaran_id . '_' . $iku->kode);
+                    $r = $iku->realisasis->first();
+                    $raInd2 = $raIndMap2->get($iku->sasaran_id.'_'.$iku->kode);
                     $matrix[] = [
-                        'sasaran_kode'           => $sasaran->kode,
-                        'sasaran_nama'           => $sasaran->nama,
-                        'iku_kode'               => $iku->kode,
-                        'iku_nama'               => $iku->nama,
-                        'iku_satuan'             => $iku->satuan,
-                        'iku_target'             => $iku->target,
-                        'iku_target_tw'          => $raInd2?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
-                        'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
-                        'realisasi'              => $r?->realisasi,
-                        'progress_kegiatan'      => $r?->progress_kegiatan,
-                        'kendala'                => $r?->kendala,
+                        'sasaran_kode' => $sasaran->kode,
+                        'sasaran_nama' => $sasaran->nama,
+                        'iku_kode' => $iku->kode,
+                        'iku_nama' => $iku->nama,
+                        'iku_satuan' => $iku->satuan,
+                        'iku_target' => $iku->target,
+                        'iku_target_tw' => $raInd2?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
+                        'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
+                        'realisasi' => $r?->realisasi,
+                        'progress_kegiatan' => $r?->progress_kegiatan,
+                        'kendala' => $r?->kendala,
                         'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
-                        'input_by_tim_kerja'     => $r?->inputByTimKerja?->only(['id', 'nama']),
+                        'input_by_tim_kerja' => $r?->inputByTimKerja?->only(['id', 'nama']),
                     ];
                 }
             }
@@ -775,16 +777,16 @@ class PengukuranController extends Controller
             ->where('periode_pengukuran_id', $periode->id)
             ->get()
             ->map(fn ($l) => [
-                'tim_kerja_nama'    => $l->timKerja?->nama ?? '',
-                'status'            => $l->status,
+                'tim_kerja_nama' => $l->timKerja?->nama ?? '',
+                'status' => $l->status,
                 'rekomendasi_kabag' => $l->rekomendasi_kabag,
-                'approved_at'       => $l->approved_at?->format('d M Y'),
+                'approved_at' => $l->approved_at?->format('d M Y'),
             ]);
 
         return Inertia::render('Pimpinan/Pengukuran/ExportPdf', [
-            'tahun'    => $tahun,
-            'periode'  => $periode,
-            'matrix'   => $matrix,
+            'tahun' => $tahun,
+            'periode' => $periode,
+            'matrix' => $matrix,
             'laporans' => $laporans,
         ]);
     }

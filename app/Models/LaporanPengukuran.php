@@ -24,7 +24,7 @@ class LaporanPengukuran extends Model
 
     protected $casts = [
         'submitted_at' => 'datetime',
-        'approved_at'  => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     public function timKerja(): BelongsTo

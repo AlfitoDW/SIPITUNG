@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class TimKerja extends Model
 {
@@ -23,7 +23,7 @@ class TimKerja extends Model
     protected function casts(): array
     {
         return [
-            'is_active'      => 'boolean',
+            'is_active' => 'boolean',
             'is_koordinator' => 'boolean',
         ];
     }
@@ -35,7 +35,7 @@ class TimKerja extends Model
 
     public function ketua()
     {
-        return $this->hasOne(User::class,'tim_kerja_id')
+        return $this->hasOne(User::class, 'tim_kerja_id')
             ->where('role', 'ketua_tim_kerja')
             ->where('is_active', true);
     }
@@ -44,5 +44,4 @@ class TimKerja extends Model
     {
         return $query->where('is_active', true);
     }
-    
 }

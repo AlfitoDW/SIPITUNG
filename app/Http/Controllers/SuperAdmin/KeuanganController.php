@@ -21,8 +21,8 @@ class KeuanganController extends Controller
             ->get();
 
         return Inertia::render('SuperAdmin/Keuangan/PermohonanDana/Index', [
-            'tahun'        => $tahun,
-            'permohonan'   => $permohonan,
+            'tahun' => $tahun,
+            'permohonan' => $permohonan,
             'timKerjaList' => TimKerja::active()->orderBy('nama')->get(['id', 'nama']),
         ]);
     }
@@ -38,8 +38,8 @@ class KeuanganController extends Controller
             ->get();
 
         return Inertia::render('SuperAdmin/Keuangan/PencairanDana/Index', [
-            'tahun'        => $tahun,
-            'pencairan'    => $pencairan,
+            'tahun' => $tahun,
+            'pencairan' => $pencairan,
             'timKerjaList' => TimKerja::active()->orderBy('nama')->get(['id', 'nama']),
         ]);
     }

@@ -1,17 +1,17 @@
 <?php
 
-use App\Http\Controllers\KetuaTim\PerencanaanController;
-use App\Http\Controllers\KetuaTim\PengukuranController;
-use App\Http\Controllers\KetuaTim\PermohonanDanaController;
+use App\Http\Controllers\KetuaTim\DashboardController;
 use App\Http\Controllers\KetuaTim\MonitoringController;
+use App\Http\Controllers\KetuaTim\PengukuranController;
+use App\Http\Controllers\KetuaTim\PerencanaanController;
+use App\Http\Controllers\KetuaTim\PermohonanDanaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\KetuaTim\DashboardController;
 
 Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/perencanaan', fn() => Inertia::render('KetuaTim/Perencanaan'))->name('perencanaan');
+    Route::get('/perencanaan', fn () => Inertia::render('KetuaTim/Perencanaan'))->name('perencanaan');
 
     Route::prefix('perencanaan/perjanjian-kinerja')->name('perencanaan.pk.')->group(function () {
         // PK Awal — view + CRUD
@@ -41,35 +41,35 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         Route::patch('submit', [PerencanaanController::class, 'raSubmit'])->name('submit');
 
         // Rencana Kegiatan
-        Route::post('indikator/{indikator}/kegiatan',  [PerencanaanController::class, 'kegiatanStore'])->name('kegiatan.store');
-        Route::patch('kegiatan/{kegiatan}',            [PerencanaanController::class, 'kegiatanUpdate'])->name('kegiatan.update');
-        Route::delete('kegiatan/{kegiatan}',           [PerencanaanController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
+        Route::post('indikator/{indikator}/kegiatan', [PerencanaanController::class, 'kegiatanStore'])->name('kegiatan.store');
+        Route::patch('kegiatan/{kegiatan}', [PerencanaanController::class, 'kegiatanUpdate'])->name('kegiatan.update');
+        Route::delete('kegiatan/{kegiatan}', [PerencanaanController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
     });
 
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/',                [PermohonanDanaController::class, 'index'])->name('index');
-        Route::get('/buat',            [PermohonanDanaController::class, 'create'])->name('create');
-        Route::post('/',               [PermohonanDanaController::class, 'store'])->name('store');
-        Route::get('/approval',        [PermohonanDanaController::class, 'approvalIndex'])->name('approval');
-        Route::post('/{pd}/approve',   [PermohonanDanaController::class, 'approve'])->name('approve');
-        Route::post('/{pd}/reject',    [PermohonanDanaController::class, 'reject'])->name('reject');
-        Route::get('/{pd}/edit',       [PermohonanDanaController::class, 'edit'])->name('edit');
-        Route::put('/{pd}',            [PermohonanDanaController::class, 'update'])->name('update');
-        Route::delete('/{pd}',         [PermohonanDanaController::class, 'destroy'])->name('destroy');
-        Route::patch('/{pd}/submit',   [PermohonanDanaController::class, 'submit'])->name('submit');
+        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/buat', [PermohonanDanaController::class, 'create'])->name('create');
+        Route::post('/', [PermohonanDanaController::class, 'store'])->name('store');
+        Route::get('/approval', [PermohonanDanaController::class, 'approvalIndex'])->name('approval');
+        Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
+        Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::get('/{pd}/edit', [PermohonanDanaController::class, 'edit'])->name('edit');
+        Route::put('/{pd}', [PermohonanDanaController::class, 'update'])->name('update');
+        Route::delete('/{pd}', [PermohonanDanaController::class, 'destroy'])->name('destroy');
+        Route::patch('/{pd}/submit', [PermohonanDanaController::class, 'submit'])->name('submit');
     });
 
     // Pengukuran Kinerja
     Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
-        Route::get('/',        [PengukuranController::class, 'index'])->name('index');
-        Route::post('store',   [PengukuranController::class, 'store'])->name('store');
-        Route::post('submit',  [PengukuranController::class, 'submit'])->name('submit');
+        Route::get('/', [PengukuranController::class, 'index'])->name('index');
+        Route::post('store', [PengukuranController::class, 'store'])->name('store');
+        Route::post('submit', [PengukuranController::class, 'submit'])->name('submit');
     });
 
     // Monitoring — lihat data semua tim (read-only)
     Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring');
 
-    Route::get('/lpj', fn() => Inertia::render('KetuaTim/LPJ'))->name('lpj');
-    Route::get('/dokumen', fn() => Inertia::render('KetuaTim/Dokumen'))->name('dokumen');
-    Route::get('/notifikasi', fn() => Inertia::render('KetuaTim/Notifikasi'))->name('notifikasi');
+    Route::get('/lpj', fn () => Inertia::render('KetuaTim/LPJ'))->name('lpj');
+    Route::get('/dokumen', fn () => Inertia::render('KetuaTim/Dokumen'))->name('dokumen');
+    Route::get('/notifikasi', fn () => Inertia::render('KetuaTim/Notifikasi'))->name('notifikasi');
 });

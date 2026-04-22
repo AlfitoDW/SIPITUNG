@@ -14,14 +14,12 @@ class PermohonanDanaController extends Controller
 {
     private function statusForRole(): string
     {
-        return auth()->user()->pimpinan_type === 'kabag_umum'
-            ? 'submitted'
-            : 'katimku_approved';
+        return 'submitted';
     }
 
     public function index(): Response
     {
-        $tahun  = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $status = $this->statusForRole();
 
         $permohonan = PermohonanDana::with(['items', 'timKerja', 'createdBy'])
@@ -31,9 +29,9 @@ class PermohonanDanaController extends Controller
             ->get();
 
         return Inertia::render('Pimpinan/PermohonanDana/Index', [
-            'tahun'      => $tahun,
+            'tahun' => $tahun,
             'permohonan' => $permohonan,
-            'role'       => auth()->user()->pimpinan_type,
+            'role' => auth()->user()->pimpinan_type,
         ]);
     }
 
@@ -41,23 +39,13 @@ class PermohonanDanaController extends Controller
     {
         $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
-        $user = auth()->user();
+        abort_if($pd->status !== 'submitted', 422, 'Status tidak valid.');
 
-        if ($user->pimpinan_type === 'kabag_umum') {
-            abort_if($pd->status !== 'submitted', 422, 'Status tidak valid.');
-            $pd->update([
-                'status'            => 'kabag_approved',
-                'kabag_approved_by' => $user->id,
-                'rekomendasi_kabag' => $request->rekomendasi,
-            ]);
-        } else {
-            abort_if($pd->status !== 'katimku_approved', 422, 'Status tidak valid.');
-            $pd->update([
-                'status'          => 'ppk_approved',
-                'ppk_approved_by' => $user->id,
-                'rekomendasi_ppk' => $request->rekomendasi,
-            ]);
-        }
+        $pd->update([
+            'status' => 'kabag_approved',
+            'kabag_approved_by' => auth()->id(),
+            'rekomendasi_kabag' => $request->rekomendasi,
+        ]);
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil disetujui.");
     }
@@ -66,16 +54,12 @@ class PermohonanDanaController extends Controller
     {
         $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
-        $user           = auth()->user();
-        $expectedStatus = $user->pimpinan_type === 'kabag_umum' ? 'submitted' : 'katimku_approved';
-        $rekomendasiKey = $user->pimpinan_type === 'kabag_umum' ? 'rekomendasi_kabag' : 'rekomendasi_ppk';
-
-        abort_if($pd->status !== $expectedStatus, 422, 'Status tidak valid.');
+        abort_if($pd->status !== 'submitted', 422, 'Status tidak valid.');
 
         $pd->update([
-            'status'        => 'rejected',
-            'rejected_by'   => $user->pimpinan_type,
-            $rekomendasiKey => $request->rekomendasi,
+            'status' => 'rejected',
+            'rejected_by' => 'kabag_umum',
+            'rekomendasi_kabag' => $request->rekomendasi,
         ]);
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} ditolak.");

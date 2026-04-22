@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('perjanjian_kinerja', function (Blueprint $table) {
             $table->text('rekomendasi_kabag')->nullable()->after('status');
             $table->text('rekomendasi_ppk')->nullable()->after('rekomendasi_kabag');
-            $table->string('rejected_by')->nullable()->after('rekomendasi_ppk') ;
+            $table->string('rejected_by')->nullable()->after('rekomendasi_ppk');
         });
     }
 

@@ -18,7 +18,7 @@ class PengukuranController extends Controller
     public function kinerja(Request $request): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $user  = auth()->user();
+        $user = auth()->user();
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
             ->where('is_active', true)
@@ -26,21 +26,21 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : $periodes->first();
 
-        $matrix   = [];
+        $matrix = [];
         $laporans = [];
 
         if ($periode) {
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans'                         => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators'              => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('kode'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
                 'sasarans.indikators.picTimKerjas',
-                'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+                'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
             ])
                 ->where('tahun_anggaran_id', $tahun->id)
@@ -52,29 +52,29 @@ class PengukuranController extends Controller
             $allSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
             $raIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds)
                 ->get()
-                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+                ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
             foreach ($pks as $pk) {
                 foreach ($pk->sasarans as $sasaran) {
                     foreach ($sasaran->indikators as $iku) {
-                        $r        = $iku->realisasis->first();
-                        $raInd    = $raIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                        $r = $iku->realisasis->first();
+                        $raInd = $raIndMap->get($iku->sasaran_id.'_'.$iku->kode);
                         $matrix[] = [
-                            'sasaran_kode'           => $sasaran->kode,
-                            'sasaran_nama'           => $sasaran->nama,
-                            'iku_id'                 => $iku->id,
-                            'iku_kode'               => $iku->kode,
-                            'iku_nama'               => $iku->nama,
-                            'iku_satuan'             => $iku->satuan,
-                            'iku_target'             => $iku->target,
-                            'iku_target_tw'          => $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
-                            'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode', 'nama_singkat'])),
-                            'realisasi'              => $r?->realisasi,
-                            'progress_kegiatan'      => $r?->progress_kegiatan,
-                            'kendala'                => $r?->kendala,
+                            'sasaran_kode' => $sasaran->kode,
+                            'sasaran_nama' => $sasaran->nama,
+                            'iku_id' => $iku->id,
+                            'iku_kode' => $iku->kode,
+                            'iku_nama' => $iku->nama,
+                            'iku_satuan' => $iku->satuan,
+                            'iku_target' => $iku->target,
+                            'iku_target_tw' => $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
+                            'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode', 'nama_singkat'])),
+                            'realisasi' => $r?->realisasi,
+                            'progress_kegiatan' => $r?->progress_kegiatan,
+                            'kendala' => $r?->kendala,
                             'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
-                            'catatan'                => $r?->catatan,
-                            'input_by_tim_kerja'     => $r?->inputByTimKerja?->only(['id', 'nama', 'kode']),
+                            'catatan' => $r?->catatan,
+                            'input_by_tim_kerja' => $r?->inputByTimKerja?->only(['id', 'nama', 'kode']),
                         ];
                     }
                 }
@@ -88,26 +88,26 @@ class PengukuranController extends Controller
                 ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
                 ->get()
                 ->map(fn ($l) => [
-                    'id'                   => $l->id,
-                    'tim_kerja_id'         => $l->tim_kerja_id,
-                    'tim_kerja_nama'       => $l->timKerja?->nama ?? '',
-                    'tim_kerja_kode'       => $l->timKerja?->kode ?? '',
-                    'peer_tim_kerja_id'    => $l->peer_tim_kerja_id,
-                    'peer_tim_kerja_nama'  => $l->peerTimKerja?->nama_singkat ?? $l->peerTimKerja?->nama,
-                    'status'               => $l->status,
-                    'submitted_at'         => $l->submitted_at?->format('d M Y H:i'),
-                    'rekomendasi_kabag'    => $l->rekomendasi_kabag,
-                    'approved_at'          => $l->approved_at?->format('d M Y H:i'),
+                    'id' => $l->id,
+                    'tim_kerja_id' => $l->tim_kerja_id,
+                    'tim_kerja_nama' => $l->timKerja?->nama ?? '',
+                    'tim_kerja_kode' => $l->timKerja?->kode ?? '',
+                    'peer_tim_kerja_id' => $l->peer_tim_kerja_id,
+                    'peer_tim_kerja_nama' => $l->peerTimKerja?->nama_singkat ?? $l->peerTimKerja?->nama,
+                    'status' => $l->status,
+                    'submitted_at' => $l->submitted_at?->format('d M Y H:i'),
+                    'rekomendasi_kabag' => $l->rekomendasi_kabag,
+                    'approved_at' => $l->approved_at?->format('d M Y H:i'),
                 ]);
         }
 
         return Inertia::render('Pimpinan/Pengukuran/Kinerja', [
-            'tahun'    => $tahun,
+            'tahun' => $tahun,
             'periodes' => $periodes,
-            'periode'  => $periode,
-            'matrix'   => $matrix,
+            'periode' => $periode,
+            'matrix' => $matrix,
             'laporans' => $laporans,
-            'role'     => $user->pimpinan_type,
+            'role' => $user->pimpinan_type,
             'rekomendasi_pimpinan' => $periode?->rekomendasi_pimpinan,
         ]);
     }
@@ -125,7 +125,7 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : $periodes->first();
 
@@ -136,7 +136,6 @@ class PengukuranController extends Controller
         return back()->with('success', 'Rekomendasi pimpinan berhasil disimpan.');
     }
 
-
     public function approve(Request $request, LaporanPengukuran $laporan): RedirectResponse
     {
         abort_unless(auth()->user()->pimpinan_type === 'kabag_umum', 403);
@@ -145,10 +144,10 @@ class PengukuranController extends Controller
         $request->validate(['rekomendasi' => 'nullable|string|max:2000']);
 
         $laporan->update([
-            'status'            => 'kabag_approved',
+            'status' => 'kabag_approved',
             'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
-            'approved_at'       => now(),
-            'approved_by'       => $request->user()->id,
+            'approved_at' => now(),
+            'approved_by' => $request->user()->id,
         ]);
 
         return back()->with('success', "Laporan {$laporan->timKerja->nama} berhasil disetujui.");
@@ -162,7 +161,7 @@ class PengukuranController extends Controller
         $request->validate(['rekomendasi' => 'nullable|string|max:2000']);
 
         $laporan->update([
-            'status'            => 'rejected',
+            'status' => 'rejected',
             'rekomendasi_kabag' => $request->rekomendasi,
         ]);
 
@@ -178,7 +177,7 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : $periodes->first();
 
@@ -187,10 +186,10 @@ class PengukuranController extends Controller
         $twKey = strtolower($periode->triwulan);
 
         $pks = PerjanjianKinerja::with([
-            'sasarans'                         => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'              => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
-            'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+            'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->where('periode_pengukuran_id', $periode->id),
         ])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -201,28 +200,28 @@ class PengukuranController extends Controller
         $allSasaranIds2 = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
         $raIndMap2 = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds2)
             ->get()
-            ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+            ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
         $matrix = [];
         foreach ($pks as $pk) {
             foreach ($pk->sasarans as $sasaran) {
                 foreach ($sasaran->indikators as $iku) {
-                    $r        = $iku->realisasis->first();
-                    $raInd2   = $raIndMap2->get($iku->sasaran_id . '_' . $iku->kode);
+                    $r = $iku->realisasis->first();
+                    $raInd2 = $raIndMap2->get($iku->sasaran_id.'_'.$iku->kode);
                     $matrix[] = [
-                        'sasaran_kode'           => $sasaran->kode,
-                        'sasaran_nama'           => $sasaran->nama,
-                        'iku_kode'               => $iku->kode,
-                        'iku_nama'               => $iku->nama,
-                        'iku_satuan'             => $iku->satuan,
-                        'iku_target'             => $iku->target,
-                        'iku_target_tw'          => $raInd2?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
-                        'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
-                        'realisasi'              => $r?->realisasi,
-                        'progress_kegiatan'      => $r?->progress_kegiatan,
-                        'kendala'                => $r?->kendala,
+                        'sasaran_kode' => $sasaran->kode,
+                        'sasaran_nama' => $sasaran->nama,
+                        'iku_kode' => $iku->kode,
+                        'iku_nama' => $iku->nama,
+                        'iku_satuan' => $iku->satuan,
+                        'iku_target' => $iku->target,
+                        'iku_target_tw' => $raInd2?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
+                        'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
+                        'realisasi' => $r?->realisasi,
+                        'progress_kegiatan' => $r?->progress_kegiatan,
+                        'kendala' => $r?->kendala,
                         'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
-                        'input_by_tim_kerja'     => $r?->inputByTimKerja?->only(['id', 'nama']),
+                        'input_by_tim_kerja' => $r?->inputByTimKerja?->only(['id', 'nama']),
                     ];
                 }
             }
@@ -232,18 +231,18 @@ class PengukuranController extends Controller
             ->where('periode_pengukuran_id', $periode->id)
             ->get()
             ->map(fn ($l) => [
-                'tim_kerja_nama'    => $l->timKerja?->nama ?? '',
-                'status'            => $l->status,
+                'tim_kerja_nama' => $l->timKerja?->nama ?? '',
+                'status' => $l->status,
                 'rekomendasi_kabag' => $l->rekomendasi_kabag,
-                'approved_at'       => $l->approved_at?->format('d M Y'),
+                'approved_at' => $l->approved_at?->format('d M Y'),
             ]);
 
         return Inertia::render('Pimpinan/Pengukuran/ExportPdf', [
-            'tahun'                  => $tahun,
-            'periode'                => $periode,
-            'matrix'                 => $matrix,
-            'laporans'               => $laporans,
-            'rekomendasi_pimpinan'   => $periode->rekomendasi_pimpinan,
+            'tahun' => $tahun,
+            'periode' => $periode,
+            'matrix' => $matrix,
+            'laporans' => $laporans,
+            'rekomendasi_pimpinan' => $periode->rekomendasi_pimpinan,
         ]);
     }
 }

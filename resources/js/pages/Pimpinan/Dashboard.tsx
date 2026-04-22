@@ -23,12 +23,12 @@ type Props = {
 };
 
 const LINKS = {
-    pk_awal:      '/pimpinan/perencanaan/perjanjian-kinerja/awal',
-    pk_revisi:    '/pimpinan/perencanaan/perjanjian-kinerja/revisi',
-    ra:           '/pimpinan/perencanaan/rencana-aksi',
-    pengukuran:   '/pimpinan/pengukuran/kinerja',
-    permohonan:   '/pimpinan/keuangan/permohonan-dana',
-    persetujuan:  '/pimpinan/persetujuan',
+    pk_awal:     '/pimpinan/persetujuan?tab=pk_awal',
+    pk_revisi:   '/pimpinan/persetujuan?tab=pk_revisi',
+    ra:          '/pimpinan/persetujuan?tab=ra',
+    pengukuran:  '/pimpinan/persetujuan?tab=laporan',
+    permohonan:  '/pimpinan/keuangan/permohonan-dana',
+    persetujuan: '/pimpinan/persetujuan',
 };
 
 function PendingRow({ icon: Icon, label, count, href }: {

@@ -7,11 +7,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/super-admin/dashboard' },
 ];
 
-type PerencanaanStats = { draft: number; submitted: number; kabag_approved: number; ppk_approved: number; rejected: number };
+type PerencanaanStats = { draft: number; submitted: number; kabag_approved: number; rejected: number };
 type PengukuranStats  = { draft: number; submitted: number; kabag_approved: number; rejected: number };
 type PdStats = {
     draft: number; submitted: number; kabag_approved: number; bendahara_checked: number;
-    katimku_approved: number; ppk_approved: number; dicairkan: number; rejected: number;
+    katimku_approved: number; dicairkan: number; rejected: number;
 };
 type Tahun = { id: number; tahun: number; label: string } | null;
 type Props = {
@@ -44,8 +44,7 @@ const PD_ROWS = [
     { key: 'submitted',          label: 'Menunggu Kabag',      dot: 'bg-blue-400',   text: 'text-blue-600',   spinner: true,  spinnerColor: 'text-blue-400' },
     { key: 'kabag_approved',     label: 'Menunggu Bendahara',  dot: 'bg-sky-400',    text: 'text-sky-600',    spinner: true,  spinnerColor: 'text-sky-400' },
     { key: 'bendahara_checked',  label: 'Menunggu Katimku',    dot: 'bg-violet-400', text: 'text-violet-600', spinner: true,  spinnerColor: 'text-violet-400' },
-    { key: 'katimku_approved',   label: 'Menunggu PPK',        dot: 'bg-amber-400',  text: 'text-amber-600',  spinner: true,  spinnerColor: 'text-amber-400' },
-    { key: 'ppk_approved',       label: 'Siap Cair',           dot: 'bg-lime-400',   text: 'text-lime-600',   spinner: true,  spinnerColor: 'text-lime-400' },
+    { key: 'katimku_approved',   label: 'Siap Cair',           dot: 'bg-lime-400',   text: 'text-lime-600',   spinner: true,  spinnerColor: 'text-lime-400' },
     { key: 'dicairkan',          label: 'Sudah Cair',          dot: 'bg-emerald-400',text: 'text-emerald-600',spinner: false },
     { key: 'rejected',           label: 'Ditolak',             dot: 'bg-red-400',    text: 'text-red-600',    spinner: false },
 ] as const;

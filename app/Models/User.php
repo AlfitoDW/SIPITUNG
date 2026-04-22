@@ -57,7 +57,7 @@ class User extends Authenticatable
         ];
     }
 
-    //Relationships
+    // Relationships
     public function timkerja()
     {
         return $this->belongsTo(TimKerja::class, 'tim_kerja_id');
@@ -69,7 +69,7 @@ class User extends Authenticatable
         return $this->role === 'super_admin';
     }
 
-    public function isKetuaTimKerja(): bool 
+    public function isKetuaTimKerja(): bool
     {
         return $this->role === 'ketua_tim_kerja';
     }
@@ -79,7 +79,7 @@ class User extends Authenticatable
         return $this->role === 'pimpinan';
     }
 
-    public function isBendahara(): bool 
+    public function isBendahara(): bool
     {
         return $this->role === 'bendahara';
     }
@@ -99,9 +99,9 @@ class User extends Authenticatable
         return $this->role === 'ketua_tim_kerja' && ($this->timkerja?->is_koordinator ?? false);
     }
 
-    public function getRoleNameAttribute(): string 
+    public function getRoleNameAttribute(): string
     {
-        return match($this->role){
+        return match ($this->role) {
             'super_admin' => 'Super Admin',
             'ketua_tim_kerja' => 'Ketua Tim Kerja',
             'pimpinan' => $this->pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK',

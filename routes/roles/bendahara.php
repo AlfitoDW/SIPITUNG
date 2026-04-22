@@ -12,8 +12,8 @@ Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->gr
 
     // ─── Permohonan Dana ──────────────────────────────────────────────────────────
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/',               [PermohonanDanaController::class, 'index'])->name('index');
-        Route::post('/{pd}/cek',      [PermohonanDanaController::class, 'cek'])->name('cek');
-        Route::post('/{pd}/cairkan',  [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
+        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
+        Route::post('/{pd}/cek', [PermohonanDanaController::class, 'cek'])->name('cek');
+        Route::post('/{pd}/cairkan', [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
     });
 });

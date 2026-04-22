@@ -1,13 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
+use Illuminate\Support\Facades\Route;
 
 // ========================================
 // PUBLIC ROUTES
 // ========================================
-Route::get('/', fn() => redirect()->route('login'))->name('home');
+Route::get('/', fn () => redirect()->route('login'))->name('home');
 
 // ========================================
 // AUTHENTICATED ROUTES

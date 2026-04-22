@@ -21,7 +21,7 @@ class PengukuranController extends Controller
 {
     public function index(Request $request): Response
     {
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
@@ -29,23 +29,23 @@ class PengukuranController extends Controller
             ->get();
 
         $periodeId = $request->integer('periode_id');
-        $periode   = $periodeId
+        $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
             : ($periodes->firstWhere('is_active', true) ?? $periodes->first());
 
-        $ikuList      = [];
+        $ikuList = [];
         $collabGroups = [];
 
         if ($periode) {
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans'                         => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators'              => fn ($q) => $q->whereHas(
+                'sasarans' => fn ($q) => $q->orderBy('kode'),
+                'sasarans.indikators' => fn ($q) => $q->whereHas(
                     'picTimKerjas', fn ($q2) => $q2->where('tim_kerja.id', $timKerjaId)
                 )->orderBy('kode'),
                 'sasarans.indikators.picTimKerjas',
-                'sasarans.indikators.realisasis'   => fn ($q) => $q->with('inputByTimKerja')
+                'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
             ])
                 ->where('tahun_anggaran_id', $tahun->id)
@@ -56,7 +56,7 @@ class PengukuranController extends Controller
             $allSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
             $raIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds)
                 ->get()
-                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+                ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
 
             foreach ($pks as $pk) {
                 foreach ($pk->sasarans as $sasaran) {
@@ -64,31 +64,31 @@ class PengukuranController extends Controller
                         $r = $iku->realisasis->first();
 
                         // Gunakan target TW dari RA jika ada, fallback ke kolom di indikator_kinerja
-                        $raInd    = $raIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                        $raInd = $raIndMap->get($iku->sasaran_id.'_'.$iku->kode);
                         $targetTw = $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"};
 
                         $ikuList[] = [
-                            'iku_id'                  => $iku->id,
-                            'sasaran_kode'            => $sasaran->kode,
-                            'sasaran_nama'            => $sasaran->nama,
-                            'iku_kode'                => $iku->kode,
-                            'iku_nama'                => $iku->nama,
-                            'iku_satuan'              => $iku->satuan,
-                            'iku_target'              => $iku->target,
-                            'iku_target_tw'           => $targetTw,
-                            'pic_tim_kerjas'          => $iku->picTimKerjas->map(fn ($t) => [
-                                'id'           => $t->id,
-                                'nama'         => $t->nama,
-                                'kode'         => $t->kode,
+                            'iku_id' => $iku->id,
+                            'sasaran_kode' => $sasaran->kode,
+                            'sasaran_nama' => $sasaran->nama,
+                            'iku_kode' => $iku->kode,
+                            'iku_nama' => $iku->nama,
+                            'iku_satuan' => $iku->satuan,
+                            'iku_target' => $iku->target,
+                            'iku_target_tw' => $targetTw,
+                            'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => [
+                                'id' => $t->id,
+                                'nama' => $t->nama,
+                                'kode' => $t->kode,
                                 'nama_singkat' => $t->nama_singkat,
                             ]),
-                            'realisasi_id'            => $r?->id,
-                            'realisasi'               => $r?->realisasi,
-                            'progress_kegiatan'       => $r?->progress_kegiatan,
-                            'kendala'                 => $r?->kendala,
-                            'strategi_tindak_lanjut'  => $r?->strategi_tindak_lanjut,
-                            'catatan'                 => $r?->catatan,
-                            'input_by_tim_kerja_id'   => $r?->input_by_tim_kerja_id,
+                            'realisasi_id' => $r?->id,
+                            'realisasi' => $r?->realisasi,
+                            'progress_kegiatan' => $r?->progress_kegiatan,
+                            'kendala' => $r?->kendala,
+                            'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
+                            'catatan' => $r?->catatan,
+                            'input_by_tim_kerja_id' => $r?->input_by_tim_kerja_id,
                             'input_by_tim_kerja_nama' => $r?->inputByTimKerja?->nama_singkat ?? $r?->inputByTimKerja?->nama,
                         ];
                     }
@@ -100,28 +100,28 @@ class PengukuranController extends Controller
         }
 
         return Inertia::render('KetuaTim/Pengukuran/Index', [
-            'tahun'        => $tahun,
-            'periodes'     => $periodes,
-            'periode'      => $periode,
-            'ikuList'      => $ikuList,
-            'timKerjaId'   => $timKerjaId,
+            'tahun' => $tahun,
+            'periodes' => $periodes,
+            'periode' => $periode,
+            'ikuList' => $ikuList,
+            'timKerjaId' => $timKerjaId,
             'collabGroups' => $collabGroups,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $data = $request->validate([
-            'indikator_kinerja_id'   => ['required', 'integer', 'exists:indikator_kinerja,id'],
-            'periode_pengukuran_id'  => ['required', 'integer', 'exists:periode_pengukuran,id'],
-            'realisasi'              => ['nullable', 'string', 'max:100'],
-            'progress_kegiatan'      => ['nullable', 'string', 'max:2000'],
-            'kendala'                => ['nullable', 'string', 'max:2000'],
+            'indikator_kinerja_id' => ['required', 'integer', 'exists:indikator_kinerja,id'],
+            'periode_pengukuran_id' => ['required', 'integer', 'exists:periode_pengukuran,id'],
+            'realisasi' => ['nullable', 'string', 'max:100'],
+            'progress_kegiatan' => ['nullable', 'string', 'max:2000'],
+            'kendala' => ['nullable', 'string', 'max:2000'],
             'strategi_tindak_lanjut' => ['nullable', 'string', 'max:2000'],
-            'catatan'                => ['nullable', 'string', 'max:1000'],
+            'catatan' => ['nullable', 'string', 'max:1000'],
         ]);
 
         // Pastikan tim ini adalah PIC (primary atau co-PIC) untuk IKU ini
@@ -152,17 +152,17 @@ class PengukuranController extends Controller
 
         RealisasiKinerja::updateOrCreate(
             [
-                'indikator_kinerja_id'  => $iku->id,
+                'indikator_kinerja_id' => $iku->id,
                 'periode_pengukuran_id' => $periode->id,
             ],
             [
-                'input_by_tim_kerja_id'  => $timKerjaId,
-                'realisasi'              => $data['realisasi'],
-                'progress_kegiatan'      => $data['progress_kegiatan'],
-                'kendala'                => $data['kendala'],
+                'input_by_tim_kerja_id' => $timKerjaId,
+                'realisasi' => $data['realisasi'],
+                'progress_kegiatan' => $data['progress_kegiatan'],
+                'kendala' => $data['kendala'],
                 'strategi_tindak_lanjut' => $data['strategi_tindak_lanjut'],
-                'catatan'                => $data['catatan'],
-                'created_by'             => $request->user()->id,
+                'catatan' => $data['catatan'],
+                'created_by' => $request->user()->id,
             ]
         );
 
@@ -174,10 +174,10 @@ class PengukuranController extends Controller
      */
     public function submit(Request $request): RedirectResponse
     {
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        $periodeId    = $request->integer('periode_pengukuran_id');
+        $periodeId = $request->integer('periode_pengukuran_id');
         $peerTimKerjaId = $request->input('peer_tim_kerja_id'); // null atau integer
         $peerTimKerjaId = $peerTimKerjaId !== null ? (int) $peerTimKerjaId : null;
 
@@ -209,7 +209,7 @@ class PengukuranController extends Controller
             abort_if(
                 $peerLaporan,
                 403,
-                ($peerLaporan?->timKerja?->nama_singkat ?? 'Tim lain') . ' telah mengajukan laporan untuk kelompok IKU ini.'
+                ($peerLaporan?->timKerja?->nama_singkat ?? 'Tim lain').' telah mengajukan laporan untuk kelompok IKU ini.'
             );
         }
 
@@ -227,18 +227,18 @@ class PengukuranController extends Controller
 
         LaporanPengukuran::updateOrCreate(
             [
-                'tim_kerja_id'          => $timKerjaId,
+                'tim_kerja_id' => $timKerjaId,
                 'periode_pengukuran_id' => $periode->id,
-                'peer_tim_kerja_id'     => $peerTimKerjaId,
+                'peer_tim_kerja_id' => $peerTimKerjaId,
             ],
             [
-                'status'            => 'submitted',
-                'submitted_at'      => now(),
-                'submitted_by'      => $request->user()->id,
+                'status' => 'submitted',
+                'submitted_at' => now(),
+                'submitted_by' => $request->user()->id,
                 'rekomendasi_kabag' => null,
-                'approved_at'       => null,
-                'approved_by'       => null,
-                'created_by'        => $request->user()->id,
+                'approved_at' => null,
+                'approved_by' => null,
+                'created_by' => $request->user()->id,
             ]
         );
 
@@ -273,7 +273,9 @@ class PengukuranController extends Controller
         int $periodeId,
         array $ikuList
     ): array {
-        if (empty($ikuList)) return [];
+        if (empty($ikuList)) {
+            return [];
+        }
 
         $ikuById = collect($ikuList)->keyBy('iku_id');
 
@@ -308,7 +310,7 @@ class PengukuranController extends Controller
         ) {
             $_pk = $_l->peer_tim_kerja_id === null ? 'null' : (string) $_l->peer_tim_kerja_id;
             if (
-                !array_key_exists($_pk, $myLaporans) ||
+                ! array_key_exists($_pk, $myLaporans) ||
                 ($lapSpx[$_l->status] ?? -1) > ($lapSpx[$myLaporans[$_pk]->status] ?? -1)
             ) {
                 $myLaporans[$_pk] = $_l;
@@ -341,7 +343,7 @@ class PengukuranController extends Controller
 
         $result = [];
         foreach ($groupMap as $peerKey => $ikuIds) {
-            $peerId   = $peerKey === 'null' ? null : (int) $peerKey;
+            $peerId = $peerKey === 'null' ? null : (int) $peerKey;
             $peerInfo = $peerId ? $peersById->get($peerId) : null;
 
             $myLaporan = $myLaporans->get($peerKey);
@@ -356,9 +358,9 @@ class PengukuranController extends Controller
                     )
                     ->sortByDesc(fn ($l) => match ($l->status) {
                         'kabag_approved' => 3,
-                        'submitted'      => 2,
-                        'draft'          => 1,
-                        default          => 0,
+                        'submitted' => 2,
+                        'draft' => 1,
+                        default => 0,
                     })
                     ->first()
                 : null;
@@ -366,24 +368,24 @@ class PengukuranController extends Controller
             $filledCount = collect($ikuIds)->filter(fn ($id) => $filledIkuIds->has($id))->count();
 
             $result[] = [
-                'peer_id'         => $peerId,
-                'peer_nama'       => $peerInfo?->nama_singkat ?? $peerInfo?->nama ?? 'Mandiri',
-                'iku_ids'         => $ikuIds,
-                'iku_count'       => count($ikuIds),
-                'filled_count'    => $filledCount,
-                'laporan'         => $myLaporan ? [
-                    'id'                => $myLaporan->id,
-                    'status'            => $myLaporan->status,
-                    'submitted_at'      => $myLaporan->submitted_at?->format('d M Y H:i'),
+                'peer_id' => $peerId,
+                'peer_nama' => $peerInfo?->nama_singkat ?? $peerInfo?->nama ?? 'Mandiri',
+                'iku_ids' => $ikuIds,
+                'iku_count' => count($ikuIds),
+                'filled_count' => $filledCount,
+                'laporan' => $myLaporan ? [
+                    'id' => $myLaporan->id,
+                    'status' => $myLaporan->status,
+                    'submitted_at' => $myLaporan->submitted_at?->format('d M Y H:i'),
                     'rekomendasi_kabag' => $myLaporan->rekomendasi_kabag,
-                    'approved_at'       => $myLaporan->approved_at?->format('d M Y H:i'),
+                    'approved_at' => $myLaporan->approved_at?->format('d M Y H:i'),
                 ] : null,
-                'collaborator'    => ($peerLaporan && in_array($peerLaporan->status, ['submitted', 'kabag_approved'])) ? [
-                    'nama'   => $peerLaporan->timKerja?->nama_singkat ?? $peerLaporan->timKerja?->nama,
+                'collaborator' => ($peerLaporan && in_array($peerLaporan->status, ['submitted', 'kabag_approved'])) ? [
+                    'nama' => $peerLaporan->timKerja?->nama_singkat ?? $peerLaporan->timKerja?->nama,
                     'status' => $peerLaporan->status,
                 ] : null,
                 'collab_rejected' => ($peerLaporan && $peerLaporan->status === 'rejected') ? [
-                    'nama'              => $peerLaporan->timKerja?->nama_singkat ?? $peerLaporan->timKerja?->nama,
+                    'nama' => $peerLaporan->timKerja?->nama_singkat ?? $peerLaporan->timKerja?->nama,
                     'rekomendasi_kabag' => $peerLaporan->rekomendasi_kabag,
                 ] : null,
             ];

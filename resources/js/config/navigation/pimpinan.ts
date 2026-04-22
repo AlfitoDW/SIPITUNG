@@ -3,6 +3,7 @@ import {
     ClipboardList,
     ShieldCheck,
     HandCoins,
+    ChartNoAxesColumn,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -14,6 +15,16 @@ const pimpinanNav: NavGroup[] = [
                 title: 'Dashboard',
                 href: '/pimpinan/dashboard',
                 icon: LayoutDashboard,
+            },
+        ],
+    },
+    {
+        label: 'Persetujuan',
+        items: [
+            {
+                title: 'Hub Persetujuan',
+                href: '/pimpinan/persetujuan',
+                icon: ShieldCheck,
             },
         ],
     },
@@ -43,17 +54,7 @@ const pimpinanNav: NavGroup[] = [
             {
                 title: 'Pengukuran Kinerja',
                 href: '/pimpinan/pengukuran/kinerja',
-                icon: ClipboardList,
-            }
-        ]
-    },
-    {
-        label: 'Persetujuan',
-        items: [
-            {
-                title: 'Hub Persetujuan',
-                href: '/pimpinan/persetujuan',
-                icon: ShieldCheck,
+                icon: ChartNoAxesColumn,
             },
         ],
     },

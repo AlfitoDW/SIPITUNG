@@ -29,7 +29,7 @@ class TahunAnggaranController extends Controller
     public function update(Request $request, TahunAnggaran $tahunAnggaran): RedirectResponse
     {
         $request->validate([
-            'tahun' => 'required|integer|unique:tahun_anggaran,tahun,' . $tahunAnggaran->id,
+            'tahun' => 'required|integer|unique:tahun_anggaran,tahun,'.$tahunAnggaran->id,
             'label' => 'required|string',
             'is_active' => 'boolean',
             'is_default' => 'boolean',

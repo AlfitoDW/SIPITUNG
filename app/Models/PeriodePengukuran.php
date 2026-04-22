@@ -22,8 +22,8 @@ class PeriodePengukuran extends Model
     protected function casts(): array
     {
         return [
-            'is_active'       => 'boolean',
-            'tanggal_mulai'   => 'date',
+            'is_active' => 'boolean',
+            'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
         ];
     }

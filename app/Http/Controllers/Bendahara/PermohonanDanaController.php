@@ -25,7 +25,7 @@ class PermohonanDanaController extends Controller
 
         $pencairan = PermohonanDana::with(['items', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where('status', 'ppk_approved')
+            ->where('status', 'katimku_approved')
             ->orderByDesc('created_at')
             ->get();
 
@@ -38,10 +38,10 @@ class PermohonanDanaController extends Controller
         $timKerjaList = TimKerja::orderBy('nama')->get(['id', 'nama']);
 
         return Inertia::render('Bendahara/PermohonanDana/Index', [
-            'tahun'        => $tahun,
-            'verifikasi'   => $verifikasi,
-            'pencairan'    => $pencairan,
-            'riwayat'      => $riwayat,
+            'tahun' => $tahun,
+            'verifikasi' => $verifikasi,
+            'pencairan' => $pencairan,
+            'riwayat' => $riwayat,
             'timKerjaList' => $timKerjaList,
         ]);
     }
@@ -53,9 +53,9 @@ class PermohonanDanaController extends Controller
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
         $pd->update([
-            'status'               => 'bendahara_checked',
+            'status' => 'bendahara_checked',
             'bendahara_checked_by' => $request->user()->id,
-            'catatan_bendahara'    => $request->catatan,
+            'catatan_bendahara' => $request->catatan,
         ]);
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil diverifikasi.");
@@ -63,15 +63,15 @@ class PermohonanDanaController extends Controller
 
     public function cairkan(Request $request, PermohonanDana $pd): RedirectResponse
     {
-        abort_if($pd->status !== 'ppk_approved', 422, 'Hanya permohonan berstatus Disetujui PPK yang dapat dicairkan.');
+        abort_if($pd->status !== 'katimku_approved', 422, 'Hanya permohonan berstatus Disetujui Katimku yang dapat dicairkan.');
 
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
         $pd->update([
-            'status'            => 'dicairkan',
-            'dicairkan_by'      => $request->user()->id,
+            'status' => 'dicairkan',
+            'dicairkan_by' => $request->user()->id,
             'catatan_pencairan' => $request->catatan,
-            'dicairkan_at'      => now(),
+            'dicairkan_at' => now(),
         ]);
 
         return back()->with('success', "Dana untuk permohonan {$pd->nomor_permohonan} berhasil dicairkan.");

@@ -43,9 +43,9 @@ class HandleInertiaRequests extends Middleware
             'tahun_anggaran_list' => fn () => TahunAnggaran::active()->orderBy('tahun', 'desc')->get(['id', 'tahun', 'label']),
             'flash' => fn () => [
                 'success' => $request->session()->get('success'),
-                'error'   => $request->session()->get('error'),
+                'error' => $request->session()->get('error'),
                 'warning' => $request->session()->get('warning'),
-                'info'    => $request->session()->get('info'),
+                'info' => $request->session()->get('info'),
             ],
         ];
     }

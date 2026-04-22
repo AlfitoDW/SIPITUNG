@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Pimpinan;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +19,7 @@ class PerencanaanController extends Controller
     public function pkAwal(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $user  = auth()->user();
+        $user = auth()->user();
 
         $pks = PerjanjianKinerja::with(['sasarans.indikators.picTimKerjas', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -28,15 +28,15 @@ class PerencanaanController extends Controller
 
         return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
             'tahun' => $tahun,
-            'pks'   => $pks,
-            'role'  => $user->pimpinan_type,
+            'pks' => $pks,
+            'role' => $user->pimpinan_type,
         ]);
     }
 
     public function pkRevisi(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $user  = auth()->user();
+        $user = auth()->user();
 
         $pks = PerjanjianKinerja::with(['sasarans.indikators.picTimKerjas', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -45,20 +45,20 @@ class PerencanaanController extends Controller
 
         return Inertia::render('Pimpinan/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
             'tahun' => $tahun,
-            'pks'   => $pks,
-            'role'  => $user->pimpinan_type,
+            'pks' => $pks,
+            'role' => $user->pimpinan_type,
         ]);
     }
 
     public function rencanaAksi(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $user  = auth()->user();
+        $user = auth()->user();
 
         // Gunakan SEMUA PK Awal sebagai sumber IKU (robust jika data tersebar di beberapa PK)
         $allPkAwal = PerjanjianKinerja::with([
-            'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
-            'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -81,31 +81,31 @@ class PerencanaanController extends Controller
 
                 foreach ($sasaran->indikators as $iku) {
                     $rais = $raiByKode->get($iku->kode, collect());
-                    $rai  = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
+                    $rai = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
                            ?? $rais->first();
 
                     $ra = $rai?->rencanaAksi;
 
                     $sasaranMap[$sasaran->kode]['indikators'][] = [
-                        'id'             => $rai?->id,
-                        'kode'           => $iku->kode,
-                        'nama'           => $iku->nama,
-                        'satuan'         => $iku->satuan,
-                        'target'         => $iku->target,
-                        'target_tw1'     => $rai?->target_tw1,
-                        'target_tw2'     => $rai?->target_tw2,
-                        'target_tw3'     => $rai?->target_tw3,
-                        'target_tw4'     => $rai?->target_tw4,
+                        'id' => $rai?->id,
+                        'kode' => $iku->kode,
+                        'nama' => $iku->nama,
+                        'satuan' => $iku->satuan,
+                        'target' => $iku->target,
+                        'target_tw1' => $rai?->target_tw1,
+                        'target_tw2' => $rai?->target_tw2,
+                        'target_tw3' => $rai?->target_tw3,
+                        'target_tw4' => $rai?->target_tw4,
                         'pic_tim_kerjas' => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode']))->values(),
-                        'ra_status'      => $ra?->status,
-                        'ra_id'          => $ra?->id,
-                        'ra_tim_kerja'   => $ra?->timKerja
+                        'ra_status' => $ra?->status,
+                        'ra_id' => $ra?->id,
+                        'ra_tim_kerja' => $ra?->timKerja
                             ? $ra->timKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
                             : null,
-                        'kegiatans'      => $rai ? $rai->kegiatans->map(fn ($k) => [
-                            'id'            => $k->id,
-                            'triwulan'      => $k->triwulan,
-                            'urutan'        => $k->urutan,
+                        'kegiatans' => $rai ? $rai->kegiatans->map(fn ($k) => [
+                            'id' => $k->id,
+                            'triwulan' => $k->triwulan,
+                            'urutan' => $k->urutan,
                             'nama_kegiatan' => $k->nama_kegiatan,
                         ])->values()->all() : [],
                     ];
@@ -119,10 +119,10 @@ class PerencanaanController extends Controller
             ->orderBy('id')
             ->get()
             ->map(fn ($ra) => [
-                'id'                => $ra->id,
-                'status'            => $ra->status,
+                'id' => $ra->id,
+                'status' => $ra->status,
                 'rekomendasi_kabag' => $ra->rekomendasi_kabag,
-                'tim_kerja'         => $ra->timKerja
+                'tim_kerja' => $ra->timKerja
                     ? $ra->timKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
                     : null,
             ])->values()->all();
@@ -132,15 +132,14 @@ class PerencanaanController extends Controller
         ksort($sasaranMap);
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun'    => $tahun,
+            'tahun' => $tahun,
             'sasarans' => array_values($sasaranMap),
-            'ras'      => $ras,
-            'role'     => $user->pimpinan_type,
+            'ras' => $ras,
+            'role' => $user->pimpinan_type,
         ]);
     }
 
-
-    //PK Actions
+    // PK Actions
     public function pkApprove(Request $request, PerjanjianKinerja $pk): RedirectResponse
     {
         $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
@@ -148,7 +147,7 @@ class PerencanaanController extends Controller
         abort_if($pk->status !== 'submitted', 422, 'Status tidak valid.');
 
         $pk->update([
-            'status'            => 'kabag_approved',
+            'status' => 'kabag_approved',
             'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
         ]);
 
@@ -162,8 +161,8 @@ class PerencanaanController extends Controller
         abort_if($pk->status !== 'submitted', 422, 'Status tidak valid.');
 
         $pk->update([
-            'status'            => 'rejected',
-            'rejected_by'       => 'kabag_umum',
+            'status' => 'rejected',
+            'rejected_by' => 'kabag_umum',
             'rekomendasi_kabag' => $request->rekomendasi,
         ]);
 
@@ -178,7 +177,7 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status'            => 'kabag_approved',
+            'status' => 'kabag_approved',
             'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
         ]);
 
@@ -192,8 +191,8 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status'            => 'rejected',
-            'rejected_by'       => 'kabag_umum',
+            'status' => 'rejected',
+            'rejected_by' => 'kabag_umum',
             'rekomendasi_kabag' => $request->rekomendasi,
         ]);
 

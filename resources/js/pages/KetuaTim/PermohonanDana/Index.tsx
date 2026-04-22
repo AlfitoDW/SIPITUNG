@@ -21,8 +21,7 @@ const STATUS: Record<string, { label: string; className: string }> = {
     submitted: { label: 'Menunggu Kabag Umum', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
     kabag_approved: { label: 'Menunggu Verifikasi Bendahara', className: 'bg-orange-100 text-orange-800 border-orange-400' },
     bendahara_checked: { label: 'Menunggu Ketua Tim Perencanaan', className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    katimku_approved: { label: 'Menunggu PPK', className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    ppk_approved: { label: 'Siap Dicairkan', className: 'bg-orange-100 text-orange-800 border-orange-400' },
+    katimku_approved: { label: 'Siap Dicairkan', className: 'bg-orange-100 text-orange-800 border-orange-400' },
     dicairkan: { label: 'Sudah Dicairkan', className: 'bg-green-100 text-green-800 border-green-400' },
     rejected: { label: 'Ditolak', className: 'bg-red-100 text-red-800 border-red-400' },
 };
@@ -40,7 +39,6 @@ type PD = {
     rekomendasi_kabag: string | null;
     catatan_bendahara: string | null;
     rekomendasi_katimku: string | null;
-    rekomendasi_ppk: string | null;
     items: Item[];
 };
 type Props = { tahun: { id: number; tahun: number; label: string }; permohonan: PD[] };
@@ -195,11 +193,6 @@ export default function Index({ tahun, permohonan }: Props) {
                                                             {pd.rekomendasi_katimku && (
                                                                 <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-1.5">
                                                                     <span className="font-semibold">Catatan Ketua Tim:</span> {pd.rekomendasi_katimku}
-                                                                </p>
-                                                            )}
-                                                            {pd.rekomendasi_ppk && (
-                                                                <p className="text-xs text-teal-700 bg-teal-50 rounded px-3 py-1.5">
-                                                                    <span className="font-semibold">Catatan PPK:</span> {pd.rekomendasi_ppk}
                                                                 </p>
                                                             )}
                                                         </div>

@@ -22,28 +22,28 @@ class PerencanaanController extends Controller
 
     public function pkAwal(): Response
     {
-        $tahun     = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjas = TimKerja::active()->orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Awal/Penyusunan', [
-            'tahun'     => $tahun,
-            'jenis'     => 'awal',
+            'tahun' => $tahun,
+            'jenis' => 'awal',
             'timKerjas' => $timKerjas,
-            'pks'       => $this->buildPkStatusList($tahun->id, 'awal'),
+            'pks' => $this->buildPkStatusList($tahun->id, 'awal'),
             ...$this->buildFlatPkData($tahun->id, 'awal'),
         ]);
     }
 
     public function pkRevisi(): Response
     {
-        $tahun     = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjas = TimKerja::active()->orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return Inertia::render('SuperAdmin/Perencanaan/PerjanjianKinerja/Revisi/Penyusunan', [
-            'tahun'     => $tahun,
-            'jenis'     => 'revisi',
+            'tahun' => $tahun,
+            'jenis' => 'revisi',
             'timKerjas' => $timKerjas,
-            'pks'       => $this->buildPkStatusList($tahun->id, 'revisi'),
+            'pks' => $this->buildPkStatusList($tahun->id, 'revisi'),
             ...$this->buildFlatPkData($tahun->id, 'revisi'),
         ]);
     }
@@ -56,13 +56,13 @@ class PerencanaanController extends Controller
             ->orderBy('id')
             ->get()
             ->map(fn ($pk) => [
-                'id'                => $pk->id,
-                'status'            => $pk->status,
+                'id' => $pk->id,
+                'status' => $pk->status,
                 'rekomendasi_kabag' => $pk->rekomendasi_kabag,
-                'tim_kerja'         => $pk->timKerja ? [
-                    'id'           => $pk->timKerja->id,
-                    'nama'         => $pk->timKerja->nama,
-                    'kode'         => $pk->timKerja->kode,
+                'tim_kerja' => $pk->timKerja ? [
+                    'id' => $pk->timKerja->id,
+                    'nama' => $pk->timKerja->nama,
+                    'kode' => $pk->timKerja->kode,
                     'nama_singkat' => $pk->timKerja->nama_singkat,
                 ] : null,
             ])
@@ -73,8 +73,8 @@ class PerencanaanController extends Controller
     private function buildFlatPkData(int $tahunId, string $jenis): array
     {
         $pks = PerjanjianKinerja::with([
-            'sasarans'                      => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators'           => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('kode'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
             'sasarans.indikators.picTimKerjas',
             'timKerja',
         ])
@@ -93,12 +93,12 @@ class PerencanaanController extends Controller
 
                 foreach ($sasaran->indikators as $iku) {
                     $sasaranMap[$sasaran->kode]['indikators'][] = [
-                        'id'             => $iku->id,
-                        'kode'           => $iku->kode,
-                        'nama'           => $iku->nama,
-                        'satuan'         => $iku->satuan,
-                        'target'         => $iku->target,
-                        'sasaran_id'     => $sasaran->id,
+                        'id' => $iku->id,
+                        'kode' => $iku->kode,
+                        'nama' => $iku->nama,
+                        'satuan' => $iku->satuan,
+                        'target' => $iku->target,
+                        'sasaran_id' => $sasaran->id,
                         'pic_tim_kerjas' => $iku->picTimKerjas->values(),
                     ];
                 }
@@ -114,7 +114,7 @@ class PerencanaanController extends Controller
             ->toArray();
 
         return [
-            'sasarans'       => array_values($sasaranMap),
+            'sasarans' => array_values($sasaranMap),
             'masterSasarans' => $masterSasarans,
         ];
     }
@@ -134,8 +134,8 @@ class PerencanaanController extends Controller
         $timKerjas = TimKerja::active()->orderBy('nama')->get(['id', 'nama', 'kode']);
 
         return Inertia::render('SuperAdmin/Perencanaan/MatriksPK', [
-            'tahun'     => $tahun,
-            'pks'       => $pks,
+            'tahun' => $tahun,
+            'pks' => $pks,
             'timKerjas' => $timKerjas,
         ]);
     }
@@ -148,8 +148,8 @@ class PerencanaanController extends Controller
 
         // Gunakan SEMUA PK Awal sebagai sumber IKU (robust jika data tersebar di beberapa PK)
         $allPkAwal = PerjanjianKinerja::with([
-            'sasarans'                    => fn ($q) => $q->orderBy('urutan'),
-            'sasarans.indikators'         => fn ($q) => $q->orderBy('urutan'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
@@ -173,27 +173,27 @@ class PerencanaanController extends Controller
                 foreach ($sasaran->indikators as $iku) {
                     // Pilih RAI dari primary PIC jika ada, fallback ke RAI apapun
                     $rais = $raiByKode->get($iku->kode, collect());
-                    $rai  = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
+                    $rai = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
                              ?? $rais->first();
 
                     $sasaranMap[$sasaran->kode]['indikators'][] = [
-                        'id'             => $rai?->id,
-                        'kode'           => $iku->kode,
-                        'nama'           => $iku->nama,
-                        'satuan'         => $iku->satuan,
-                        'target'         => $iku->target,
-                        'target_tw1'     => $rai?->target_tw1,
-                        'target_tw2'     => $rai?->target_tw2,
-                        'target_tw3'     => $rai?->target_tw3,
-                        'target_tw4'     => $rai?->target_tw4,
+                        'id' => $rai?->id,
+                        'kode' => $iku->kode,
+                        'nama' => $iku->nama,
+                        'satuan' => $iku->satuan,
+                        'target' => $iku->target,
+                        'target_tw1' => $rai?->target_tw1,
+                        'target_tw2' => $rai?->target_tw2,
+                        'target_tw3' => $rai?->target_tw3,
+                        'target_tw4' => $rai?->target_tw4,
                         'pic_tim_kerjas' => $iku->picTimKerjas->values(),
-                        'tim_kerja'      => $rai?->rencanaAksi?->timKerja
+                        'tim_kerja' => $rai?->rencanaAksi?->timKerja
                             ? ['id' => $rai->rencanaAksi->timKerja->id, 'nama' => $rai->rencanaAksi->timKerja->nama, 'kode' => $rai->rencanaAksi->timKerja->kode]
                             : null,
-                        'kegiatans'      => $rai ? $rai->kegiatans->map(fn ($k) => [
-                            'id'            => $k->id,
-                            'triwulan'      => $k->triwulan,
-                            'urutan'        => $k->urutan,
+                        'kegiatans' => $rai ? $rai->kegiatans->map(fn ($k) => [
+                            'id' => $k->id,
+                            'triwulan' => $k->triwulan,
+                            'urutan' => $k->urutan,
                             'nama_kegiatan' => $k->nama_kegiatan,
                         ])->values()->all() : [],
                     ];
@@ -208,13 +208,13 @@ class PerencanaanController extends Controller
             ->get();
 
         $raStatusList = $ras->map(fn ($ra) => [
-            'id'                => $ra->id,
-            'status'            => $ra->status,
+            'id' => $ra->id,
+            'status' => $ra->status,
             'rekomendasi_kabag' => $ra->rekomendasi_kabag,
-            'tim_kerja'         => $ra->timKerja ? [
-                'id'           => $ra->timKerja->id,
-                'nama'         => $ra->timKerja->nama,
-                'kode'         => $ra->timKerja->kode,
+            'tim_kerja' => $ra->timKerja ? [
+                'id' => $ra->timKerja->id,
+                'nama' => $ra->timKerja->nama,
+                'kode' => $ra->timKerja->kode,
                 'nama_singkat' => $ra->timKerja->nama_singkat,
             ] : null,
         ])->values()->all();
@@ -224,9 +224,9 @@ class PerencanaanController extends Controller
         ksort($sasaranMap);
 
         return Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun'    => $tahun,
+            'tahun' => $tahun,
             'sasarans' => array_values($sasaranMap),
-            'ras'      => $raStatusList,
+            'ras' => $raStatusList,
         ]);
     }
 
@@ -245,9 +245,9 @@ class PerencanaanController extends Controller
 
         MasterSasaran::create([
             'tahun_anggaran_id' => $tahun->id,
-            'kode'              => $data['kode'],
-            'nama'              => $data['nama'],
-            'urutan'            => $urutan,
+            'kode' => $data['kode'],
+            'nama' => $data['nama'],
+            'urutan' => $urutan,
         ]);
 
         return back()->with('success', "Sasaran {$data['kode']} berhasil ditambahkan ke master.");
@@ -279,23 +279,23 @@ class PerencanaanController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $data = $request->validate([
-            'master_sasaran_id'   => ['required', 'integer', 'exists:master_sasaran,id'],
-            'jenis'               => ['required', 'in:awal,revisi'],
-            'kode'                => ['required', 'string', 'max:30'],
-            'nama'                => ['required', 'string', 'max:500'],
-            'satuan'              => ['required', 'string', 'max:50'],
-            'target'              => ['required', 'string', 'max:50'],
-            'target_tw1'          => ['nullable', 'string', 'max:50'],
-            'target_tw2'          => ['nullable', 'string', 'max:50'],
-            'target_tw3'          => ['nullable', 'string', 'max:50'],
-            'target_tw4'          => ['nullable', 'string', 'max:50'],
-            'pic_tim_kerja_ids'   => ['required', 'array', 'min:1'],
+            'master_sasaran_id' => ['required', 'integer', 'exists:master_sasaran,id'],
+            'jenis' => ['required', 'in:awal,revisi'],
+            'kode' => ['required', 'string', 'max:30'],
+            'nama' => ['required', 'string', 'max:500'],
+            'satuan' => ['required', 'string', 'max:50'],
+            'target' => ['required', 'string', 'max:50'],
+            'target_tw1' => ['nullable', 'string', 'max:50'],
+            'target_tw2' => ['nullable', 'string', 'max:50'],
+            'target_tw3' => ['nullable', 'string', 'max:50'],
+            'target_tw4' => ['nullable', 'string', 'max:50'],
+            'pic_tim_kerja_ids' => ['required', 'array', 'min:1'],
             'pic_tim_kerja_ids.*' => ['integer', 'exists:tim_kerja,id'],
         ]);
 
         $masterSasaran = MasterSasaran::findOrFail($data['master_sasaran_id']);
-        $picIds        = $data['pic_tim_kerja_ids'];
-        $primaryPicId  = $picIds[0];
+        $picIds = $data['pic_tim_kerja_ids'];
+        $primaryPicId = $picIds[0];
 
         // Temukan atau buat PK milik primary PIC untuk tahun & jenis ini
         $pk = PerjanjianKinerja::firstOrCreate(
@@ -309,18 +309,18 @@ class PerencanaanController extends Controller
             ['nama' => $masterSasaran->nama, 'urutan' => $masterSasaran->urutan]
         );
 
-        $urutan    = $sasaran->indikators()->max('urutan') + 1;
+        $urutan = $sasaran->indikators()->max('urutan') + 1;
         $indikator = IndikatorKinerja::create([
-            'sasaran_id'       => $sasaran->id,
-            'kode'             => $data['kode'],
-            'nama'             => $data['nama'],
-            'satuan'           => $data['satuan'],
-            'target'           => $data['target'],
-            'target_tw1'       => $data['target_tw1'] ?? null,
-            'target_tw2'       => $data['target_tw2'] ?? null,
-            'target_tw3'       => $data['target_tw3'] ?? null,
-            'target_tw4'       => $data['target_tw4'] ?? null,
-            'urutan'           => $urutan,
+            'sasaran_id' => $sasaran->id,
+            'kode' => $data['kode'],
+            'nama' => $data['nama'],
+            'satuan' => $data['satuan'],
+            'target' => $data['target'],
+            'target_tw1' => $data['target_tw1'] ?? null,
+            'target_tw2' => $data['target_tw2'] ?? null,
+            'target_tw3' => $data['target_tw3'] ?? null,
+            'target_tw4' => $data['target_tw4'] ?? null,
+            'urutan' => $urutan,
             'pic_tim_kerja_id' => $primaryPicId,
         ]);
 
@@ -332,29 +332,29 @@ class PerencanaanController extends Controller
     public function indikatorUpdate(Request $request, IndikatorKinerja $indikator): RedirectResponse
     {
         $data = $request->validate([
-            'kode'                => ['required', 'string', 'max:30'],
-            'nama'                => ['required', 'string', 'max:500'],
-            'satuan'              => ['required', 'string', 'max:50'],
-            'target'              => ['required', 'string', 'max:50'],
-            'target_tw1'          => ['nullable', 'string', 'max:50'],
-            'target_tw2'          => ['nullable', 'string', 'max:50'],
-            'target_tw3'          => ['nullable', 'string', 'max:50'],
-            'target_tw4'          => ['nullable', 'string', 'max:50'],
-            'pic_tim_kerja_ids'   => ['nullable', 'array'],
+            'kode' => ['required', 'string', 'max:30'],
+            'nama' => ['required', 'string', 'max:500'],
+            'satuan' => ['required', 'string', 'max:50'],
+            'target' => ['required', 'string', 'max:50'],
+            'target_tw1' => ['nullable', 'string', 'max:50'],
+            'target_tw2' => ['nullable', 'string', 'max:50'],
+            'target_tw3' => ['nullable', 'string', 'max:50'],
+            'target_tw4' => ['nullable', 'string', 'max:50'],
+            'pic_tim_kerja_ids' => ['nullable', 'array'],
             'pic_tim_kerja_ids.*' => ['integer', 'exists:tim_kerja,id'],
         ]);
 
         $picIds = $data['pic_tim_kerja_ids'] ?? [];
 
         $indikator->update([
-            'kode'             => $data['kode'],
-            'nama'             => $data['nama'],
-            'satuan'           => $data['satuan'],
-            'target'           => $data['target'],
-            'target_tw1'       => $data['target_tw1'] ?? null,
-            'target_tw2'       => $data['target_tw2'] ?? null,
-            'target_tw3'       => $data['target_tw3'] ?? null,
-            'target_tw4'       => $data['target_tw4'] ?? null,
+            'kode' => $data['kode'],
+            'nama' => $data['nama'],
+            'satuan' => $data['satuan'],
+            'target' => $data['target'],
+            'target_tw1' => $data['target_tw1'] ?? null,
+            'target_tw2' => $data['target_tw2'] ?? null,
+            'target_tw3' => $data['target_tw3'] ?? null,
+            'target_tw4' => $data['target_tw4'] ?? null,
             'pic_tim_kerja_id' => $picIds[0] ?? null,
         ]);
 
@@ -407,6 +407,7 @@ class PerencanaanController extends Controller
         $ra->update(['status' => 'draft', 'rekomendasi_kabag' => null, 'rejected_by' => null]);
 
         $nama = $ra->timKerja?->nama_singkat ?? $ra->timKerja?->nama ?? 'Tim Kerja';
+
         return back()->with('success', "RA {$nama} berhasil dibuka kembali ke Draft.");
     }
 }

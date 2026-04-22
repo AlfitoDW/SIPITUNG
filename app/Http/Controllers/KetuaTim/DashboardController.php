@@ -16,9 +16,9 @@ class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $user       = auth()->user();
+        $user = auth()->user();
         $timKerjaId = $user->tim_kerja_id;
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
 
         // ── Perencanaan ───────────────────────────────────────────────────────────
         // PK adalah dokumen global milik TK-PK — ambil spesifik dari TK-PK
@@ -34,11 +34,15 @@ class DashboardController extends Controller
             ->where('tim_kerja_id', $tkPkId)
             ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
-        // Ambil RA dengan status TERBAIK untuk tim ini agar card dashboard selalu akurat.
-        // Tanpa ordering, ->first() bisa mengembalikan RA Draft meskipun ada yang Submitted.
+        // Ambil RA dengan status TERBAIK untuk tim ini — termasuk RA dari primary PIC
+        // yang menjadikan tim ini sebagai co-PIC (peer_tim_kerja_id = timKerjaId),
+        // agar co-PIC tidak stuck "draft" saat primary PIC sudah submit.
         $ra = $tahun ? RencanaAksi::withCount('indikators')
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+            ->where(function ($q) use ($timKerjaId) {
+                $q->where('tim_kerja_id', $timKerjaId)
+                    ->orWhere('peer_tim_kerja_id', $timKerjaId);
+            })
             ->select('id', 'status')
             ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
             ->first() : null;
@@ -46,8 +50,13 @@ class DashboardController extends Controller
         // ── Pengukuran Kinerja — tampilkan laporan terbaru tim (prioritas: ada laporan) ──
         $pengukuran = null;
         if ($tahun) {
-            // Prioritas 1: cari laporan terbaik tim ini dari semua periode tahun ini
-            $myLaporan = LaporanPengukuran::where('tim_kerja_id', $timKerjaId)
+            // Prioritas 1: cari laporan terbaik tim ini dari semua periode tahun ini.
+            // Sertakan laporan kolaborasi (peer_tim_kerja_id = timKerjaId) agar co-PIC
+            // tidak stuck "belum submit" saat primary PIC sudah submit laporan bersama.
+            $myLaporan = LaporanPengukuran::where(function ($q) use ($timKerjaId) {
+                $q->where('tim_kerja_id', $timKerjaId)
+                    ->orWhere('peer_tim_kerja_id', $timKerjaId);
+            })
                 ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
                 ->with('periode')
                 ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
@@ -55,8 +64,8 @@ class DashboardController extends Controller
 
             if ($myLaporan) {
                 $pengukuran = [
-                    'status'      => $myLaporan->status,
-                    'triwulan'    => $myLaporan->periode->triwulan,
+                    'status' => $myLaporan->status,
+                    'triwulan' => $myLaporan->periode->triwulan,
                     'approved_at' => $myLaporan->approved_at?->format('d M Y'),
                 ];
             } else {
@@ -70,8 +79,8 @@ class DashboardController extends Controller
 
                 if ($periodeAktif) {
                     $pengukuran = [
-                        'status'      => null,
-                        'triwulan'    => $periodeAktif->triwulan,
+                        'status' => null,
+                        'triwulan' => $periodeAktif->triwulan,
                         'approved_at' => null,
                     ];
                 }
@@ -97,23 +106,22 @@ class DashboardController extends Controller
             : 0;
 
         return Inertia::render('KetuaTim/Dashboard', [
-            'user'        => $user,
-            'timKerja'    => $user->timkerja,
-            'tahun'       => $tahun,
-            'pkAwal'      => $pkAwal,
-            'pkRevisi'    => $pkRevisi,
-            'ra'          => $ra,
-            'pengukuran'  => $pengukuran,
-            'permohonan'  => [
-                'draft'             => $pdCounts->get('draft', 0),
-                'submitted'         => $pdCounts->get('submitted', 0),
-                'kabag_approved'    => $pdCounts->get('kabag_approved', 0),
+            'user' => $user,
+            'timKerja' => $user->timkerja,
+            'tahun' => $tahun,
+            'pkAwal' => $pkAwal,
+            'pkRevisi' => $pkRevisi,
+            'ra' => $ra,
+            'pengukuran' => $pengukuran,
+            'permohonan' => [
+                'draft' => $pdCounts->get('draft', 0),
+                'submitted' => $pdCounts->get('submitted', 0),
+                'kabag_approved' => $pdCounts->get('kabag_approved', 0),
                 'bendahara_checked' => $pdCounts->get('bendahara_checked', 0),
-                'katimku_approved'  => $pdCounts->get('katimku_approved', 0),
-                'ppk_approved'      => $pdCounts->get('ppk_approved', 0),
-                'dicairkan'         => $pdCounts->get('dicairkan', 0),
-                'rejected'          => $pdCounts->get('rejected', 0),
-                'nilai_dicairkan'   => $nilaiDicairkan,
+                'katimku_approved' => $pdCounts->get('katimku_approved', 0),
+                'dicairkan' => $pdCounts->get('dicairkan', 0),
+                'rejected' => $pdCounts->get('rejected', 0),
+                'nilai_dicairkan' => $nilaiDicairkan,
             ],
             'approvalPending' => $approvalPending,
         ]);

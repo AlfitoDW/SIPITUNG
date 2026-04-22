@@ -1,19 +1,19 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use App\Http\Controllers\Pimpinan\DashboardController;
+use App\Http\Controllers\Pimpinan\PengukuranController;
 use App\Http\Controllers\Pimpinan\PerencanaanController;
 use App\Http\Controllers\Pimpinan\PermohonanDanaController;
-use App\Http\Controllers\Pimpinan\PengukuranController;
 use App\Http\Controllers\Pimpinan\PersetujuanController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/approval', fn() => Inertia::render('Pimpinan/Approval'))->name('approval');
-    Route::get('/validasi', fn() => Inertia::render('Pimpinan/Validasi'))->name('validasi');
-    Route::get('/laporan', fn() => Inertia::render('Pimpinan/Laporan'))->name('laporan');
+    Route::get('/approval', fn () => Inertia::render('Pimpinan/Approval'))->name('approval');
+    Route::get('/validasi', fn () => Inertia::render('Pimpinan/Validasi'))->name('validasi');
+    Route::get('/laporan', fn () => Inertia::render('Pimpinan/Laporan'))->name('laporan');
 
     // ─── Persetujuan Hub ─────────────────────────────────────────────────────────
     Route::get('/persetujuan', [PersetujuanController::class, 'index'])->name('persetujuan.index');
@@ -37,20 +37,19 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
 
     // ─── Pengukuran ───────────────────────────────────────────────────────────────
     Route::prefix('pengukuran')->name('pengukuran.')->group(function () {
-        Route::get('/kinerja',               [PengukuranController::class, 'kinerja'])->name('kinerja');
-        Route::post('/{laporan}/approve',    [PengukuranController::class, 'approve'])->name('approve');
-        Route::post('/{laporan}/reject',     [PengukuranController::class, 'reject'])->name('reject');
-        Route::post('/rekomendasi',          [PengukuranController::class, 'saveRekomendasi'])->name('rekomendasi.save');
-        Route::get('/export/pdf',            [PengukuranController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/kinerja', [PengukuranController::class, 'kinerja'])->name('kinerja');
+        Route::post('/{laporan}/approve', [PengukuranController::class, 'approve'])->name('approve');
+        Route::post('/{laporan}/reject', [PengukuranController::class, 'reject'])->name('reject');
+        Route::post('/rekomendasi', [PengukuranController::class, 'saveRekomendasi'])->name('rekomendasi.save');
+        Route::get('/export/pdf', [PengukuranController::class, 'exportPdf'])->name('export.pdf');
     });
-
 
     // ─── Keuangan ─────────────────────────────────────────────────────────────────
     Route::prefix('keuangan')->name('keuangan.')->group(function () {
         Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-            Route::get('/',              [PermohonanDanaController::class, 'index'])->name('index');
+            Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
             Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
-            Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
+            Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
         });
     });
 });

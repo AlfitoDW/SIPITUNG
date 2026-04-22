@@ -10,7 +10,7 @@ type DocStatus = { id: number; status: string; indikators_count?: number } | nul
 type Tahun     = { id: number; tahun: number; label: string } | null;
 type Permohonan = {
     draft: number; submitted: number; kabag_approved: number;
-    bendahara_checked: number; katimku_approved: number; ppk_approved: number;
+    bendahara_checked: number; katimku_approved: number;
     dicairkan: number; rejected: number; nilai_dicairkan: number;
 };
 type PengukuranStatus = { status: string | null; triwulan: string; approved_at: string | null } | null;
@@ -38,8 +38,7 @@ const PD_STATUS_CONFIG: Record<string, { label: string; dot: string; text: strin
     submitted:          { label: 'Menunggu Kabag',       dot: 'bg-blue-400',   text: 'text-blue-600',    spinner: true, spinnerColor: 'text-blue-400' },
     kabag_approved:     { label: 'Menunggu Bendahara',   dot: 'bg-sky-400',    text: 'text-sky-600',     spinner: true, spinnerColor: 'text-sky-400' },
     bendahara_checked:  { label: 'Menunggu Katimku',     dot: 'bg-violet-400', text: 'text-violet-600',  spinner: true, spinnerColor: 'text-violet-400' },
-    katimku_approved:   { label: 'Menunggu PPK',         dot: 'bg-amber-400',  text: 'text-amber-600',   spinner: true, spinnerColor: 'text-amber-400' },
-    ppk_approved:       { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
+    katimku_approved:   { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
     dicairkan:          { label: 'Sudah Cair',           dot: 'bg-emerald-400',text: 'text-emerald-600' },
     rejected:           { label: 'Ditolak',              dot: 'bg-red-400',    text: 'text-red-600' },
 };
@@ -100,7 +99,7 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra,
     const isKoordinator = auth.user?.is_koordinator ?? false;
 
     const pdTotal = permohonan.draft + permohonan.submitted + permohonan.kabag_approved +
-        permohonan.bendahara_checked + permohonan.katimku_approved + permohonan.ppk_approved +
+        permohonan.bendahara_checked + permohonan.katimku_approved +
         permohonan.dicairkan + permohonan.rejected;
 
     const flowSteps: FlowStep[] = [

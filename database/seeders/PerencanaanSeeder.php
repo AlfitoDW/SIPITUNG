@@ -20,6 +20,7 @@ class PerencanaanSeeder extends Seeder
 
         if (! $tahun) {
             $this->command->warn('PerencanaanSeeder: TahunAnggaranSeeder belum dijalankan.');
+
             return;
         }
 
@@ -32,25 +33,25 @@ class PerencanaanSeeder extends Seeder
         }
 
         $sasaranNamas = $this->getSasaranNamas();
-        $ikuMaster    = $this->getIkuMaster();
-        $twMaster     = $this->getTwMaster();
+        $ikuMaster = $this->getIkuMaster();
+        $twMaster = $this->getTwMaster();
         $picPrimerMap = $this->getPicPrimerMap();
-        $coPicMap     = $this->getCoPicMap();
+        $coPicMap = $this->getCoPicMap();
 
         // ── Seed master sasaran ──────────────────────────────────────────────────
         foreach ($sasaranNamas as $kode => $nama) {
             MasterSasaran::updateOrCreate(
                 ['tahun_anggaran_id' => $tahun->id, 'kode' => $kode],
                 [
-                    'nama'   => $nama,
+                    'nama' => $nama,
                     'urutan' => (int) str_replace('S ', '', $kode),
                 ]
             );
         }
 
         // ── PK Awal & Revisi: SATU PK milik TK-PK, berisi SEMUA IKU ────────────
-        $tkPk      = TimKerja::where('kode', 'TK-PK')->firstOrFail();
-        $ketua     = User::where('tim_kerja_id', $tkPk->id)->where('role', 'ketua_tim_kerja')->first();
+        $tkPk = TimKerja::where('kode', 'TK-PK')->firstOrFail();
+        $ketua = User::where('tim_kerja_id', $tkPk->id)->where('role', 'ketua_tim_kerja')->first();
         $createdBy = $ketua?->id ?? 1;
 
         $pkAwal = PerjanjianKinerja::updateOrCreate(
@@ -67,21 +68,21 @@ class PerencanaanSeeder extends Seeder
             );
 
             foreach ($ikuKodes as $urutan => $ikuKode) {
-                $ikuData   = $ikuMaster[$ikuKode];
-                $tw        = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
+                $ikuData = $ikuMaster[$ikuKode];
+                $tw = $twMaster[$ikuKode] ?? ['tw1' => null, 'tw2' => null, 'tw3' => null, 'tw4' => null];
                 $picPrimer = TimKerja::where('kode', $picPrimerMap[$ikuKode])->first();
 
                 $iku = IndikatorKinerja::updateOrCreate(
                     ['sasaran_id' => $sasaran->id, 'kode' => $ikuKode],
                     [
-                        'nama'             => $ikuData['nama'],
-                        'satuan'           => $ikuData['satuan'],
-                        'target'           => $ikuData['target'],
-                        'target_tw1'       => $tw['tw1'],
-                        'target_tw2'       => $tw['tw2'],
-                        'target_tw3'       => $tw['tw3'],
-                        'target_tw4'       => $tw['tw4'],
-                        'urutan'           => $urutan + 1,
+                        'nama' => $ikuData['nama'],
+                        'satuan' => $ikuData['satuan'],
+                        'target' => $ikuData['target'],
+                        'target_tw1' => $tw['tw1'],
+                        'target_tw2' => $tw['tw2'],
+                        'target_tw3' => $tw['tw3'],
+                        'target_tw4' => $tw['tw4'],
+                        'urutan' => $urutan + 1,
                         'pic_tim_kerja_id' => $picPrimer?->id,
                     ]
                 );
@@ -118,14 +119,14 @@ class PerencanaanSeeder extends Seeder
                 $ikuRevisi = IndikatorKinerja::updateOrCreate(
                     ['sasaran_id' => $sasRevisi->id, 'kode' => $ikuAwal->kode],
                     [
-                        'nama'             => $ikuAwal->nama,
-                        'satuan'           => $ikuAwal->satuan,
-                        'target'           => $ikuAwal->target,
-                        'target_tw1'       => $ikuAwal->target_tw1,
-                        'target_tw2'       => $ikuAwal->target_tw2,
-                        'target_tw3'       => $ikuAwal->target_tw3,
-                        'target_tw4'       => $ikuAwal->target_tw4,
-                        'urutan'           => $ikuAwal->urutan,
+                        'nama' => $ikuAwal->nama,
+                        'satuan' => $ikuAwal->satuan,
+                        'target' => $ikuAwal->target,
+                        'target_tw1' => $ikuAwal->target_tw1,
+                        'target_tw2' => $ikuAwal->target_tw2,
+                        'target_tw3' => $ikuAwal->target_tw3,
+                        'target_tw4' => $ikuAwal->target_tw4,
+                        'urutan' => $ikuAwal->urutan,
                         'pic_tim_kerja_id' => $ikuAwal->pic_tim_kerja_id,
                     ]
                 );

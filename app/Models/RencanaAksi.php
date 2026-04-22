@@ -25,12 +25,35 @@ class RencanaAksi extends Model
         'status' => 'string',
     ];
 
-    public function isDraft(): bool          { return $this->status === 'draft'; }
-    public function isSubmitted(): bool      { return $this->status === 'submitted'; }
-    public function isKabagApproved(): bool  { return $this->status === 'kabag_approved'; }
-    public function isRejected(): bool       { return $this->status === 'rejected'; }
-    public function isLocked(): bool         { return $this->status === 'kabag_approved'; }
-    public function isEditable(): bool       { return in_array($this->status, ['draft', 'rejected']); }
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->status === 'submitted';
+    }
+
+    public function isKabagApproved(): bool
+    {
+        return $this->status === 'kabag_approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->status === 'kabag_approved';
+    }
+
+    public function isEditable(): bool
+    {
+        return in_array($this->status, ['draft', 'rejected']);
+    }
 
     public function tahunAnggaran(): BelongsTo
     {

@@ -16,7 +16,7 @@ class PermohonanDanaController extends Controller
 
     public function index(Request $request): Response
     {
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
         $permohonan = PermohonanDana::with(['items'])
@@ -26,7 +26,7 @@ class PermohonanDanaController extends Controller
             ->get();
 
         return Inertia::render('KetuaTim/PermohonanDana/Index', [
-            'tahun'      => $tahun,
+            'tahun' => $tahun,
             'permohonan' => $permohonan,
         ]);
     }
@@ -37,29 +37,29 @@ class PermohonanDanaController extends Controller
 
         return Inertia::render('KetuaTim/PermohonanDana/Form', [
             'tahun' => $tahun,
-            'pd'    => null,
+            'pd' => null,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'keperluan'            => 'required|string|max:255',
-            'tanggal_kegiatan'     => 'required|date',
-            'keterangan'           => 'nullable|string',
-            'items'                => 'required|array|min:1',
-            'items.*.uraian'       => 'required|string|max:255',
-            'items.*.volume'       => 'required|numeric|min:0.01',
-            'items.*.satuan'       => 'required|string|max:50',
+            'keperluan' => 'required|string|max:255',
+            'tanggal_kegiatan' => 'required|date',
+            'keterangan' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.uraian' => 'required|string|max:255',
+            'items.*.volume' => 'required|numeric|min:0.01',
+            'items.*.satuan' => 'required|string|max:50',
             'items.*.harga_satuan' => 'required|numeric|min:0',
-            'items.*.keterangan'   => 'nullable|string|max:255',
+            'items.*.keterangan' => 'nullable|string|max:255',
         ]);
 
-        $tahun      = TahunAnggaran::forSession();
+        $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
-        $seq   = PermohonanDana::where('tahun_anggaran_id', $tahun->id)->count() + 1;
-        $nomor = 'PD/' . $tahun->tahun . '/' . str_pad($seq, 3, '0', STR_PAD_LEFT);
+        $seq = PermohonanDana::where('tahun_anggaran_id', $tahun->id)->count() + 1;
+        $nomor = 'PD/'.$tahun->tahun.'/'.str_pad($seq, 3, '0', STR_PAD_LEFT);
 
         $total = collect($validated['items'])->sum(
             fn ($item) => $item['volume'] * $item['harga_satuan']
@@ -67,25 +67,25 @@ class PermohonanDanaController extends Controller
 
         $pd = PermohonanDana::create([
             'tahun_anggaran_id' => $tahun->id,
-            'tim_kerja_id'      => $timKerjaId,
-            'nomor_permohonan'  => $nomor,
-            'keperluan'         => $validated['keperluan'],
-            'tanggal_kegiatan'  => $validated['tanggal_kegiatan'],
-            'keterangan'        => $validated['keterangan'] ?? null,
-            'total_anggaran'    => $total,
-            'status'            => 'draft',
-            'created_by'        => $request->user()->id,
+            'tim_kerja_id' => $timKerjaId,
+            'nomor_permohonan' => $nomor,
+            'keperluan' => $validated['keperluan'],
+            'tanggal_kegiatan' => $validated['tanggal_kegiatan'],
+            'keterangan' => $validated['keterangan'] ?? null,
+            'total_anggaran' => $total,
+            'status' => 'draft',
+            'created_by' => $request->user()->id,
         ]);
 
         foreach ($validated['items'] as $idx => $item) {
             $pd->items()->create([
-                'uraian'       => $item['uraian'],
-                'volume'       => $item['volume'],
-                'satuan'       => $item['satuan'],
+                'uraian' => $item['uraian'],
+                'volume' => $item['volume'],
+                'satuan' => $item['satuan'],
                 'harga_satuan' => $item['harga_satuan'],
-                'total'        => $item['volume'] * $item['harga_satuan'],
-                'keterangan'   => $item['keterangan'] ?? null,
-                'urutan'       => $idx + 1,
+                'total' => $item['volume'] * $item['harga_satuan'],
+                'keterangan' => $item['keterangan'] ?? null,
+                'urutan' => $idx + 1,
             ]);
         }
 
@@ -103,7 +103,7 @@ class PermohonanDanaController extends Controller
 
         return Inertia::render('KetuaTim/PermohonanDana/Form', [
             'tahun' => $tahun,
-            'pd'    => $pd,
+            'pd' => $pd,
         ]);
     }
 
@@ -113,15 +113,15 @@ class PermohonanDanaController extends Controller
         abort_if(! $pd->isEditable(), 403, 'Dokumen tidak dapat diubah.');
 
         $validated = $request->validate([
-            'keperluan'            => 'required|string|max:255',
-            'tanggal_kegiatan'     => 'required|date',
-            'keterangan'           => 'nullable|string',
-            'items'                => 'required|array|min:1',
-            'items.*.uraian'       => 'required|string|max:255',
-            'items.*.volume'       => 'required|numeric|min:0.01',
-            'items.*.satuan'       => 'required|string|max:50',
+            'keperluan' => 'required|string|max:255',
+            'tanggal_kegiatan' => 'required|date',
+            'keterangan' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.uraian' => 'required|string|max:255',
+            'items.*.volume' => 'required|numeric|min:0.01',
+            'items.*.satuan' => 'required|string|max:50',
             'items.*.harga_satuan' => 'required|numeric|min:0',
-            'items.*.keterangan'   => 'nullable|string|max:255',
+            'items.*.keterangan' => 'nullable|string|max:255',
         ]);
 
         $total = collect($validated['items'])->sum(
@@ -129,24 +129,24 @@ class PermohonanDanaController extends Controller
         );
 
         $pd->update([
-            'keperluan'        => $validated['keperluan'],
+            'keperluan' => $validated['keperluan'],
             'tanggal_kegiatan' => $validated['tanggal_kegiatan'],
-            'keterangan'       => $validated['keterangan'] ?? null,
-            'total_anggaran'   => $total,
+            'keterangan' => $validated['keterangan'] ?? null,
+            'total_anggaran' => $total,
             // Reset rejection fields on update
-            'rejected_by'      => null,
+            'rejected_by' => null,
         ]);
 
         $pd->items()->delete();
         foreach ($validated['items'] as $idx => $item) {
             $pd->items()->create([
-                'uraian'       => $item['uraian'],
-                'volume'       => $item['volume'],
-                'satuan'       => $item['satuan'],
+                'uraian' => $item['uraian'],
+                'volume' => $item['volume'],
+                'satuan' => $item['satuan'],
                 'harga_satuan' => $item['harga_satuan'],
-                'total'        => $item['volume'] * $item['harga_satuan'],
-                'keterangan'   => $item['keterangan'] ?? null,
-                'urutan'       => $idx + 1,
+                'total' => $item['volume'] * $item['harga_satuan'],
+                'keterangan' => $item['keterangan'] ?? null,
+                'urutan' => $idx + 1,
             ]);
         }
 
@@ -191,7 +191,7 @@ class PermohonanDanaController extends Controller
             ->get();
 
         return Inertia::render('KetuaTim/PermohonanDana/Approval', [
-            'tahun'      => $tahun,
+            'tahun' => $tahun,
             'permohonan' => $permohonan,
         ]);
     }
@@ -204,9 +204,9 @@ class PermohonanDanaController extends Controller
         $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
         $pd->update([
-            'status'               => 'katimku_approved',
-            'katimku_approved_by'  => $request->user()->id,
-            'rekomendasi_katimku'  => $request->rekomendasi,
+            'status' => 'katimku_approved',
+            'katimku_approved_by' => $request->user()->id,
+            'rekomendasi_katimku' => $request->rekomendasi,
         ]);
 
         return back()->with('success', 'Permohonan dana berhasil disetujui.');
@@ -220,8 +220,8 @@ class PermohonanDanaController extends Controller
         $request->validate(['rekomendasi' => 'nullable|string|max:1000']);
 
         $pd->update([
-            'status'              => 'rejected',
-            'rejected_by'         => 'ketua_perencanaan',
+            'status' => 'rejected',
+            'rejected_by' => 'ketua_perencanaan',
             'rekomendasi_katimku' => $request->rekomendasi,
         ]);
 

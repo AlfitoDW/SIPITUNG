@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -43,4 +42,3 @@ return new class extends Migration
         // Untuk development, gunakan migrate:refresh yang akan recreate table dari awal.
     }
 };
-

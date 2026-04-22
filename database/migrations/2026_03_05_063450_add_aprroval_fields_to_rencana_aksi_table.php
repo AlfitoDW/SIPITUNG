@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('rencana_aksi', function (Blueprint $table) {
             $table->text('rekomendasi_kabag')->nullable()->after('status');
             $table->text('rekomendasi_ppk')->nullable()->after('rekomendasi_kabag');
-            $table->string('rejected_by')->nullable()->after('rekomendasi_ppk') ;
+            $table->string('rejected_by')->nullable()->after('rekomendasi_ppk');
         });
     }
 
@@ -24,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('rencana_aksi', function (Blueprint $table) {
-             $table->dropColumn(['rekomendasi_kabag', 'rekomendasi_ppk', 'rejected_by']);
+            $table->dropColumn(['rekomendasi_kabag', 'rekomendasi_ppk', 'rejected_by']);
         });
     }
 };

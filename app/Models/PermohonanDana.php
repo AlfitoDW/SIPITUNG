@@ -36,20 +36,55 @@ class PermohonanDana extends Model
 
     protected $casts = [
         'tanggal_kegiatan' => 'date',
-        'total_anggaran'   => 'decimal:2',
-        'dicairkan_at'     => 'datetime',
-        'status'           => 'string',
+        'total_anggaran' => 'decimal:2',
+        'dicairkan_at' => 'datetime',
+        'status' => 'string',
     ];
 
-    public function isDraft(): bool            { return $this->status === 'draft'; }
-    public function isSubmitted(): bool        { return $this->status === 'submitted'; }
-    public function isKabagApproved(): bool    { return $this->status === 'kabag_approved'; }
-    public function isBendaharaChecked(): bool { return $this->status === 'bendahara_checked'; }
-    public function isKatimkuApproved(): bool  { return $this->status === 'katimku_approved'; }
-    public function isPpkApproved(): bool      { return $this->status === 'ppk_approved'; }
-    public function isDicairkan(): bool        { return $this->status === 'dicairkan'; }
-    public function isRejected(): bool         { return $this->status === 'rejected'; }
-    public function isEditable(): bool         { return in_array($this->status, ['draft', 'rejected']); }
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->status === 'submitted';
+    }
+
+    public function isKabagApproved(): bool
+    {
+        return $this->status === 'kabag_approved';
+    }
+
+    public function isBendaharaChecked(): bool
+    {
+        return $this->status === 'bendahara_checked';
+    }
+
+    public function isKatimkuApproved(): bool
+    {
+        return $this->status === 'katimku_approved';
+    }
+
+    public function isPpkApproved(): bool
+    {
+        return $this->status === 'ppk_approved';
+    }
+
+    public function isDicairkan(): bool
+    {
+        return $this->status === 'dicairkan';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
+
+    public function isEditable(): bool
+    {
+        return in_array($this->status, ['draft', 'rejected']);
+    }
 
     public function tahunAnggaran(): BelongsTo
     {

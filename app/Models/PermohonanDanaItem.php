@@ -21,9 +21,9 @@ class PermohonanDanaItem extends Model
     ];
 
     protected $casts = [
-        'volume'       => 'decimal:2',
+        'volume' => 'decimal:2',
         'harga_satuan' => 'decimal:2',
-        'total'        => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     public function permohonanDana(): BelongsTo

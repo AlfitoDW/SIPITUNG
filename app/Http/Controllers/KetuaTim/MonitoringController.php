@@ -5,14 +5,12 @@ namespace App\Http\Controllers\KetuaTim;
 use App\Http\Controllers\Controller;
 use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
-use App\Models\PerjanjianKinerja;
 use App\Models\RealisasiKinerja;
 use App\Models\RencanaAksi;
 use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,10 +21,10 @@ class MonitoringController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         // ── Semua Tim Kerja ───────────────────────────────────────────────────────
-        $allTim = TimKerja::orderBy('kode')->get()->map(fn($t) => [
-            'id'           => $t->id,
-            'kode'         => $t->kode,
-            'nama'         => $t->nama,
+        $allTim = TimKerja::orderBy('kode')->get()->map(fn ($t) => [
+            'id' => $t->id,
+            'kode' => $t->kode,
+            'nama' => $t->nama,
             'nama_singkat' => $t->nama_singkat,
         ]);
 
@@ -48,16 +46,16 @@ class MonitoringController extends Controller
             }
         }
         foreach ($rasByOwnerWithInds as &$_grp) {
-            usort($_grp, fn($a, $b) => ($statusPriority[$b->status] ?? 0) <=> ($statusPriority[$a->status] ?? 0));
+            usort($_grp, fn ($a, $b) => ($statusPriority[$b->status] ?? 0) <=> ($statusPriority[$a->status] ?? 0));
         }
         unset($_grp, $_r);
 
         // rasByPair["tim_id|peer_id"] = RA dengan status terbaik untuk pasangan (tim, peer)
         $rasByPair = [];
         foreach ($rasRaw as $_r) {
-            $_pk = $_r->tim_kerja_id . '|' . ($_r->peer_tim_kerja_id ?? 'null');
+            $_pk = $_r->tim_kerja_id.'|'.($_r->peer_tim_kerja_id ?? 'null');
             if (
-                !isset($rasByPair[$_pk]) ||
+                ! isset($rasByPair[$_pk]) ||
                 ($statusPriority[$_r->status] ?? 0) > ($statusPriority[$rasByPair[$_pk]->status] ?? 0)
             ) {
                 $rasByPair[$_pk] = $_r;
@@ -70,16 +68,16 @@ class MonitoringController extends Controller
         // membentuk record baru), kita hanya simpan RA dengan status TERBAIK.
         $raByTim = [];
         foreach ($rasRaw as $ra) {
-            $tid     = $ra->tim_kerja_id;
+            $tid = $ra->tim_kerja_id;
             $peerKey = $ra->peer_tim_kerja_id !== null ? (string) $ra->peer_tim_kerja_id : 'solo';
 
-            if (!isset($raByTim[$tid])) {
+            if (! isset($raByTim[$tid])) {
                 $raByTim[$tid] = [
-                    'tim_kerja_id'   => $tid,
+                    'tim_kerja_id' => $tid,
                     'tim_kerja_kode' => $ra->timKerja?->kode,
                     'tim_kerja_nama' => $ra->timKerja?->nama_singkat ?? $ra->timKerja?->nama,
-                    'peers'          => [],
-                    'ras_by_peer'    => [],
+                    'peers' => [],
+                    'ras_by_peer' => [],
                 ];
             }
 
@@ -87,9 +85,9 @@ class MonitoringController extends Controller
             $indikators = $ra->indikators;
 
             if ($indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
-                $peerId    = $ra->peer_tim_kerja_id;
-                $ownId     = $ra->tim_kerja_id;
-                $foundRa   = null;
+                $peerId = $ra->peer_tim_kerja_id;
+                $ownId = $ra->tim_kerja_id;
+                $foundRa = null;
 
                 // Langkah 1: Peer's RA spesifik untuk relasi dua arah ini
                 foreach ($rasByOwnerWithInds[$peerId] ?? [] as $_peerRa) {
@@ -101,13 +99,13 @@ class MonitoringController extends Controller
 
                 // Langkah 2: Sembarang RA dari peer yang punya indikator
                 // (misal: KK co-PIC → borrow dari Penjamu's mandiri RA)
-                if (!$foundRa && !empty($rasByOwnerWithInds[$peerId])) {
+                if (! $foundRa && ! empty($rasByOwnerWithInds[$peerId])) {
                     $foundRa = $rasByOwnerWithInds[$peerId][0]; // sudah terurut status terbaik
                 }
 
                 // Langkah 3: Milik tim sendiri RA lain
                 // (misal: Penjamu's peer=KK → borrow dari Penjamu's mandiri RA)
-                if (!$foundRa) {
+                if (! $foundRa) {
                     foreach ($rasByOwnerWithInds[$ownId] ?? [] as $_ownRa) {
                         if ($_ownRa->id !== $ra->id) {
                             $foundRa = $_ownRa;
@@ -122,7 +120,7 @@ class MonitoringController extends Controller
             // ── Effective status: max(status sendiri, status RA peer yg berkorespondensi) ──
             $effectiveStatus = $ra->status;
             if ($ra->peer_tim_kerja_id !== null) {
-                $pairK    = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
+                $pairK = $ra->peer_tim_kerja_id.'|'.$ra->tim_kerja_id;
                 $peerCorrRa = $rasByPair[$pairK] ?? null;
                 if ($peerCorrRa && ($statusPriority[$peerCorrRa->status] ?? 0) > ($statusPriority[$effectiveStatus] ?? 0)) {
                     $effectiveStatus = $peerCorrRa->status;
@@ -131,17 +129,17 @@ class MonitoringController extends Controller
 
             // ── Build entry ────────────────────────────────────────────────────────
             $entry = [
-                'ra_id'      => $ra->id,
-                'peer_kode'  => $ra->peerTimKerja?->kode,
-                'peer_nama'  => $ra->peerTimKerja?->nama_singkat ?? $ra->peerTimKerja?->nama ?? 'Mandiri',
-                'status'     => $effectiveStatus,
-                'is_co_pic'  => false,
-                'indikators' => $indikators->map(fn($ind) => [
-                    'id'         => $ind->id,
-                    'kode'       => $ind->kode,
-                    'nama'       => $ind->nama,
-                    'satuan'     => $ind->satuan,
-                    'target'     => $ind->target,
+                'ra_id' => $ra->id,
+                'peer_kode' => $ra->peerTimKerja?->kode,
+                'peer_nama' => $ra->peerTimKerja?->nama_singkat ?? $ra->peerTimKerja?->nama ?? 'Mandiri',
+                'status' => $effectiveStatus,
+                'is_co_pic' => false,
+                'indikators' => $indikators->map(fn ($ind) => [
+                    'id' => $ind->id,
+                    'kode' => $ind->kode,
+                    'nama' => $ind->nama,
+                    'satuan' => $ind->satuan,
+                    'target' => $ind->target,
                     'target_tw1' => $ind->target_tw1,
                     'target_tw2' => $ind->target_tw2,
                     'target_tw3' => $ind->target_tw3,
@@ -161,7 +159,7 @@ class MonitoringController extends Controller
             // Kumpulkan daftar peer untuk kolom Kolaborator
             if ($ra->peerTimKerja) {
                 $peerCode = $ra->peerTimKerja->kode ?? $ra->peerTimKerja->nama_singkat;
-                if (!in_array($peerCode, $raByTim[$tid]['peers'])) {
+                if (! in_array($peerCode, $raByTim[$tid]['peers'])) {
                     $raByTim[$tid]['peers'][] = $peerCode;
                 }
             }
@@ -169,10 +167,10 @@ class MonitoringController extends Controller
 
         // ── Tahap 2: Finalisasi — hitung aggregate SETELAH dedup ─────────────────
         foreach ($raByTim as &$timData) {
-            $ras         = array_values($timData['ras_by_peer']);
-            $indCount    = 0;
+            $ras = array_values($timData['ras_by_peer']);
+            $indCount = 0;
             $filledCount = 0;
-            $bestStatus  = null;
+            $bestStatus = null;
 
             foreach ($ras as $raEntry) {
                 $indCount += count($raEntry['indikators']);
@@ -187,16 +185,15 @@ class MonitoringController extends Controller
                 }
             }
 
-            $timData['ras']          = $ras;
-            $timData['best_status']  = $bestStatus;
-            $timData['ind_count']    = $indCount;
+            $timData['ras'] = $ras;
+            $timData['best_status'] = $bestStatus;
+            $timData['ind_count'] = $indCount;
             $timData['filled_count'] = $filledCount;
             unset($timData['ras_by_peer']);
         }
         unset($timData);
 
         $rasAll = array_values($raByTim);
-
 
         // ── Pengukuran Kinerja semua tim ─────────────────────────────────────────
         $periodes = $tahun ? PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
@@ -224,7 +221,7 @@ class MonitoringController extends Controller
             // Helper: update bestLaporanByTim[$targetTid] jika laporan lebih baik.
             $maybeUpdate = function (int $targetTid, $_l) use (&$bestLaporanByTim, $lapSpx) {
                 if (
-                    !array_key_exists($targetTid, $bestLaporanByTim) ||
+                    ! array_key_exists($targetTid, $bestLaporanByTim) ||
                     ($lapSpx[$_l->status] ?? -1) > ($lapSpx[$bestLaporanByTim[$targetTid]['laporan']->status] ?? -1)
                 ) {
                     $bestLaporanByTim[$targetTid] = ['target_id' => $targetTid, 'laporan' => $_l];
@@ -243,25 +240,19 @@ class MonitoringController extends Controller
             }
 
             $laporans = collect(array_values($bestLaporanByTim))->map(function ($entry) use ($allTimById) {
-                $l      = $entry['laporan'];
-                $timId  = $entry['target_id'];
+                $l = $entry['laporan'];
+                $timId = $entry['target_id'];
                 $timArr = $allTimById->get($timId); // array ['id','kode','nama','nama_singkat']
+
                 return [
-                    'tim_kerja_id'   => $timId,
-                    'tim_kerja_kode' => $timArr['kode']          ?? $l->timKerja?->kode,
-                    'tim_kerja_nama' => $timArr['nama_singkat']  ?? $timArr['nama'] ?? $l->timKerja?->nama_singkat ?? $l->timKerja?->nama,
-                    'status'         => $l->status,
-                    'submitted_at'   => $l->submitted_at?->format('d M Y'),
-                    'approved_at'    => $l->approved_at?->format('d M Y'),
+                    'tim_kerja_id' => $timId,
+                    'tim_kerja_kode' => $timArr['kode'] ?? $l->timKerja?->kode,
+                    'tim_kerja_nama' => $timArr['nama_singkat'] ?? $timArr['nama'] ?? $l->timKerja?->nama_singkat ?? $l->timKerja?->nama,
+                    'status' => $l->status,
+                    'submitted_at' => $l->submitted_at?->format('d M Y'),
+                    'approved_at' => $l->approved_at?->format('d M Y'),
                 ];
             });
-
-
-
-
-
-
-
 
             // Realisasi full table: per IKU, semua tim yang jadi PIC
             $realisasis = RealisasiKinerja::with([
@@ -272,61 +263,63 @@ class MonitoringController extends Controller
 
             // Build lookup: target TW dari Rencana Aksi, key = "{sasaran_id}_{kode}"
             $monSasaranIds = $realisasis->map(fn ($r) => $r->indikatorKinerja?->sasaran_id)->filter()->unique()->values()->all();
-            $monRaIndMap   = RencanaAksiIndikator::whereIn('sasaran_id', $monSasaranIds)
+            $monRaIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $monSasaranIds)
                 ->get()
-                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+                ->keyBy(fn ($i) => $i->sasaran_id.'_'.$i->kode);
             $monTwKey = strtolower($periode->triwulan);
 
             // Group by sasaran
             $sasaranMap = [];
             foreach ($realisasis as $r) {
-                $iku    = $r->indikatorKinerja;
+                $iku = $r->indikatorKinerja;
                 $sasaran = $iku?->sasaran;
-                if (!$iku || !$sasaran) continue;
+                if (! $iku || ! $sasaran) {
+                    continue;
+                }
 
                 $sKey = $sasaran->kode;
-                if (!isset($sasaranMap[$sKey])) {
+                if (! isset($sasaranMap[$sKey])) {
                     $sasaranMap[$sKey] = [
                         'sasaran_kode' => $sasaran->kode,
                         'sasaran_nama' => $sasaran->nama,
-                        'indikators'   => [],
+                        'indikators' => [],
                     ];
                 }
 
-                $monRaInd = $monRaIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                $monRaInd = $monRaIndMap->get($iku->sasaran_id.'_'.$iku->kode);
                 $sasaranMap[$sKey]['indikators'][] = [
-                    'iku_kode'        => $iku->kode,
-                    'iku_nama'        => $iku->nama,
-                    'iku_satuan'      => $iku->satuan,
-                    'iku_target'      => $monRaInd?->{"target_{$monTwKey}"} ?? $iku->{'target_' . $monTwKey},
-                    'realisasi'       => $r->realisasi,
-                    'progress'        => $r->progress_kegiatan,
-                    'kendala'         => $r->kendala,
-                    'input_by_kode'   => $r->inputByTimKerja?->kode,
-                    'input_by_nama'   => $r->inputByTimKerja?->nama_singkat,
-                    'pics'            => $iku->picTimKerjas->map(fn($t) => $t->kode)->values()->toArray(),
+                    'iku_kode' => $iku->kode,
+                    'iku_nama' => $iku->nama,
+                    'iku_satuan' => $iku->satuan,
+                    'iku_target' => $monRaInd?->{"target_{$monTwKey}"} ?? $iku->{'target_'.$monTwKey},
+                    'realisasi' => $r->realisasi,
+                    'progress' => $r->progress_kegiatan,
+                    'kendala' => $r->kendala,
+                    'input_by_kode' => $r->inputByTimKerja?->kode,
+                    'input_by_nama' => $r->inputByTimKerja?->nama_singkat,
+                    'pics' => $iku->picTimKerjas->map(fn ($t) => $t->kode)->values()->toArray(),
                 ];
             }
             ksort($sasaranMap);
 
             // IKU realisasi progress
-            $totalIku  = RealisasiKinerja::where('periode_pengukuran_id', $periode->id)->count();
+            $totalIku = RealisasiKinerja::where('periode_pengukuran_id', $periode->id)->count();
             $filledIku = RealisasiKinerja::where('periode_pengukuran_id', $periode->id)->whereNotNull('realisasi')->count();
 
             $laporanPerPeriode[] = [
-                'periode_id'   => $periode->id,
-                'triwulan'     => $periode->triwulan,
-                'laporans'     => $laporans,
-                'sasarans'     => array_values($sasaranMap),
-                'iku_total'    => $totalIku,
-                'iku_filled'   => $filledIku,
+                'periode_id' => $periode->id,
+                'triwulan' => $periode->triwulan,
+                'laporans' => $laporans,
+                'sasarans' => array_values($sasaranMap),
+                'iku_total' => $totalIku,
+                'iku_filled' => $filledIku,
             ];
         }
 
         return Inertia::render('KetuaTim/Monitoring', [
-            'tahun'             => $tahun,
-            'allTim'            => $allTim,
-            'rasAll'            => $rasAll,
+            'tahun' => $tahun,
+            'allTim' => $allTim,
+            'rasAll' => $rasAll,
             'laporanPerPeriode' => $laporanPerPeriode,
         ]);
     }

@@ -19,10 +19,10 @@ class TimKerjaController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'kode'        => 'required|string|max:20|unique:tim_kerja,kode',
-            'nama'        => 'required|string|max:255',
-            'nama_singkat'=> 'nullable|string|max:100',
-            'deskripsi'   => 'nullable|string|max:500',
+            'kode' => 'required|string|max:20|unique:tim_kerja,kode',
+            'nama' => 'required|string|max:255',
+            'nama_singkat' => 'nullable|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
         ]);
 
         $data['is_active'] = true;
@@ -35,10 +35,10 @@ class TimKerjaController extends Controller
     public function update(Request $request, TimKerja $timKerja)
     {
         $data = $request->validate([
-            'kode'        => 'required|string|max:20|unique:tim_kerja,kode,' . $timKerja->id,
-            'nama'        => 'required|string|max:255',
-            'nama_singkat'=> 'nullable|string|max:100',
-            'deskripsi'   => 'nullable|string|max:500',
+            'kode' => 'required|string|max:20|unique:tim_kerja,kode,'.$timKerja->id,
+            'nama' => 'required|string|max:255',
+            'nama_singkat' => 'nullable|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
         ]);
 
         $timKerja->update($data);

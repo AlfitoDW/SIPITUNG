@@ -22,8 +22,8 @@ type PkIndikator = {
 type PkSasaran = { id: number; kode: string; nama: string; indikators: PkIndikator[] };
 type PkItem = {
     id: number; tim_kerja_nama: string; tim_kerja_kode: string;
-    status: string; rekomendasi_kabag: string | null; rekomendasi_ppk: string | null;
-    rejected_by: string | null; updated_at: string;
+    status: string; rekomendasi_kabag: string | null;
+    updated_at: string;
     sasarans: PkSasaran[];
 };
 
@@ -35,8 +35,8 @@ type RaIndikator = {
 };
 type RaItem = {
     id: number; tim_kerja_nama: string; tim_kerja_kode: string;
-    status: string; rekomendasi_kabag: string | null; rekomendasi_ppk: string | null;
-    rejected_by: string | null; updated_at: string;
+    status: string; rekomendasi_kabag: string | null;
+    updated_at: string;
     indikators: RaIndikator[];
 };
 
@@ -69,15 +69,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const STATUS_LABELS: Record<string, string> = {
     submitted:      'Menunggu Review',
-    kabag_approved: 'Disetujui Kabag',
-    ppk_approved:   'Disetujui PPK',
+    kabag_approved: 'Disetujui',
     rejected:       'Dikembalikan',
 };
 
 const STATUS_CLASSES: Record<string, string> = {
     submitted:      'bg-amber-50 text-amber-700 border-amber-300',
     kabag_approved: 'bg-emerald-50 text-emerald-700 border-emerald-300',
-    ppk_approved:   'bg-teal-50 text-teal-700 border-teal-300',
     rejected:       'bg-red-50 text-red-700 border-red-300',
 };
 
@@ -426,10 +424,19 @@ function ItemsTable<T extends AnyItem>({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+const VALID_TABS = ['pk_awal', 'pk_revisi', 'ra', 'laporan'] as const;
+type TabValue = typeof VALID_TABS[number];
+
+function getInitialTab(): TabValue {
+    const param = new URLSearchParams(window.location.search).get('tab');
+    return (VALID_TABS as readonly string[]).includes(param ?? '') ? (param as TabValue) : 'pk_awal';
+}
+
 export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role }: Props) {
     const [selected, setSelected] = useState<Selected | null>(null);
     const [rekomendasi, setRekomendasi] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabValue>(getInitialTab);
 
     function openDialog(s: Selected) {
         setSelected(s);
@@ -492,7 +499,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                 </div>
 
                 {/* ── Tabs ── */}
-                <Tabs defaultValue="pk_awal">
+                <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabValue)}>
                     <TabsList className="mb-4">
                         <TabsTrigger value="pk_awal">
                             PK Awal <TabCount count={pkAwalPending} rejCount={pkAwalRej} />
