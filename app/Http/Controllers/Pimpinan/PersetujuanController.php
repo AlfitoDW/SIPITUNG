@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Pimpinan;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndikatorKinerja;
 use App\Models\LaporanPengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
@@ -45,6 +46,13 @@ class PersetujuanController extends Controller
             ->get()
             ->keyBy(fn ($r) => $r->tim_kerja_id . '|' . ($r->peer_tim_kerja_id ?? 'null'));
 
+        // Preload kode IKU yang valid dari PK Awal untuk memfilter RAI orphan
+        // (RAI yang kodenya sudah tidak ada karena IKU di PK Awal dihapus/diganti).
+        $validIkuKodes = IndikatorKinerja::whereHas(
+            'sasaran.perjanjianKinerja',
+            fn ($q) => $q->where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal')
+        )->pluck('kode')->flip()->toArray();
+
         // Kumpulkan key RA yang sudah ada di hub (submitted/approved/rejected) untuk deteksi mirror.
         // Ini mencegah co-PIC RA yang kosong muncul sebagai duplikat dari primary RA.
         $submittedRaKeys = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
@@ -53,23 +61,23 @@ class PersetujuanController extends Controller
             ->mapWithKeys(fn ($ra) => [$ra->tim_kerja_id . '|' . ($ra->peer_tim_kerja_id ?? 'null') => true]);
 
         // Tampilkan semua RA yang sudah submit. Co-PIC RA yang benar-benar kosong (tidak punya
-        // indikator sendiri) disembunyikan jika primary mirror RA-nya sudah ada di hub —
+        // indikator valid sendiri) disembunyikan jika primary mirror RA-nya sudah ada di hub —
         // mencegah tampilan duplikat ketika kedua tim submit secara independen.
         $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran', 'indikators.kegiatans'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
             ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
             ->get()
-            ->filter(function ($ra) use ($submittedRaKeys) {
-                // Hanya filter keluar jika: RA ini tidak punya indikator sendiri (co-PIC kosong)
-                // DAN mirror primary RA-nya sudah ada di hub.
-                if ($ra->indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
+            ->filter(function ($ra) use ($submittedRaKeys, $validIkuKodes) {
+                // Hitung indikator valid (kode masih ada di PK Awal) untuk deteksi co-PIC kosong.
+                $validInds = $ra->indikators->filter(fn ($i) => isset($validIkuKodes[$i->kode]));
+                if ($validInds->isEmpty() && $ra->peer_tim_kerja_id !== null) {
                     $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
                     return ! isset($submittedRaKeys[$mirrorKey]);
                 }
                 return true;
             })
-            ->map(fn ($ra) => $this->mapRa($ra, $allRas))
+            ->map(fn ($ra) => $this->mapRa($ra, $allRas, $validIkuKodes))
             ->values();
 
         $laporans = LaporanPengukuran::with(['timKerja', 'periode'])
@@ -159,9 +167,12 @@ class PersetujuanController extends Controller
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
 
-    private function mapRa(RencanaAksi $ra, \Illuminate\Support\Collection $allRas): array
+    private function mapRa(RencanaAksi $ra, \Illuminate\Support\Collection $allRas, array $validIkuKodes = []): array
     {
-        $indikators = $ra->indikators;
+        // Filter RAI orphan: buang yang kode-nya sudah tidak ada di PK Awal.
+        $indikators = empty($validIkuKodes)
+            ? $ra->indikators
+            : $ra->indikators->filter(fn ($i) => isset($validIkuKodes[$i->kode]))->values();
 
         // Co-PIC RA (kosong): pinjam indikators dari EXACT mirror RA saja.
         // Mirror = RA milik peer yang peer_tim_kerja_id-nya menunjuk kembali ke tim ini.
@@ -169,8 +180,13 @@ class PersetujuanController extends Controller
         if ($indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
             $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
             $mirrorRa  = $allRas->get($mirrorKey);
-            if ($mirrorRa && $mirrorRa->indikators->isNotEmpty()) {
-                $indikators = $mirrorRa->indikators;
+            if ($mirrorRa) {
+                $mirrorInds = empty($validIkuKodes)
+                    ? $mirrorRa->indikators
+                    : $mirrorRa->indikators->filter(fn ($i) => isset($validIkuKodes[$i->kode]))->values();
+                if ($mirrorInds->isNotEmpty()) {
+                    $indikators = $mirrorInds;
+                }
             }
         }
 

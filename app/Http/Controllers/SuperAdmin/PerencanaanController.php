@@ -345,9 +345,12 @@ class PerencanaanController extends Controller
         ]);
 
         $picIds = $data['pic_tim_kerja_ids'] ?? [];
+        $oldKode = $indikator->kode;
+        $newKode = $data['kode'];
+        $tahunId = $indikator->sasaran->perjanjianKinerja->tahun_anggaran_id;
 
         $indikator->update([
-            'kode' => $data['kode'],
+            'kode' => $newKode,
             'nama' => $data['nama'],
             'satuan' => $data['satuan'],
             'target' => $data['target'],
@@ -360,11 +363,26 @@ class PerencanaanController extends Controller
 
         $indikator->picTimKerjas()->sync($picIds);
 
+        // Sinkronisasi kode RAI jika kode IKU berubah, agar data di Rencana Aksi tetap konsisten.
+        if ($oldKode !== $newKode) {
+            RencanaAksiIndikator::whereHas(
+                'rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId)
+            )->where('kode', $oldKode)->update(['kode' => $newKode]);
+        }
+
         return back()->with('success', 'Indikator berhasil diperbarui.');
     }
 
     public function indikatorDestroy(IndikatorKinerja $indikator): RedirectResponse
     {
+        $kode    = $indikator->kode;
+        $tahunId = $indikator->sasaran->perjanjianKinerja->tahun_anggaran_id;
+
+        // Hapus RAI dengan kode yang sama agar data Rencana Aksi tidak menyimpan IKU orphan.
+        RencanaAksiIndikator::whereHas(
+            'rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId)
+        )->where('kode', $kode)->delete();
+
         $indikator->delete();
 
         return back()->with('success', 'Indikator berhasil dihapus.');
