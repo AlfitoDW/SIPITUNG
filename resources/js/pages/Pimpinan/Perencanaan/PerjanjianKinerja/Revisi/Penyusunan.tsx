@@ -16,12 +16,7 @@ type PK        = { id: number; tim_kerja_id: number; status: string; sasarans: S
 type Tahun     = { id: number; tahun: number; label: string };
 type Props     = { tahun: Tahun; pks: PK[]; role: 'kabag_umum' | 'ppk' };
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-    draft:          { label: 'Draft',          className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
-    submitted:      { label: 'Menunggu Kabag', className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    kabag_approved: { label: 'Disetujui',      className: 'bg-green-100 text-green-800 border-green-400' },
-    rejected:       { label: 'Ditolak',        className: 'bg-red-100 text-red-800 border-red-400' },
-};
+
 
 const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; accent: string }> = {
     'S 1': { sasaranBg: 'bg-blue-50 dark:bg-blue-950/40',       kodeBadge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',           accent: 'border-l-4 border-l-blue-500' },
@@ -31,8 +26,7 @@ const sasaranColors: Record<string, { sasaranBg: string; kodeBadge: string; acce
 };
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
-export default function Penyusunan({ tahun, pks, role }: Props) {
-    const roleLabel = role === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
+export default function Penyusunan({ tahun, pks }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -40,7 +34,7 @@ export default function Penyusunan({ tahun, pks, role }: Props) {
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold tracking-tight">Review PK Revisi</h1>
-                    <p className="text-muted-foreground">Perjanjian Kinerja — {tahun.label} · Anda login sebagai <span className="font-medium">{roleLabel}</span></p>
+                    <p className="text-muted-foreground">Perjanjian Kinerja — {tahun.label}</p>
                 </div>
 
                 {pks.length === 0 ? (
@@ -50,7 +44,6 @@ export default function Penyusunan({ tahun, pks, role }: Props) {
                         <Table className="[&_td]:border-b [&_td]:border-r [&_th]:border-r">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent" style={{ backgroundColor: '#003580' }}>
-                                    <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-36">Status</TableHead>
                                     <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-56">Sasaran</TableHead>
                                     <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white">Indikator</TableHead>
                                     <TableHead className="border-r border-white/20 text-center align-middle font-semibold text-white w-36">Tim Kerja / PIC</TableHead>
@@ -60,18 +53,10 @@ export default function Penyusunan({ tahun, pks, role }: Props) {
                             </TableHeader>
                             <TableBody>
                                 {pks.flatMap((pk) => {
-                                    const statusCfg = STATUS_CONFIG[pk.status] ?? STATUS_CONFIG['draft'];
                                     return pk.sasarans.flatMap((sasaran) => {
                                         const color  = getColor(sasaran.kode);
                                         return sasaran.indikators.map((iku, idx) => (
                                             <TableRow key={`${pk.id}-${sasaran.id}-${iku.id}`} className="align-top hover:bg-muted/30">
-                                                    {idx === 0 && (
-                                                        <TableCell rowSpan={sasaran.indikators.length} className="align-middle text-center px-2 py-3">
-                                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${statusCfg.className}`}>
-                                                                {statusCfg.label}
-                                                            </span>
-                                                        </TableCell>
-                                                    )}
                                                     {idx === 0 && (
                                                         <TableCell rowSpan={sasaran.indikators.length} className={`align-top text-sm ${color.sasaranBg} ${color.accent}`}>
                                                             <span className={`inline-block mb-1.5 rounded px-1.5 py-0.5 text-xs font-bold ${color.kodeBadge}`}>{sasaran.kode}</span>

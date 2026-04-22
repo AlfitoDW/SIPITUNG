@@ -594,29 +594,24 @@ class PerencanaanController extends Controller
             // Kode IKU spesifik untuk group ini — cegah overlap IKU dari sasaran yang sama
             $groupIkuKodes = IndikatorKinerja::whereIn('id', $ikuIds)->pluck('kode')->all();
 
-            // Bersihkan RAI orphan: hapus RAI di RA draft milik group ini yang kode-nya
-            // tidak ada lagi di PK Awal (terjadi saat super admin hapus/ganti IKU).
-            // Hanya RA berstatus draft yang boleh dimodifikasi.
+            // Bersihkan RAI orphan: hapus RAI di semua RA group ini yang kode-nya
+            // tidak ada lagi di PK Awal (terjadi saat super admin hapus/ganti IKU,
+            // termasuk kasus data lama sebelum mekanisme sinkronisasi otomatis diterapkan).
+            // Berlaku untuk semua status RA — entri orphan tidak valid di status apapun.
             if (! empty($groupIkuKodes)) {
-                $raIdsToClean = collect();
-                if ($myRa->status === 'draft') {
-                    $raIdsToClean->push($myRa->id);
-                }
+                $raIdsToClean = collect([$myRa->id]);
                 if ($peerId !== null) {
-                    $peerRaDraftId = RencanaAksi::where('tahun_anggaran_id', $tahunId)
+                    $peerRaId = RencanaAksi::where('tahun_anggaran_id', $tahunId)
                         ->where('tim_kerja_id', $peerId)
                         ->where('peer_tim_kerja_id', $timKerjaId)
-                        ->where('status', 'draft')
                         ->value('id');
-                    if ($peerRaDraftId) {
-                        $raIdsToClean->push($peerRaDraftId);
+                    if ($peerRaId) {
+                        $raIdsToClean->push($peerRaId);
                     }
                 }
-                if ($raIdsToClean->isNotEmpty()) {
-                    RencanaAksiIndikator::whereIn('rencana_aksi_id', $raIdsToClean)
-                        ->whereNotIn('kode', $groupIkuKodes)
-                        ->delete();
-                }
+                RencanaAksiIndikator::whereIn('rencana_aksi_id', $raIdsToClean)
+                    ->whereNotIn('kode', $groupIkuKodes)
+                    ->delete();
             }
 
             // Auto-populasi RAI dari PK Awal jika belum ada untuk group ini

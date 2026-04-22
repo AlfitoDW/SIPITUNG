@@ -71,6 +71,9 @@ class PerencanaanController extends Controller
             ->get()
             ->groupBy('kode');
 
+        // Prioritas status: kabag_approved=4 > submitted=3 > rejected=2 > draft=1
+        $statusPriority = ['kabag_approved' => 4, 'submitted' => 3, 'rejected' => 2, 'draft' => 1];
+
         $sasaranMap = [];
 
         foreach ($allPkAwal as $pkAwal) {
@@ -81,8 +84,21 @@ class PerencanaanController extends Controller
 
                 foreach ($sasaran->indikators as $iku) {
                     $rais = $raiByKode->get($iku->kode, collect());
-                    $rai = $rais->firstWhere('rencanaAksi.tim_kerja_id', $iku->pic_tim_kerja_id)
-                           ?? $rais->first();
+                    $picIds = $iku->picTimKerjas->pluck('id')->toArray();
+
+                    if (! empty($picIds)) {
+                        // Ambil semua RAI yang tim-nya adalah salah satu PIC IKU ini,
+                        // lalu pilih yang statusnya paling maju
+                        $matchingRais = $rais->filter(
+                            fn ($r) => in_array($r->rencanaAksi?->tim_kerja_id, $picIds)
+                        );
+                        $rai = $matchingRais->sortByDesc(
+                            fn ($r) => $statusPriority[$r->rencanaAksi?->status ?? 'draft'] ?? 0
+                        )->first();
+                    } else {
+                        // IKU tanpa PIC: fallback ke RAI pertama
+                        $rai = $rais->first();
+                    }
 
                     $ra = $rai?->rencanaAksi;
 
@@ -113,29 +129,93 @@ class PerencanaanController extends Controller
             }
         }
 
-        // RA list untuk panel approve/reject
-        $ras = RencanaAksi::with('timKerja:id,nama,kode,nama_singkat')
+        // ─── Bangun panel Status RA per Tim Kerja ───────────────────────────────
+        // Untuk kolaborasi: tampilkan status gabungan per pasangan
+        $allRas = RencanaAksi::with(['timKerja:id,nama,kode,nama_singkat', 'peerTimKerja:id,nama,kode,nama_singkat'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->orderBy('id')
-            ->get()
-            ->map(fn ($ra) => [
-                'id' => $ra->id,
-                'status' => $ra->status,
-                'rekomendasi_kabag' => $ra->rekomendasi_kabag,
-                'tim_kerja' => $ra->timKerja
-                    ? $ra->timKerja->only(['id', 'nama', 'kode', 'nama_singkat'])
-                    : null,
-            ])->values()->all();
+            ->get();
+
+        $rasMandiri     = [];
+        $raDisplayMap   = []; // key simetris untuk dedup pasangan kolaborasi
+
+        foreach ($allRas as $ra) {
+            if ($ra->peer_tim_kerja_id === null) {
+                $rasMandiri[] = [
+                    'id'               => $ra->id,
+                    'status'           => $ra->status,
+                    'rekomendasi_kabag'=> $ra->rekomendasi_kabag,
+                    'tim_kerja'        => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
+                    'peer_tim_kerja'   => null,
+                    'is_kolaborasi'    => false,
+                ];
+            } else {
+                $a = min($ra->tim_kerja_id, $ra->peer_tim_kerja_id);
+                $b = max($ra->tim_kerja_id, $ra->peer_tim_kerja_id);
+                $pairKey = "{$a}|{$b}";
+                if (! isset($raDisplayMap[$pairKey])) {
+                    $raDisplayMap[$pairKey] = ['ra' => $ra, 'mirror' => null];
+                } else {
+                    $raDisplayMap[$pairKey]['mirror'] = $ra;
+                }
+            }
+        }
+
+        // Status gabungan kolaborasi: submitted > rejected > draft > kabag_approved
+        // (submitted paling utama — butuh perhatian Kabag)
+        $kolabPriority = ['submitted' => 4, 'rejected' => 3, 'draft' => 2, 'kabag_approved' => 1];
+        $rasKolaborasi  = [];
+
+        foreach ($raDisplayMap as $pair) {
+            $ra     = $pair['ra'];
+            $mirror = $pair['mirror'];
+
+            $raStatus     = $ra->status;
+            $mirrorStatus = $mirror?->status ?? $ra->status;
+
+            $displayStatus = ($kolabPriority[$raStatus] ?? 0) >= ($kolabPriority[$mirrorStatus] ?? 0)
+                ? $raStatus
+                : $mirrorStatus;
+
+            // Ambil catatan dari RA yang statusnya match displayStatus (atau gabungkan)
+            $note = null;
+            if ($displayStatus === $raStatus) {
+                $note = $ra->rekomendasi_kabag;
+            } elseif ($mirror) {
+                $note = $mirror->rekomendasi_kabag;
+            }
+
+            // Tim utama (RA milik tim pertama secara ID) dan peer
+            $timRa   = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $ra : $mirror;
+            $peerRa  = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $mirror : $ra;
+
+            $rasKolaborasi[] = [
+                'id'               => ($timRa ?? $ra)->id,
+                'status'           => $displayStatus,
+                'rekomendasi_kabag'=> $note,
+                'tim_kerja'        => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
+                'peer_tim_kerja'   => $mirror?->peerTimKerja?->only(['id', 'nama', 'kode', 'nama_singkat'])
+                                   ?? $ra->peerTimKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
+                'is_kolaborasi'    => true,
+            ];
+        }
+
+        // Gabungkan dan urutkan: submitted → rejected → kabag_approved → draft
+        $sortOrder = ['submitted' => 0, 'rejected' => 1, 'kabag_approved' => 2, 'draft' => 3];
+        $ras = collect(array_merge($rasMandiri, $rasKolaborasi))
+            ->sortBy(fn ($r) => $sortOrder[$r['status']] ?? 9)
+            ->values()
+            ->all();
 
         // Buang sasaran orphan (tanpa indikator)
         $sasaranMap = array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0);
         ksort($sasaranMap);
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun' => $tahun,
-            'sasarans' => array_values($sasaranMap),
-            'ras' => $ras,
-            'role' => $user->pimpinan_type,
+            'tahun'   => $tahun,
+            'sasarans'=> array_values($sasaranMap),
+            'ras'     => $ras,
+            'role'    => $user->pimpinan_type,
         ]);
     }
 
@@ -177,9 +257,23 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status' => 'kabag_approved',
-            'rekomendasi_kabag' => null,   // bersihkan catatan rejection sebelumnya
+            'status'           => 'kabag_approved',
+            'rekomendasi_kabag'=> null,
         ]);
+
+        // Jika RA kolaborasi, sync mirror RA pasangannya
+        if ($ra->peer_tim_kerja_id) {
+            $mirrorRa = RencanaAksi::where('tahun_anggaran_id', $ra->tahun_anggaran_id)
+                ->where('tim_kerja_id', $ra->peer_tim_kerja_id)
+                ->where('peer_tim_kerja_id', $ra->tim_kerja_id)
+                ->first();
+            if ($mirrorRa) {
+                $mirrorRa->update([
+                    'status'           => 'kabag_approved',
+                    'rekomendasi_kabag'=> null,
+                ]);
+            }
+        }
 
         return back()->with('success', "RA {$ra->timKerja->nama_singkat} berhasil disetujui.");
     }
@@ -191,10 +285,25 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status' => 'rejected',
-            'rejected_by' => 'kabag_umum',
-            'rekomendasi_kabag' => $request->rekomendasi,
+            'status'           => 'rejected',
+            'rejected_by'      => 'kabag_umum',
+            'rekomendasi_kabag'=> $request->rekomendasi,
         ]);
+
+        // Jika RA kolaborasi, sync mirror RA pasangannya
+        if ($ra->peer_tim_kerja_id) {
+            $mirrorRa = RencanaAksi::where('tahun_anggaran_id', $ra->tahun_anggaran_id)
+                ->where('tim_kerja_id', $ra->peer_tim_kerja_id)
+                ->where('peer_tim_kerja_id', $ra->tim_kerja_id)
+                ->first();
+            if ($mirrorRa) {
+                $mirrorRa->update([
+                    'status'           => 'rejected',
+                    'rejected_by'      => 'kabag_umum',
+                    'rekomendasi_kabag'=> $request->rekomendasi,
+                ]);
+            }
+        }
 
         return back()->with('success', "RA {$ra->timKerja->nama_singkat} ditolak.");
     }

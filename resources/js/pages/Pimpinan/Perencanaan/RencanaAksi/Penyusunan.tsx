@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
-import { CheckCircle2, XCircle, Clock, FileEdit, ExternalLink, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, FileEdit, ExternalLink, Eye, BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -32,7 +32,14 @@ type Indikator = {
     kegiatans: Kegiatan[];
 };
 type SasaranGroup = { kode: string; nama: string; indikators: Indikator[] };
-type RAStatus = { id: number; status: string; rekomendasi_kabag: string | null; tim_kerja: TimKerja | null };
+type RAStatus = {
+    id: number;
+    status: string;
+    rekomendasi_kabag: string | null;
+    tim_kerja: TimKerja | null;
+    peer_tim_kerja: TimKerja | null;
+    is_kolaborasi: boolean;
+};
 type Tahun = { id: number; tahun: number; label: string };
 type Props = { tahun: Tahun; sasarans: SasaranGroup[]; ras: RAStatus[] };
 
@@ -141,99 +148,157 @@ function KegiatanViewSheet({ iku, onClose }: { iku: Indikator; onClose: () => vo
     );
 }
 
-// ─── RA Status List (read-only) ───────────────────────────────────────────────
+// ─── RA Status Sheet (dibuka via tombol, mirip Hub Persetujuan) ───────────────
 
-function RaStatusList({ ras }: { ras: RAStatus[] }) {
+function RaStatusSheet({ ras, open, onClose }: { ras: RAStatus[]; open: boolean; onClose: () => void }) {
     const submittedCount = ras.filter(ra => ra.status === 'submitted').length;
+    const approvedCount  = ras.filter(ra => ra.status === 'kabag_approved').length;
+    const rejectedCount  = ras.filter(ra => ra.status === 'rejected').length;
+    const draftCount     = ras.filter(ra => ra.status === 'draft').length;
+
     return (
-        <div className="rounded-xl border shadow-sm overflow-hidden">
-            <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
-                <h2 className="text-sm font-semibold">Status Rencana Aksi per Tim Kerja</h2>
-                {submittedCount > 0 && (
-                    <span className="ml-auto text-xs text-amber-600 font-medium">{submittedCount} menunggu persetujuan</span>
-                )}
-                <Link
-                    href="/pimpinan/persetujuan?tab=ra"
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
-                >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Buka Hub Persetujuan
-                </Link>
-            </div>
-            {ras.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    Belum ada Rencana Aksi yang disubmit.
-                </div>
-            ) : (
-                <div className="divide-y">
-                    {ras.map(ra => {
-                        const cfg  = RA_STATUS_CONFIG[ra.status] ?? RA_STATUS_CONFIG['draft'];
-                        const Icon = cfg.icon;
-                        return (
-                            <div key={ra.id} className={`flex items-center gap-3 px-4 py-3 ${ra.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : ra.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-semibold truncate">{ra.tim_kerja?.nama ?? '—'}</span>
-                                        {ra.tim_kerja?.kode && (
-                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">{ra.tim_kerja.kode}</span>
+        <Sheet open={open} onOpenChange={v => !v && onClose()}>
+            <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col gap-0 p-0">
+                <SheetHeader className="px-5 pt-5 pb-4 border-b">
+                    <SheetTitle className="text-base">Status Rencana Aksi per Tim Kerja</SheetTitle>
+                    {/* Summary pills */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {submittedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                                <Clock className="h-3 w-3" />{submittedCount} Menunggu
+                            </span>
+                        )}
+                        {rejectedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                                <XCircle className="h-3 w-3" />{rejectedCount} Ditolak
+                            </span>
+                        )}
+                        {approvedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 border border-green-300 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                <CheckCircle2 className="h-3 w-3" />{approvedCount} Disetujui
+                            </span>
+                        )}
+                        {draftCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-300 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                                <FileEdit className="h-3 w-3" />{draftCount} Draft
+                            </span>
+                        )}
+                    </div>
+                    <Link
+                        href="/pimpinan/persetujuan?tab=ra"
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Buka Hub Persetujuan
+                    </Link>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto">
+                    {ras.length === 0 ? (
+                        <div className="px-5 py-12 text-center">
+                            <CheckCircle2 className="h-10 w-10 text-muted-foreground/25 mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">Belum ada data Rencana Aksi.</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {ras.map(ra => {
+                                const cfg  = RA_STATUS_CONFIG[ra.status] ?? RA_STATUS_CONFIG['draft'];
+                                const Icon = cfg.icon;
+                                const rowBg = ra.status === 'kabag_approved'
+                                    ? 'bg-green-50/60 dark:bg-green-950/10'
+                                    : ra.status === 'submitted'
+                                        ? 'bg-amber-50/60 dark:bg-amber-950/10'
+                                        : ra.status === 'rejected'
+                                            ? 'bg-red-50/60 dark:bg-red-950/10'
+                                            : '';
+                                return (
+                                    <div key={ra.id} className={`flex items-center gap-3 px-5 py-3.5 ${rowBg}`}>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-semibold">{ra.tim_kerja?.nama ?? '—'}</span>
+                                                {ra.tim_kerja?.kode && (
+                                                    <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 rounded px-1.5 py-0.5 font-mono">
+                                                        {ra.tim_kerja.kode}
+                                                    </span>
+                                                )}
+                                                {ra.is_kolaborasi && ra.peer_tim_kerja && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 border border-blue-200 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                                                        Kolaborasi · {ra.peer_tim_kerja.nama_singkat ?? ra.peer_tim_kerja.nama}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {ra.rekomendasi_kabag && (
+                                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">Catatan: {ra.rekomendasi_kabag}</p>
+                                            )}
+                                        </div>
+                                        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.className}`}>
+                                            <Icon className="h-3 w-3" />
+                                            {cfg.label}
+                                        </span>
+                                        {ra.status === 'submitted' && (
+                                            <Link href="/pimpinan/persetujuan?tab=ra">
+                                                <Button size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0">
+                                                    <Eye className="h-3 w-3" /> Review
+                                                </Button>
+                                            </Link>
                                         )}
                                     </div>
-                                    {ra.rekomendasi_kabag && (
-                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {ra.rekomendasi_kabag}</p>
-                                    )}
-                                </div>
-                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                    <Icon className="h-3 w-3" />
-                                    {cfg.label}
-                                </Badge>
-                                {ra.status === 'submitted' && (
-                                    <Link href="/pimpinan/persetujuan?tab=ra">
-                                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0">
-                                            <Eye className="h-3 w-3" /> Review
-                                        </Button>
-                                    </Link>
-                                )}
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
+            </SheetContent>
+        </Sheet>
     );
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Penyusunan({ tahun, sasarans, ras }: Props) {
-    const [viewKegiatan, setViewKegiatan] = useState<Indikator | null>(null);
+    const [viewKegiatan,  setViewKegiatan]  = useState<Indikator | null>(null);
+    const [showRaStatus,  setShowRaStatus]  = useState(false);
 
-    const totalIku      = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
-    const filledIku     = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 && i.target_tw2 && i.target_tw3 && i.target_tw4).length, 0);
-    const totalKegiatan = sasarans.reduce((s, sar) => s + sar.indikators.reduce((a, i) => a + i.kegiatans.length, 0), 0);
-    const pendingCount  = ras.filter(ra => ra.status === 'submitted').length;
+    const pendingCount = ras.filter(ra => ra.status === 'submitted').length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Rencana Aksi — Perencanaan" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Review Rencana Aksi</h1>
-                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                {/* Header + tombol Status RA */}
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-2xl font-bold tracking-tight">Review Rencana Aksi</h1>
+                        <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        className="gap-2 shrink-0"
+                        onClick={() => setShowRaStatus(true)}
+                    >
+                        <BarChart2 className="h-4 w-4" />
+                        Status RA Tim
+                        {pendingCount > 0 && (
+                            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                                {pendingCount}
+                            </span>
+                        )}
+                    </Button>
                 </div>
 
-                {/* Summary */}
+                {/* Summary chips */}
                 <div className="flex flex-wrap gap-3">
                     <div className="rounded-lg border bg-card px-4 py-2 text-sm">
                         <span className="text-muted-foreground">Total IKU </span>
-                        <span className="font-bold">{totalIku}</span>
+                        <span className="font-bold">{sasarans.reduce((s, sar) => s + sar.indikators.length, 0)}</span>
                     </div>
                     <div className="rounded-lg border bg-card px-4 py-2 text-sm">
                         <span className="text-muted-foreground">Target TW lengkap </span>
-                        <span className={`font-bold ${filledIku === totalIku && totalIku > 0 ? 'text-green-600' : 'text-amber-600'}`}>{filledIku}/{totalIku}</span>
+                        {(() => { const t = sasarans.reduce((s, sar) => s + sar.indikators.length, 0); const f = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target_tw1 && i.target_tw2 && i.target_tw3 && i.target_tw4).length, 0); return <span className={`font-bold ${f === t && t > 0 ? 'text-green-600' : 'text-amber-600'}`}>{f}/{t}</span>; })()}
                     </div>
                     <div className="rounded-lg border bg-card px-4 py-2 text-sm">
                         <span className="text-muted-foreground">Total kegiatan </span>
-                        <span className={`font-bold ${totalKegiatan > 0 ? 'text-blue-600' : 'text-muted-foreground'}`}>{totalKegiatan}</span>
+                        {(() => { const k = sasarans.reduce((s, sar) => s + sar.indikators.reduce((a, i) => a + i.kegiatans.length, 0), 0); return <span className={`font-bold ${k > 0 ? 'text-blue-600' : 'text-muted-foreground'}`}>{k}</span>; })()}
                     </div>
                     {pendingCount > 0 && (
                         <Link href="/pimpinan/persetujuan?tab=ra" className="rounded-lg border bg-amber-50 border-amber-300 px-4 py-2 text-sm flex items-center gap-1.5 hover:bg-amber-100 transition-colors">
@@ -352,8 +417,9 @@ export default function Penyusunan({ tahun, sasarans, ras }: Props) {
                     </div>
                 )}
 
-                {/* RA Status List */}
-                {ras.length > 0 && <RaStatusList ras={ras} />}
+                {/* RA Status Sheet */}
+                <RaStatusSheet ras={ras} open={showRaStatus} onClose={() => setShowRaStatus(false)} />
+
             </div>
 
             {viewKegiatan && (

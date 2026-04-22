@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\KetuaTim;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndikatorKinerja;
 use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
 use App\Models\RealisasiKinerja;
@@ -19,6 +20,14 @@ class MonitoringController extends Controller
     public function index(Request $request): Response
     {
         $tahun = TahunAnggaran::forSession();
+
+        // ── Kode IKU valid dari PK Awal tahun ini (untuk filter RAI stale) ─────────
+        $validIkuKodes = $tahun
+            ? IndikatorKinerja::whereHas(
+                'sasaran.perjanjianKinerja',
+                fn ($q) => $q->where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal')
+            )->pluck('kode')->unique()->values()->all()
+            : [];
 
         // ── Semua Tim Kerja ───────────────────────────────────────────────────────
         $allTim = TimKerja::orderBy('kode')->get()->map(fn ($t) => [
@@ -125,6 +134,11 @@ class MonitoringController extends Controller
                 if ($peerCorrRa && ($statusPriority[$peerCorrRa->status] ?? 0) > ($statusPriority[$effectiveStatus] ?? 0)) {
                     $effectiveStatus = $peerCorrRa->status;
                 }
+            }
+
+            // ── Filter RAI stale: hanya tampilkan indikator dengan kode valid di PK Awal ──
+            if (! empty($validIkuKodes)) {
+                $indikators = $indikators->filter(fn ($ind) => in_array($ind->kode, $validIkuKodes));
             }
 
             // ── Build entry ────────────────────────────────────────────────────────
