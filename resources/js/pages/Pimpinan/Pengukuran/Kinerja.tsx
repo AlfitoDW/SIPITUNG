@@ -341,19 +341,9 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                         </table>
                     </div>
                 )}
-            </div>
 
-            {detail && (
-                <DetailDialog
-                    row={detail}
-                    tw={periode?.triwulan ?? ''}
-                    onClose={() => setDetail(null)}
-                />
-            )}
-
-            {/* ─── Rekomendasi Pimpinan Form (Kabag Umum only) ─────────────────── */}
-            {isKabagUmum && periode && (
-                <div className="px-4 md:px-6 pb-6">
+                {/* ─── Rekomendasi Pimpinan Form (Kabag Umum only) ─────────────────── */}
+                {isKabagUmum && periode && (
                     <div className="rounded-xl border bg-card shadow-sm">
                         {/* Header */}
                         <div className="flex items-center gap-3 px-5 py-4 border-b bg-muted/30 rounded-t-xl">
@@ -410,7 +400,15 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                             </div>
                         </form>
                     </div>
-                </div>
+                )}
+            </div>
+
+            {detail && (
+                <DetailDialog
+                    row={detail}
+                    tw={periode?.triwulan ?? ''}
+                    onClose={() => setDetail(null)}
+                />
             )}
         </AppLayout>
     );
