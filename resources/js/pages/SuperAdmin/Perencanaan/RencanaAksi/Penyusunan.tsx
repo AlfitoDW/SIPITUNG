@@ -23,9 +23,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 type TimKerja  = { id: number; nama: string; kode: string; nama_singkat?: string };
 type Kegiatan  = { id: number; triwulan: number; urutan: number; nama_kegiatan: string };
 type Indikator = {
-    id: number; kode: string; nama: string; satuan: string; target: string | null;
+    id: number; ra_id: number | null; kode: string; nama: string; satuan: string; target: string | null;
     target_tw1: string | null; target_tw2: string | null; target_tw3: string | null; target_tw4: string | null;
-    pic_tim_kerjas: TimKerja[]; tim_kerja: TimKerja;
+    pic_tim_kerjas: TimKerja[]; tim_kerja: TimKerja | null;
     kegiatans: Kegiatan[];
 };
 type Sasaran   = { kode: string; nama: string; indikators: Indikator[] };
@@ -42,15 +42,11 @@ const RA_STATUS_CONFIG = {
 
 // ─── RA Status Panel ──────────────────────────────────────────────────────────
 
-function RaStatusPanel({ ras }: { ras: RaStatus[] }) {
+function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[] }) {
     const [reopenTarget, setReopenTarget] = useState<RaStatus | null>(null);
 
-    const nonDraft = ras.filter(ra => ra.status !== 'draft');
-    if (nonDraft.length === 0) return (
-        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            Belum ada Rencana Aksi yang disubmit atau disetujui.
-        </div>
-    );
+    // Lookup RA by id — untuk cari status berdasarkan ra_id dari indikator
+    const rasById = Object.fromEntries(ras.map(ra => [ra.id, ra]));
 
     function doReopen() {
         if (!reopenTarget) return;
@@ -62,49 +58,95 @@ function RaStatusPanel({ ras }: { ras: RaStatus[] }) {
 
     const canReopen = (ra: RaStatus) => ra.status === 'submitted' || ra.status === 'kabag_approved';
 
+    if (sasarans.length === 0) return (
+        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            Belum ada IKU yang terdaftar di PK Awal.
+        </div>
+    );
+
     return (
         <>
             <div className="rounded-xl border shadow-sm overflow-hidden">
                 <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-sm font-semibold">Status Rencana Aksi per Tim Kerja</h2>
+                    <h2 className="text-sm font-semibold">Status Rencana Aksi per IKU</h2>
                     <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali dokumen yang terkunci</span>
                 </div>
-                <div className="divide-y">
-                    {nonDraft.map(ra => {
-                        const cfg  = RA_STATUS_CONFIG[ra.status];
-                        const Icon = cfg.icon;
-                        const reopenable = canReopen(ra);
+
+                <div>
+                    {sasarans.map(sasaran => {
+                        const color = getColor(sasaran.kode);
                         return (
-                            <div key={ra.id} className={`flex items-center gap-3 px-4 py-3 ${ra.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : ra.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-semibold truncate">{ra.tim_kerja?.nama ?? '—'}</span>
-                                        {ra.tim_kerja?.kode && (
-                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">
-                                                {ra.tim_kerja.kode}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {ra.rekomendasi_kabag && (
-                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {ra.rekomendasi_kabag}</p>
-                                    )}
+                            <div key={sasaran.kode} className="border-b last:border-b-0">
+                                {/* Sasaran header */}
+                                <div className={`flex items-center gap-2 px-4 py-2 ${color.bg} ${color.accent}`}>
+                                    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${color.badge}`}>{sasaran.kode}</span>
+                                    <span className="text-xs font-medium text-muted-foreground">{sasaran.nama}</span>
                                 </div>
-                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                    <Icon className="h-3 w-3" />
-                                    {cfg.label}
-                                </Badge>
-                                {reopenable && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                                        onClick={() => setReopenTarget(ra)}
-                                    >
-                                        <LockOpen className="h-3 w-3" />
-                                        Buka Kembali
-                                    </Button>
-                                )}
+
+                                {/* IKU rows */}
+                                <div className="divide-y divide-border/60">
+                                    {sasaran.indikators.map(iku => {
+                                        const ra = iku.ra_id ? (rasById[iku.ra_id] ?? null) : null;
+                                        const status = ra?.status ?? null;
+                                        const cfg = status ? RA_STATUS_CONFIG[status] : null;
+                                        const Icon = cfg?.icon;
+                                        const reopenable = ra ? canReopen(ra) : false;
+
+                                        return (
+                                            <div key={iku.id} className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors ${status === 'kabag_approved' ? 'bg-green-50/30 dark:bg-green-950/10' : status === 'submitted' ? 'bg-yellow-50/30 dark:bg-yellow-950/10' : status === 'rejected' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
+                                                {/* IKU info */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-mono text-[11px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">{iku.kode}</span>
+                                                        <span className="text-sm leading-snug">{iku.nama}</span>
+                                                    </div>
+                                                    {iku.pic_tim_kerjas.length > 0 && (
+                                                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                            <span className="text-[11px] text-muted-foreground">PIC:</span>
+                                                            {iku.pic_tim_kerjas.map((t, i) => (
+                                                                <span key={t.id} className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded ${i === 0 ? 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300' : 'bg-muted text-muted-foreground'}`}>
+                                                                    {t.nama_singkat ?? t.kode}
+                                                                </span>
+                                                            ))}
+                                                            {iku.pic_tim_kerjas.length > 1 && (
+                                                                <span className="text-[11px] text-muted-foreground italic">· kolaborasi</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {ra?.rekomendasi_kabag && (
+                                                        <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+                                                            Catatan: {ra.rekomendasi_kabag}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Status badge */}
+                                                {cfg && Icon ? (
+                                                    <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
+                                                        <Icon className="h-3 w-3" />
+                                                        {cfg.label}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="shrink-0 text-xs text-muted-foreground italic">Belum ada RA</span>
+                                                )}
+
+                                                {/* Buka Kembali */}
+                                                {reopenable && ra && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                        onClick={() => setReopenTarget(ra)}
+                                                    >
+                                                        <LockOpen className="h-3 w-3" />
+                                                        Buka Kembali
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         );
                     })}
@@ -411,9 +453,9 @@ export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }:
                         <TabsTrigger value="penyusunan">Penyusunan</TabsTrigger>
                         <TabsTrigger value="status" className="gap-1.5">
                             Status RA
-                            {ras.filter(ra => ra.status !== 'draft').length > 0 && (
+                            {ras.filter(ra => ra.status === 'submitted').length > 0 && (
                                 <Badge className="h-4 min-w-4 px-1 text-[10px] bg-amber-500 text-white">
-                                    {ras.filter(ra => ra.status !== 'draft').length}
+                                    {ras.filter(ra => ra.status === 'submitted').length}
                                 </Badge>
                             )}
                         </TabsTrigger>
@@ -514,7 +556,7 @@ export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }:
 
                     <TabsContent value="status" className="mt-4 flex flex-col gap-4">
                         <DeadlinePanel batasRa={batasRa} serverNow={serverNow} />
-                        <RaStatusPanel ras={ras} />
+                        <RaStatusPanel ras={ras} sasarans={sasarans} />
                     </TabsContent>
                 </Tabs>
             </div>

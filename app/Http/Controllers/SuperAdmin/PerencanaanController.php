@@ -178,6 +178,7 @@ class PerencanaanController extends Controller
 
                     $sasaranMap[$sasaran->kode]['indikators'][] = [
                         'id' => $rai?->id,
+                        'ra_id' => $rai?->rencana_aksi_id,
                         'kode' => $iku->kode,
                         'nama' => $iku->nama,
                         'satuan' => $iku->satuan,
