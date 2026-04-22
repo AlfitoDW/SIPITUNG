@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
+use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,10 +48,17 @@ class PengukuranController extends Controller
                 ->orderBy('id')
                 ->get();
 
+            // Build lookup: target TW dari Rencana Aksi (user-editable), key = "{sasaran_id}_{kode}"
+            $allSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
+            $raIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds)
+                ->get()
+                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+
             foreach ($pks as $pk) {
                 foreach ($pk->sasarans as $sasaran) {
                     foreach ($sasaran->indikators as $iku) {
                         $r        = $iku->realisasis->first();
+                        $raInd    = $raIndMap->get($iku->sasaran_id . '_' . $iku->kode);
                         $matrix[] = [
                             'sasaran_kode'           => $sasaran->kode,
                             'sasaran_nama'           => $sasaran->nama,
@@ -59,7 +67,7 @@ class PengukuranController extends Controller
                             'iku_nama'               => $iku->nama,
                             'iku_satuan'             => $iku->satuan,
                             'iku_target'             => $iku->target,
-                            'iku_target_tw'          => $iku->{"target_{$twKey}"},
+                            'iku_target_tw'          => $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
                             'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama', 'kode', 'nama_singkat'])),
                             'realisasi'              => $r?->realisasi,
                             'progress_kegiatan'      => $r?->progress_kegiatan,
@@ -190,11 +198,17 @@ class PengukuranController extends Controller
             ->orderBy('id')
             ->get();
 
+        $allSasaranIds2 = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
+        $raIndMap2 = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds2)
+            ->get()
+            ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+
         $matrix = [];
         foreach ($pks as $pk) {
             foreach ($pk->sasarans as $sasaran) {
                 foreach ($sasaran->indikators as $iku) {
                     $r        = $iku->realisasis->first();
+                    $raInd2   = $raIndMap2->get($iku->sasaran_id . '_' . $iku->kode);
                     $matrix[] = [
                         'sasaran_kode'           => $sasaran->kode,
                         'sasaran_nama'           => $sasaran->nama,
@@ -202,7 +216,7 @@ class PengukuranController extends Controller
                         'iku_nama'               => $iku->nama,
                         'iku_satuan'             => $iku->satuan,
                         'iku_target'             => $iku->target,
-                        'iku_target_tw'          => $iku->{"target_{$twKey}"},
+                        'iku_target_tw'          => $raInd2?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"},
                         'pic_tim_kerjas'         => $iku->picTimKerjas->map(fn ($t) => $t->only(['id', 'nama'])),
                         'realisasi'              => $r?->realisasi,
                         'progress_kegiatan'      => $r?->progress_kegiatan,

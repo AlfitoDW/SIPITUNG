@@ -8,6 +8,7 @@ use App\Models\LaporanPengukuran;
 use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RealisasiKinerja;
+use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
 use Illuminate\Http\RedirectResponse;
@@ -51,10 +52,20 @@ class PengukuranController extends Controller
                 ->where('jenis', 'awal')
                 ->get();
 
+            // Build lookup: target TW dari Rencana Aksi (user-editable), key = "{sasaran_id}_{kode}"
+            $allSasaranIds = $pks->flatMap(fn ($pk) => $pk->sasarans->pluck('id'))->unique()->values()->all();
+            $raIndMap = RencanaAksiIndikator::whereIn('sasaran_id', $allSasaranIds)
+                ->get()
+                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+
             foreach ($pks as $pk) {
                 foreach ($pk->sasarans as $sasaran) {
                     foreach ($sasaran->indikators as $iku) {
                         $r = $iku->realisasis->first();
+
+                        // Gunakan target TW dari RA jika ada, fallback ke kolom di indikator_kinerja
+                        $raInd    = $raIndMap->get($iku->sasaran_id . '_' . $iku->kode);
+                        $targetTw = $raInd?->{"target_{$twKey}"} ?? $iku->{"target_{$twKey}"};
 
                         $ikuList[] = [
                             'iku_id'                  => $iku->id,
@@ -64,7 +75,7 @@ class PengukuranController extends Controller
                             'iku_nama'                => $iku->nama,
                             'iku_satuan'              => $iku->satuan,
                             'iku_target'              => $iku->target,
-                            'iku_target_tw'           => $iku->{"target_{$twKey}"},
+                            'iku_target_tw'           => $targetTw,
                             'pic_tim_kerjas'          => $iku->picTimKerjas->map(fn ($t) => [
                                 'id'           => $t->id,
                                 'nama'         => $t->nama,

@@ -270,6 +270,13 @@ class MonitoringController extends Controller
                 'inputByTimKerja:id,kode,nama_singkat',
             ])->where('periode_pengukuran_id', $periode->id)->get();
 
+            // Build lookup: target TW dari Rencana Aksi, key = "{sasaran_id}_{kode}"
+            $monSasaranIds = $realisasis->map(fn ($r) => $r->indikatorKinerja?->sasaran_id)->filter()->unique()->values()->all();
+            $monRaIndMap   = RencanaAksiIndikator::whereIn('sasaran_id', $monSasaranIds)
+                ->get()
+                ->keyBy(fn ($i) => $i->sasaran_id . '_' . $i->kode);
+            $monTwKey = strtolower($periode->triwulan);
+
             // Group by sasaran
             $sasaranMap = [];
             foreach ($realisasis as $r) {
@@ -286,11 +293,12 @@ class MonitoringController extends Controller
                     ];
                 }
 
+                $monRaInd = $monRaIndMap->get($iku->sasaran_id . '_' . $iku->kode);
                 $sasaranMap[$sKey]['indikators'][] = [
                     'iku_kode'        => $iku->kode,
                     'iku_nama'        => $iku->nama,
                     'iku_satuan'      => $iku->satuan,
-                    'iku_target'      => $iku->{'target_' . strtolower($periode->triwulan)},
+                    'iku_target'      => $monRaInd?->{"target_{$monTwKey}"} ?? $iku->{'target_' . $monTwKey},
                     'realisasi'       => $r->realisasi,
                     'progress'        => $r->progress_kegiatan,
                     'kendala'         => $r->kendala,
