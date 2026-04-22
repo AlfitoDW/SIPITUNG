@@ -425,15 +425,15 @@ class PengukuranController extends Controller
         $sheet->freezePane('D4');
 
         // ── Sheet 2–5: Rencana Kegiatan per Triwulan ──────────────────────────────
-        // Query PK Awal sebagai sumber urutan sasaran & IKU, termasuk semua PIC
-        $pkAwalSheet = PerjanjianKinerja::with([
+        // Ambil SEMUA PK Awal (satu per tim kerja) agar tidak ada IKU yang terlewat
+        $allPkAwals = PerjanjianKinerja::with([
             'sasarans'            => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
-            ->first();
+            ->get();
 
         // Index semua RAI (dengan kegiatan) by kode IKU
         $raiByKode = \App\Models\RencanaAksiIndikator::with([
@@ -443,13 +443,23 @@ class PengukuranController extends Controller
             ->get()
             ->keyBy('kode');
 
-        // Flatten semua baris (urutan PK Awal), kegiatan dikelompok per TW
-        $allKgRows = [];
-        if ($pkAwalSheet) {
-            foreach ($pkAwalSheet->sasarans as $sasaran) {
+        // Merge sasaran & IKU dari semua PK Awal (dedup by kode)
+        // Semua IKU selalu disertakan — kolom kegiatan kosong jika belum diisi
+        $sasaranMap = [];
+        foreach ($allPkAwals as $pkAwal) {
+            foreach ($pkAwal->sasarans as $sasaran) {
+                if (! isset($sasaranMap[$sasaran->kode])) {
+                    $sasaranMap[$sasaran->kode] = [
+                        'kode'      => $sasaran->kode,
+                        'nama'      => $sasaran->nama,
+                        'indikators' => [],
+                    ];
+                }
                 foreach ($sasaran->indikators as $iku) {
+                    if (isset($sasaranMap[$sasaran->kode]['indikators'][$iku->kode])) {
+                        continue; // sudah ada dari PK lain
+                    }
                     $rai = $raiByKode->get($iku->kode);
-                    if (! $rai || $rai->kegiatans->isEmpty()) continue;
 
                     $picNames = $iku->picTimKerjas
                         ->map(fn ($t) => $t->nama_singkat ?? $t->kode)
@@ -457,41 +467,58 @@ class PengukuranController extends Controller
 
                     $twKegiatan = [];
                     for ($tw = 1; $tw <= 4; $tw++) {
-                        $twKegiatan[$tw] = $rai->kegiatans->where('triwulan', $tw)->values();
+                        $twKegiatan[$tw] = $rai
+                            ? $rai->kegiatans->where('triwulan', $tw)->values()
+                            : collect();
                     }
 
-                    $allKgRows[] = [
-                        'sasaran_kode' => $sasaran->kode,
-                        'sasaran_nama' => $sasaran->nama,
-                        'iku_kode'     => $iku->kode,
-                        'iku_nama'     => $iku->nama,
-                        'pic_names'    => $picNames ?: '-',
-                        'tw_kegiatan'  => $twKegiatan,
+                    $sasaranMap[$sasaran->kode]['indikators'][$iku->kode] = [
+                        'iku_kode'    => $iku->kode,
+                        'iku_nama'    => $iku->nama,
+                        'pic_names'   => $picNames ?: '-',
+                        'tw_kegiatan' => $twKegiatan,
                     ];
                 }
             }
         }
+        // Sort sasaran by kode (natural sort agar "1.10" tidak mendahului "1.2")
+        uksort($sasaranMap, 'strnatcmp');
 
-        // Shared styles untuk sheet TW
+        // Sort indikator dalam tiap sasaran by kode (natural sort)
+        foreach ($sasaranMap as &$s) {
+            uksort($s['indikators'], 'strnatcmp');
+        }
+        unset($s);
+
+        // Flatten ke $allKgRows
+        $allKgRows = [];
+        foreach ($sasaranMap as $sasaran) {
+            foreach ($sasaran['indikators'] as $iku) {
+                $allKgRows[] = [
+                    'sasaran_kode' => $sasaran['kode'],
+                    'sasaran_nama' => $sasaran['nama'],
+                    'iku_kode'     => $iku['iku_kode'],
+                    'iku_nama'     => $iku['iku_nama'],
+                    'pic_names'    => $iku['pic_names'],
+                    'tw_kegiatan'  => $iku['tw_kegiatan'],
+                ];
+            }
+        }
+
+        // Shared styles untuk sheet TW — selaras dengan sheet Realisasi Kinerja
         $kgWrapStyle = [
-            'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true, 'indent' => 1],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'AAAAAA']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
         $kgCenterStyle = [
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'AAAAAA']]],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
-        // Baris sasaran dirender sebagai section-header row (full-width merged), bukan merge vertikal
         $kgSasaranHeaderStyle = [
             'font'      => ['bold' => true, 'name' => 'Times New Roman', 'size' => 11, 'color' => ['rgb' => '1F3864']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER, 'indent' => 1],
-            'borders'   => [
-                'top'    => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
-                'bottom' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
-                'left'   => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
-                'right'  => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '003580']],
-            ],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
 
         $twSheetNames = [1 => 'Kegiatan TW I', 2 => 'Kegiatan TW II', 3 => 'Kegiatan TW III', 4 => 'Kegiatan TW IV'];
@@ -503,8 +530,8 @@ class PengukuranController extends Controller
         ];
 
         foreach ([1, 2, 3, 4] as $tw) {
-            // Saring hanya IKU yang punya kegiatan di TW ini
-            $twRows = array_filter($allKgRows, fn ($r) => $r['tw_kegiatan'][$tw]->isNotEmpty());
+            // Semua IKU ditampilkan — termasuk yang belum punya kegiatan di TW ini
+            $twRows = $allKgRows;
             if (empty($twRows)) continue;
 
             $shTw = $spreadsheet->createSheet();
@@ -554,7 +581,9 @@ class PengukuranController extends Controller
 
                 // ── IKU data row ───────────────────────────────────────────────
                 $items       = $dr['tw_kegiatan'][$tw];
-                $kegiatanStr = $items->map(fn ($k, $i) => ($i + 1) . '. ' . $k->nama_kegiatan)->join("\n");
+                $kegiatanStr = $items->isNotEmpty()
+                    ? $items->map(fn ($k, $i) => ($i + 1) . '. ' . $k->nama_kegiatan)->join("\n")
+                    : '-';
 
                 $shTw->setCellValue("A{$rowTw}", $noTw++);
                 $shTw->setCellValue("B{$rowTw}", $dr['iku_kode']);
