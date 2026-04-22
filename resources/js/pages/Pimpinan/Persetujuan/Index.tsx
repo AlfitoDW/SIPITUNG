@@ -1,10 +1,12 @@
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye, ListChecks } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,11 +29,13 @@ type PkItem = {
     sasarans: PkSasaran[];
 };
 
+type Kegiatan = { id: number; triwulan: number; urutan: number; nama_kegiatan: string };
 type RaIndikator = {
     id: number; kode: string; nama: string; satuan: string; target: string;
     target_tw1: string | null; target_tw2: string | null;
     target_tw3: string | null; target_tw4: string | null;
     sasaran: { kode: string; nama: string } | null;
+    kegiatans: Kegiatan[];
 };
 type RaItem = {
     id: number; tim_kerja_nama: string; tim_kerja_kode: string;
@@ -343,19 +347,108 @@ function RaContent({ indikators }: { indikators: RaIndikator[] }) {
     );
 }
 
+// ── TW config ─────────────────────────────────────────────────────────────────
+
+const TW_CONFIG = [
+    null,
+    { roman: 'I',   label: 'Triwulan I',   pill: 'bg-blue-100 text-blue-800',      border: 'border-blue-200',   accent: 'border-l-2 border-l-blue-400' },
+    { roman: 'II',  label: 'Triwulan II',  pill: 'bg-emerald-100 text-emerald-800', border: 'border-emerald-200', accent: 'border-l-2 border-l-emerald-400' },
+    { roman: 'III', label: 'Triwulan III', pill: 'bg-violet-100 text-violet-800',   border: 'border-violet-200', accent: 'border-l-2 border-l-violet-400' },
+    { roman: 'IV',  label: 'Triwulan IV',  pill: 'bg-amber-100 text-amber-800',     border: 'border-amber-200',  accent: 'border-l-2 border-l-amber-400' },
+] as const;
+
+// ── Kegiatan Sheet ─────────────────────────────────────────────────────────────
+
+function RaKegiatanSheet({ ra, onClose }: { ra: RaItem; onClose: () => void }) {
+    const totalKegiatan = ra.indikators.reduce((s, i) => s + i.kegiatans.length, 0);
+
+    return (
+        <Sheet open onOpenChange={v => !v && onClose()}>
+            <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0">
+                <SheetHeader className="px-5 pt-5 pb-3 border-b">
+                    <SheetTitle className="text-base leading-tight">Rencana Kegiatan / Aktivitas</SheetTitle>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="secondary" className="text-xs">{ra.tim_kerja_nama}</Badge>
+                        <span className="text-xs text-muted-foreground">{totalKegiatan} kegiatan tercatat</span>
+                    </div>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+                    {ra.indikators.length === 0 ? (
+                        <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                            Belum ada data indikator untuk Rencana Aksi ini.
+                        </div>
+                    ) : (
+                        ra.indikators.map((iku, idx) => (
+                            <div key={iku.id ?? idx} className="space-y-3">
+                                <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                                    <p className="text-xs text-muted-foreground">{iku.kode}</p>
+                                    <p className="font-medium leading-snug">{iku.nama}</p>
+                                </div>
+                                {iku.kegiatans.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                                        Belum ada rencana kegiatan untuk indikator ini.
+                                    </div>
+                                ) : (
+                                    ([1, 2, 3, 4] as const).map(tw => {
+                                        const cfg  = TW_CONFIG[tw]!;
+                                        const list = iku.kegiatans
+                                            .filter(k => k.triwulan === tw)
+                                            .sort((a, b) => a.urutan - b.urutan);
+                                        const twTarget = iku[`target_tw${tw}` as keyof RaIndikator] as string | null;
+                                        if (list.length === 0) return null;
+                                        return (
+                                            <div key={tw} className="space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-semibold ${cfg.pill}`}>
+                                                            TW {cfg.roman} — {cfg.label}
+                                                        </span>
+                                                        {twTarget && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Target: <span className="font-semibold">{twTarget}</span> {iku.satuan}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">{list.length} kegiatan</span>
+                                                </div>
+                                                <div className={`rounded-lg border divide-y ${cfg.border}`}>
+                                                    {list.map((k, kidx) => (
+                                                        <div key={k.id} className={`flex items-start gap-2 px-3 py-2 ${cfg.accent}`}>
+                                                            <span className="text-xs text-muted-foreground font-mono mt-0.5 w-5 shrink-0 text-right">
+                                                                {kidx + 1}.
+                                                            </span>
+                                                            <p className="text-sm leading-snug">{k.nama_kegiatan}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
 // ── List table per tab ────────────────────────────────────────────────────────
 
 type AnyItem = { id: number; tim_kerja_nama: string; status: string };
 type TabType = 'pk_awal' | 'pk_revisi' | 'ra' | 'laporan';
 
 function ItemsTable<T extends AnyItem>({
-    items, type, role, onOpen, extraCol,
+    items, type, role, onOpen, extraCol, extraActions,
 }: {
     items: T[];
     type: TabType;
     role: Role;
     onOpen: (item: T) => void;
     extraCol?: (item: T) => React.ReactNode;
+    extraActions?: (item: T) => React.ReactNode;
 }) {
     if (items.length === 0) return <EmptyState label={type === 'laporan' ? 'laporan pengukuran' : type.replace('_', ' ')} />;
 
@@ -408,10 +501,13 @@ function ItemsTable<T extends AnyItem>({
                                         : (item as unknown as PkItem | RaItem).updated_at}
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onOpen(item)}>
-                                        <Eye className="h-3.5 w-3.5" />
-                                        {canAct(item.status, type, role) ? 'Review' : 'Detail'}
-                                    </Button>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        {extraActions?.(item)}
+                                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onOpen(item)}>
+                                            <Eye className="h-3.5 w-3.5" />
+                                            {canAct(item.status, type, role) ? 'Review' : 'Detail'}
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         );
@@ -437,6 +533,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
     const [rekomendasi, setRekomendasi] = useState('');
     const [processing, setProcessing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabValue>(getInitialTab);
+    const [viewKegiatanRa, setViewKegiatanRa] = useState<RaItem | null>(null);
 
     function openDialog(s: Selected) {
         setSelected(s);
@@ -539,6 +636,17 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                             type="ra"
                             role={role}
                             onOpen={item => openDialog({ type: 'ra', item })}
+                            extraActions={item => (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5"
+                                    onClick={() => setViewKegiatanRa(item as RaItem)}
+                                >
+                                    <ListChecks className="h-3.5 w-3.5" />
+                                    Kegiatan
+                                </Button>
+                            )}
                         />
                     </TabsContent>
 
@@ -553,6 +661,11 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* ── Kegiatan Sheet ── */}
+            {viewKegiatanRa && (
+                <RaKegiatanSheet ra={viewKegiatanRa} onClose={() => setViewKegiatanRa(null)} />
+            )}
 
             {/* ── Detail & Review Dialog ── */}
             <Dialog open={!!selected} onOpenChange={open => !open && closeDialog()}>

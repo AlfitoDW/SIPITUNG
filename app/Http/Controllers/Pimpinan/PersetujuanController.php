@@ -40,7 +40,7 @@ class PersetujuanController extends Controller
 
         // Preload semua RA (semua status) untuk dipakai mirror lookup di mapRa.
         // Key: "tim_kerja_id|peer_tim_kerja_id" agar lookup O(1).
-        $allRas = RencanaAksi::with(['indikators.sasaran'])
+        $allRas = RencanaAksi::with(['indikators.sasaran', 'indikators.kegiatans'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->get()
             ->keyBy(fn ($r) => $r->tim_kerja_id . '|' . ($r->peer_tim_kerja_id ?? 'null'));
@@ -48,7 +48,7 @@ class PersetujuanController extends Controller
         // Tampilkan semua RA yang sudah submit (termasuk co-PIC empty RA).
         // mapRa() akan meminjam indikators dari mirror RA jika RA ini kosong,
         // tapi HANYA dari exact mirror (peer↔tim), mencegah cross-contamination antar kolaborasi.
-        $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran'])
+        $ras = RencanaAksi::with(['timKerja', 'indikators.sasaran', 'indikators.kegiatans'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
             ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
@@ -177,6 +177,14 @@ class PersetujuanController extends Controller
                 'sasaran' => $i->sasaran
                     ? ['kode' => $i->sasaran->kode, 'nama' => $i->sasaran->nama]
                     : null,
+                'kegiatans' => $i->kegiatans
+                    ->sortBy(['triwulan', 'urutan'])
+                    ->map(fn ($k) => [
+                        'id' => $k->id,
+                        'triwulan' => $k->triwulan,
+                        'urutan' => $k->urutan,
+                        'nama_kegiatan' => $k->nama_kegiatan,
+                    ])->values(),
             ])->values(),
         ];
     }
