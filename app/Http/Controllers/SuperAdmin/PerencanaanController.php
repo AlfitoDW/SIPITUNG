@@ -53,6 +53,8 @@ class PerencanaanController extends Controller
         return PerjanjianKinerja::with('timKerja:id,nama,kode,nama_singkat')
             ->where('tahun_anggaran_id', $tahunId)
             ->where('jenis', $jenis)
+            ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
+            ->orderBy('status')
             ->orderBy('id')
             ->get()
             ->map(fn ($pk) => [

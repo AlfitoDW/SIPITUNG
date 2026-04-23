@@ -46,14 +46,15 @@ const STATUS_CONFIG = {
 
 // ─── PK Status Panel ──────────────────────────────────────────────────────────
 
+const STATUS_DOT_CONFIG = {
+    submitted:      { bg: 'bg-amber-400',   ring: 'ring-amber-300' },
+    kabag_approved: { bg: 'bg-emerald-500', ring: 'ring-emerald-400' },
+    rejected:       { bg: 'bg-red-500',     ring: 'ring-red-400' },
+    draft:          { bg: 'bg-slate-300',   ring: 'ring-slate-200' },
+} as const;
+
 function PkStatusPanel({ pks }: { pks: PkStatus[] }) {
     const [reopenTarget, setReopenTarget] = useState<PkStatus | null>(null);
-
-    if (pks.length === 0) return (
-        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            Belum ada Perjanjian Kinerja yang disubmit atau disetujui.
-        </div>
-    );
 
     function doReopen() {
         if (!reopenTarget) return;
@@ -65,47 +66,96 @@ function PkStatusPanel({ pks }: { pks: PkStatus[] }) {
 
     const canReopen = (pk: PkStatus) => pk.status === 'submitted' || pk.status === 'kabag_approved';
 
+    // Hitung stats
+    const statCounts = { kabag_approved: 0, submitted: 0, rejected: 0 };
+    pks.forEach(pk => { (statCounts as Record<string, number>)[pk.status] = ((statCounts as Record<string, number>)[pk.status] ?? 0) + 1; });
+
+    const STAT_ITEMS = [
+        { key: 'kabag_approved', label: 'Disetujui',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' },
+        { key: 'submitted',      label: 'Menunggu',   color: 'text-amber-700 dark:text-amber-400',      bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' },
+        { key: 'rejected',       label: 'Ditolak',    color: 'text-red-700 dark:text-red-400',          bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' },
+    ] as const;
+
+    if (pks.length === 0) return (
+        <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+            Belum ada Tim Kerja yang mengajukan Perjanjian Kinerja.
+        </div>
+    );
+
     return (
         <>
+            {/* Stats Summary */}
+            <div className="grid grid-cols-3 gap-2">
+                {STAT_ITEMS.map(s => (
+                    <div key={s.key} className={`rounded-xl border px-3 py-2.5 flex flex-col items-center gap-0.5 ${s.bg}`}>
+                        <span className={`text-2xl font-bold leading-none ${s.color}`}>
+                            {(statCounts as Record<string, number>)[s.key] ?? 0}
+                        </span>
+                        <span className={`text-[11px] font-medium ${s.color} opacity-80`}>{s.label}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Main Panel */}
             <div className="rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-sm font-semibold">Status Pengajuan PK per Tim Kerja</h2>
-                    <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali dokumen yang terkunci</span>
+                {/* Panel header */}
+                <div className="px-5 py-3 bg-[#003580] flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-300" />
+                    <h2 className="text-sm font-semibold text-white">Status Pengajuan PK per Tim Kerja</h2>
+                    <span className="ml-auto text-xs text-white/60">Super Admin dapat membuka kembali dokumen yang terkunci</span>
                 </div>
-                <div className="divide-y">
+
+                <div className="divide-y divide-border/50">
                     {pks.map(pk => {
                         const cfg = STATUS_CONFIG[pk.status];
                         const Icon = cfg.icon;
                         const reopenable = canReopen(pk);
+                        const dot = STATUS_DOT_CONFIG[pk.status];
+                        const isApproved = pk.status === 'kabag_approved';
+                        const isPending  = pk.status === 'submitted';
+                        const isRejected = pk.status === 'rejected';
+
                         return (
-                            <div key={pk.id} className={`flex items-center gap-3 px-4 py-3 ${pk.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : pk.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
+                            <div
+                                key={pk.id}
+                                className={`flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors
+                                    ${isApproved ? 'bg-emerald-50/40 dark:bg-emerald-950/10'
+                                    : isPending  ? 'bg-amber-50/40 dark:bg-amber-950/10'
+                                    : isRejected ? 'bg-red-50/40 dark:bg-red-950/10'
+                                    : ''}`}
+                            >
+                                {/* Status dot */}
+                                <span className={`shrink-0 h-2.5 w-2.5 rounded-full ring-2 ${dot.bg} ${dot.ring}`} />
+
+                                {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-semibold truncate">
-                                            {pk.tim_kerja?.nama ?? '—'}
-                                        </span>
+                                        <span className="text-sm font-semibold">{pk.tim_kerja?.nama ?? '—'}</span>
                                         {pk.tim_kerja?.kode && (
-                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">
+                                            <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono">
                                                 {pk.tim_kerja.kode}
                                             </span>
                                         )}
                                     </div>
                                     {pk.rekomendasi_kabag && (
-                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                            Catatan: {pk.rekomendasi_kabag}
+                                        <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 italic bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded inline-block">
+                                            💬 {pk.rekomendasi_kabag}
                                         </p>
                                     )}
                                 </div>
-                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                    <Icon className="h-3 w-3" />
+
+                                {/* Status badge */}
+                                <Badge variant="outline" className={`shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1 font-medium ${cfg.className}`}>
+                                    <Icon className="h-3.5 w-3.5" />
                                     {cfg.label}
                                 </Badge>
+
+                                {/* Buka Kembali */}
                                 {reopenable && (
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                        className="shrink-0 h-7 gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
                                         onClick={() => setReopenTarget(pk)}
                                     >
                                         <LockOpen className="h-3 w-3" />
@@ -138,10 +188,7 @@ function PkStatusPanel({ pks }: { pks: PkStatus[] }) {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-amber-600 text-white hover:bg-amber-700"
-                            onClick={doReopen}
-                        >
+                        <AlertDialogAction className="bg-amber-600 text-white hover:bg-amber-700" onClick={doReopen}>
                             Ya, Buka Kembali
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -449,9 +496,9 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                         <TabsTrigger value="penyusunan">Penyusunan</TabsTrigger>
                         <TabsTrigger value="status" className="gap-1.5">
                             Status PK
-                            {pks.filter(pk => pk.status !== 'draft').length > 0 && (
+                            {pks.filter(pk => pk.status === 'submitted').length > 0 && (
                                 <Badge className="h-4 min-w-4 px-1 text-[10px] bg-amber-500 text-white">
-                                    {pks.filter(pk => pk.status !== 'draft').length}
+                                    {pks.filter(pk => pk.status === 'submitted').length}
                                 </Badge>
                             )}
                         </TabsTrigger>
@@ -540,7 +587,7 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="status" className="mt-4">
+                    <TabsContent value="status" className="mt-4 flex flex-col gap-4">
                         <PkStatusPanel pks={pks} />
                     </TabsContent>
                 </Tabs>
