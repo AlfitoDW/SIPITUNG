@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye, ListChecks } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -78,9 +78,21 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_CLASSES: Record<string, string> = {
-    submitted:      'bg-amber-50 text-amber-700 border-amber-300',
-    kabag_approved: 'bg-emerald-50 text-emerald-700 border-emerald-300',
-    rejected:       'bg-red-50 text-red-700 border-red-300',
+    submitted:      'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400',
+    kabag_approved: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400',
+    rejected:       'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400',
+};
+
+const STATUS_DOT: Record<string, { bg: string; ring: string }> = {
+    submitted:      { bg: 'bg-amber-400',   ring: 'ring-amber-300' },
+    kabag_approved: { bg: 'bg-emerald-500', ring: 'ring-emerald-400' },
+    rejected:       { bg: 'bg-red-500',     ring: 'ring-red-400' },
+};
+
+const STATUS_ICONS: Record<string, React.ElementType> = {
+    submitted:      Clock,
+    kabag_approved: CheckCircle2,
+    rejected:       XCircle,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,8 +128,10 @@ function isPkSelected(s: Selected): s is SelectedPk {
 // ── Small components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
+    const Icon = STATUS_ICONS[status];
     return (
-        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASSES[status] ?? 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_CLASSES[status] ?? 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+            {Icon && <Icon className="h-3.5 w-3.5" />}
             {STATUS_LABELS[status] ?? status}
         </span>
     );
@@ -127,7 +141,7 @@ function TabCount({ count, rejCount }: { count: number; rejCount?: number }) {
     return (
         <>
             {count > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-white">
                     {count}
                 </span>
             )}
@@ -435,10 +449,14 @@ function RaKegiatanSheet({ ra, onClose }: { ra: RaItem; onClose: () => void }) {
     );
 }
 
-// ── List table per tab ────────────────────────────────────────────────────────
+// ── List per tab ──────────────────────────────────────────────────────────────
 
 type AnyItem = { id: number; tim_kerja_nama: string; status: string };
 type TabType = 'pk_awal' | 'pk_revisi' | 'ra' | 'laporan';
+
+const TW_LABELS: Record<string, string> = {
+    TW1: 'Triwulan I', TW2: 'Triwulan II', TW3: 'Triwulan III', TW4: 'Triwulan IV',
+};
 
 function ItemsTable<T extends AnyItem>({
     items, type, role, onOpen, extraCol, extraActions,
@@ -452,68 +470,110 @@ function ItemsTable<T extends AnyItem>({
 }) {
     if (items.length === 0) return <EmptyState label={type === 'laporan' ? 'laporan pengukuran' : type.replace('_', ' ')} />;
 
+    // Stats per tab
+    const counts = { submitted: 0, kabag_approved: 0, rejected: 0 };
+    items.forEach(i => { (counts as Record<string, number>)[i.status] = ((counts as Record<string, number>)[i.status] ?? 0) + 1; });
+
+    const STAT_ITEMS = [
+        { key: 'submitted',      label: 'Menunggu',   color: 'text-amber-700 dark:text-amber-400',   bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' },
+        { key: 'kabag_approved', label: 'Disetujui',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' },
+        { key: 'rejected',       label: 'Dikembalikan', color: 'text-red-700 dark:text-red-400',      bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' },
+    ] as const;
+
     return (
-        <div className="rounded-xl border overflow-x-auto">
-            <Table>
-                <TableHeader>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableHead className="w-8 text-center">#</TableHead>
-                        <TableHead>Tim Kerja</TableHead>
-                        {extraCol && <TableHead>Periode</TableHead>}
-                        <TableHead className="w-40">Status</TableHead>
-                        <TableHead>Catatan Penolakan</TableHead>
-                        <TableHead className="w-40">Terakhir Diupdate</TableHead>
-                        <TableHead className="w-36 text-center">Aksi</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
+        <div className="flex flex-col gap-3">
+            {/* Stats bar */}
+            <div className="grid grid-cols-3 gap-2">
+                {STAT_ITEMS.map(s => (
+                    <div key={s.key} className={`rounded-xl border px-3 py-2.5 flex flex-col items-center gap-0.5 ${s.bg}`}>
+                        <span className={`text-2xl font-bold leading-none ${s.color}`}>{(counts as Record<string, number>)[s.key] ?? 0}</span>
+                        <span className={`text-[11px] font-medium ${s.color} opacity-80`}>{s.label}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Card list */}
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+                {/* Panel header */}
+                <div className="px-5 py-3 bg-[#003580] flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-300" />
+                    <span className="text-sm font-semibold text-white">Daftar Dokumen</span>
+                    <span className="ml-auto text-xs text-white/60">{items.length} dokumen total</span>
+                </div>
+
+                <div className="divide-y divide-border/50">
                     {items.map((item, idx) => {
-                        const isRejected = item.status === 'rejected';
-                        const catatan = ('rekomendasi_kabag' in item ? (item as unknown as RaItem).rekomendasi_kabag : null);
+                        const isRejected   = item.status === 'rejected';
+                        const isPending    = item.status === 'submitted';
+                        const isApproved   = item.status === 'kabag_approved';
+                        const catatan      = ('rekomendasi_kabag' in item ? (item as unknown as RaItem).rekomendasi_kabag : null);
+                        const waktu        = 'submitted_at' in item
+                            ? (item as unknown as LaporanItem).submitted_at ?? '—'
+                            : (item as unknown as PkItem | RaItem).updated_at;
+                        const dot          = STATUS_DOT[item.status] ?? { bg: 'bg-slate-300', ring: 'ring-slate-200' };
+                        const extraColVal  = extraCol ? extraCol(item) : null;
+
                         return (
-                            <TableRow
+                            <div
                                 key={item.id}
-                                className={isRejected
-                                    ? 'bg-red-50/50 dark:bg-red-950/10'
-                                    : item.status === (role === 'kabag_umum' ? 'submitted' : 'kabag_approved')
-                                        ? 'bg-amber-50/40'
-                                        : ''}
+                                className={`flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors
+                                    ${isApproved  ? 'bg-emerald-50/40 dark:bg-emerald-950/10'
+                                    : isPending   ? 'bg-amber-50/40 dark:bg-amber-950/10'
+                                    : isRejected  ? 'bg-red-50/40 dark:bg-red-950/10'
+                                    : ''}`}
                             >
-                                <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        {isRejected && <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
-                                        {item.tim_kerja_nama}
+                                {/* Status dot */}
+                                <span className={`shrink-0 h-2.5 w-2.5 rounded-full ring-2 ${dot.bg} ${dot.ring}`} />
+
+                                {/* Number */}
+                                <span className="shrink-0 text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-semibold">{item.tim_kerja_nama}</span>
+                                        {('tim_kerja_kode' in item) && (
+                                            <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono">
+                                                {(item as unknown as RaItem).tim_kerja_kode}
+                                            </span>
+                                        )}
+                                        {extraColVal && (
+                                            <span className="text-xs bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300 rounded-full px-2.5 py-0.5 font-semibold">
+                                                {TW_LABELS[extraColVal as string] ?? extraColVal}
+                                            </span>
+                                        )}
                                     </div>
-                                </TableCell>
-                                {extraCol && <TableCell>{extraCol(item)}</TableCell>}
-                                <TableCell><StatusBadge status={item.status} /></TableCell>
-                                <TableCell className="max-w-[200px]">
-                                    {isRejected && catatan ? (
-                                        <span className="text-xs text-red-700 dark:text-red-400 line-clamp-2">{catatan}</span>
-                                    ) : (
-                                        <span className="text-muted-foreground/40 text-xs">—</span>
+                                    {isRejected && catatan && (
+                                        <p className="text-[11px] text-red-700 dark:text-red-400 mt-1 italic bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded inline-block">
+                                            💬 {catatan}
+                                        </p>
                                     )}
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    {'submitted_at' in item
-                                        ? (item as unknown as LaporanItem).submitted_at ?? '—'
-                                        : (item as unknown as PkItem | RaItem).updated_at}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                        {extraActions?.(item)}
-                                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onOpen(item)}>
-                                            <Eye className="h-3.5 w-3.5" />
-                                            {canAct(item.status, type, role) ? 'Review' : 'Detail'}
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">{waktu}</p>
+                                </div>
+
+                                {/* Status badge */}
+                                <StatusBadge status={item.status} />
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {extraActions?.(item)}
+                                    <Button
+                                        size="sm"
+                                        variant={isPending ? 'default' : 'outline'}
+                                        className={`gap-1.5 h-7 text-xs ${
+                                            isPending ? 'bg-[#003580] hover:bg-[#003580]/90 text-white' : ''
+                                        }`}
+                                        onClick={() => onOpen(item)}
+                                    >
+                                        <Eye className="h-3 w-3" />
+                                        {canAct(item.status, type, role) ? 'Review' : 'Detail'}
+                                    </Button>
+                                </div>
+                            </div>
                         );
                     })}
-                </TableBody>
-            </Table>
+                </div>
+            </div>
         </div>
     );
 }
@@ -583,16 +643,19 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* ── Header ── */}
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Hub Persetujuan</h1>
-                    <p className="text-muted-foreground">
-                        {tahun.label} · Login sebagai <span className="font-medium">{actLabel}</span>
-                        {totalPending > 0 && (
-                            <span className="ml-2 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
-                                {totalPending} menunggu review
-                            </span>
-                        )}
-                    </p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-2xl font-bold tracking-tight">Hub Persetujuan</h1>
+                        <p className="text-muted-foreground text-sm">
+                            {tahun.label} · Login sebagai <span className="font-medium">{actLabel}</span>
+                        </p>
+                    </div>
+                    {totalPending > 0 && (
+                        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2.5">
+                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">{totalPending} dokumen menunggu review</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Tabs ── */}

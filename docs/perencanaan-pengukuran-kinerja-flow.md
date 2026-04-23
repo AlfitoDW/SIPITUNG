@@ -160,7 +160,7 @@ rencana_aksi  (satu per tim kerja per tahun anggaran)
 View RA (flat table,        │                            │             │
  semua tim, read-only)      │                            │             │
 Buka Kembali (jika          │                            │             │
- ppk_approved*)             │                            │             │
+ kabag_approved*)             │                            │             │
                             ▼                            │             │
                        RA Penyusunan                     │             │
                        (sasaran dari PK Awal)            │             │
