@@ -51,19 +51,19 @@ function formatRemaining(ms: number): string {
  */
 export function DeadlineCountdown({ deadline, serverNow, label = 'Batas pengisian', onExpire }: DeadlineCountdownProps) {
     const [mountClientMs] = useState(() => Date.now());
-    const [tick, setTick] = useState(0);
+    const [now, setNow] = useState(() => Date.now());
     const [expired, setExpired] = useState(false);
 
     const deadlineMs = deadline ? new Date(deadline).getTime() : null;
     const serverMs = new Date(serverNow).getTime();
 
     const remainingAtMount = deadlineMs !== null ? deadlineMs - serverMs : null;
-    const elapsed = Date.now() - mountClientMs;
+    const elapsed = now - mountClientMs;
     const remaining = remainingAtMount !== null ? remainingAtMount - elapsed : null;
 
     useEffect(() => {
         if (deadline === null) return;
-        const id = setInterval(() => setTick((t) => t + 1), 1000);
+        const id = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(id);
     }, [deadline]);
 

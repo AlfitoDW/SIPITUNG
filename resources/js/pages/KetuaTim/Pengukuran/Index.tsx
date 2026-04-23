@@ -549,9 +549,6 @@ export default function PengukuranIndex({ tahun, periodes, periode, ikuList, tim
     });
     const handleDeadlineExpire = useCallback(() => setDeadlinePassed(true), []);
 
-    // Form dapat diisi jika periode aktif DAN deadline belum lewat
-    const canEdit = !!periode?.is_active && !deadlinePassed;
-
     function changePeriode(id: string) {
         router.get('/ketua-tim/pengukuran', { periode_id: id }, { preserveState: false });
     }

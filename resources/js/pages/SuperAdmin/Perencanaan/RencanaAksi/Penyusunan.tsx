@@ -45,10 +45,17 @@ const RA_STATUS_CONFIG = {
 // Status priority untuk memilih RA terbaik per tim
 const STATUS_PRIORITY: Record<string, number> = { kabag_approved: 3, submitted: 2, rejected: 1, draft: 0 };
 
+const RA_STAT_CONFIG = {
+    kabag_approved: { label: 'Disetujui',      bg: 'bg-emerald-500',  text: 'text-white', ring: 'ring-emerald-400' },
+    submitted:      { label: 'Menunggu',        bg: 'bg-amber-400',    text: 'text-white', ring: 'ring-amber-300' },
+    rejected:       { label: 'Ditolak',         bg: 'bg-red-500',      text: 'text-white', ring: 'ring-red-400' },
+    draft:          { label: 'Draft',           bg: 'bg-slate-400',    text: 'text-white', ring: 'ring-slate-300' },
+    none:           { label: 'Belum Ada RA',    bg: 'bg-slate-200',    text: 'text-slate-600', ring: 'ring-slate-200' },
+} as const;
+
 function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[] }) {
     const [reopenTarget, setReopenTarget] = useState<RaStatus | null>(null);
 
-    // Lookup RA berdasarkan tim_kerja_id → array semua RA milik tim tersebut
     const rasByTimId: Record<number, RaStatus[]> = {};
     for (const ra of ras) {
         if (ra.tim_kerja) {
@@ -58,9 +65,6 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
         }
     }
 
-    // Ambil RA dengan status terbaik dari kumpulan PIC tim untuk satu IKU.
-    // Prioritas: kabag_approved > submitted > rejected > draft.
-    // Menggunakan pic_tim_kerjas (bukan ra_id) supaya robust meski RAI entry belum ada.
     function getBestRa(picTeams: TimKerja[]): RaStatus | null {
         let best: RaStatus | null = null;
         for (const team of picTeams) {
@@ -84,18 +88,49 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
     const canReopen = (ra: RaStatus) => ra.status === 'submitted' || ra.status === 'kabag_approved';
 
     if (sasarans.length === 0) return (
-        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
             Belum ada IKU yang terdaftar di PK Awal.
         </div>
     );
 
+    // Hitung stats global
+    const allIkus = sasarans.flatMap(s => s.indikators);
+    const statCounts = { kabag_approved: 0, submitted: 0, rejected: 0, draft: 0, none: 0 };
+    for (const iku of allIkus) {
+        const ra = getBestRa(iku.pic_tim_kerjas);
+        const st = ra?.status ?? 'none';
+        (statCounts as Record<string, number>)[st] = ((statCounts as Record<string, number>)[st] ?? 0) + 1;
+    }
+
+    const STAT_ITEMS = [
+        { key: 'kabag_approved', label: 'Disetujui',   color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' },
+        { key: 'submitted',      label: 'Menunggu',    color: 'text-amber-700 dark:text-amber-400',      bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' },
+        { key: 'rejected',       label: 'Ditolak',     color: 'text-red-700 dark:text-red-400',          bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' },
+        { key: 'draft',          label: 'Draft',       color: 'text-slate-600 dark:text-slate-400',      bg: 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700' },
+        { key: 'none',           label: 'Belum Ada',   color: 'text-slate-500 dark:text-slate-500',      bg: 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700' },
+    ] as const;
+
     return (
         <>
+            {/* Stats Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {STAT_ITEMS.map(s => (
+                    <div key={s.key} className={`rounded-xl border px-3 py-2.5 flex flex-col items-center gap-0.5 ${s.bg}`}>
+                        <span className={`text-2xl font-bold leading-none ${s.color}`}>
+                            {(statCounts as Record<string, number>)[s.key] ?? 0}
+                        </span>
+                        <span className={`text-[11px] font-medium ${s.color} opacity-80`}>{s.label}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Main Panel */}
             <div className="rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-sm font-semibold">Status Rencana Aksi per IKU</h2>
-                    <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali dokumen yang terkunci</span>
+                {/* Panel header */}
+                <div className="px-5 py-3 bg-[#003580] flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-300" />
+                    <h2 className="text-sm font-semibold text-white">Status Rencana Aksi per IKU</h2>
+                    <span className="ml-auto text-xs text-white/60">Super Admin dapat membuka kembali dokumen yang terkunci</span>
                 </div>
 
                 <div>
@@ -104,33 +139,45 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
                         return (
                             <div key={sasaran.kode} className="border-b last:border-b-0">
                                 {/* Sasaran header */}
-                                <div className={`flex items-center gap-2 px-4 py-2 ${color.bg} ${color.accent}`}>
-                                    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${color.badge}`}>{sasaran.kode}</span>
-                                    <span className="text-xs font-medium text-muted-foreground">{sasaran.nama}</span>
+                                <div className={`flex items-center gap-2 px-5 py-2.5 ${color.bg} ${color.accent}`}>
+                                    <span className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold tracking-wide ${color.badge}`}>{sasaran.kode}</span>
+                                    <span className="text-xs font-semibold text-foreground/70">{sasaran.nama}</span>
+                                    <span className="ml-auto text-[11px] text-muted-foreground">{sasaran.indikators.length} IKU</span>
                                 </div>
 
-                                {/* IKU rows */}
-                                <div className="divide-y divide-border/60">
+                                {/* IKU cards */}
+                                <div className="divide-y divide-border/50">
                                     {sasaran.indikators.map(iku => {
                                         const ra = getBestRa(iku.pic_tim_kerjas);
-                                        const status = ra?.status ?? null;
-                                        const cfg = status ? RA_STATUS_CONFIG[status] : null;
+                                        const status = ra?.status ?? 'none';
+                                        const cfg = status !== 'none' ? RA_STATUS_CONFIG[status as keyof typeof RA_STATUS_CONFIG] : null;
                                         const Icon = cfg?.icon;
                                         const reopenable = ra ? canReopen(ra) : false;
+                                        const statDot = RA_STAT_CONFIG[status as keyof typeof RA_STAT_CONFIG];
 
                                         return (
-                                            <div key={iku.id} className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors ${status === 'kabag_approved' ? 'bg-green-50/30 dark:bg-green-950/10' : status === 'submitted' ? 'bg-yellow-50/30 dark:bg-yellow-950/10' : status === 'rejected' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
+                                            <div
+                                                key={iku.id}
+                                                className={`flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors
+                                                    ${status === 'kabag_approved' ? 'bg-emerald-50/40 dark:bg-emerald-950/10'
+                                                    : status === 'submitted'      ? 'bg-amber-50/40 dark:bg-amber-950/10'
+                                                    : status === 'rejected'       ? 'bg-red-50/40 dark:bg-red-950/10'
+                                                    : ''}`}
+                                            >
+                                                {/* Status dot */}
+                                                <span className={`shrink-0 h-2.5 w-2.5 rounded-full ring-2 ${statDot.bg} ${statDot.ring}`} />
+
                                                 {/* IKU info */}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="font-mono text-[11px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">{iku.kode}</span>
-                                                        <span className="text-sm leading-snug">{iku.nama}</span>
+                                                        <span className="font-mono text-[11px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">{iku.kode}</span>
+                                                        <span className="text-sm font-medium leading-snug">{iku.nama}</span>
                                                     </div>
                                                     {iku.pic_tim_kerjas.length > 0 && (
                                                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                                             <span className="text-[11px] text-muted-foreground">PIC:</span>
                                                             {iku.pic_tim_kerjas.map((t, i) => (
-                                                                <span key={t.id} className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded ${i === 0 ? 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300' : 'bg-muted text-muted-foreground'}`}>
+                                                                <span key={t.id} className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-md ${i === 0 ? 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/40 dark:text-blue-300' : 'bg-muted text-muted-foreground'}`}>
                                                                     {t.nama_singkat ?? t.kode}
                                                                 </span>
                                                             ))}
@@ -140,20 +187,20 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
                                                         </div>
                                                     )}
                                                     {ra?.rekomendasi_kabag && (
-                                                        <p className="text-[11px] text-muted-foreground mt-0.5 italic">
-                                                            Catatan: {ra.rekomendasi_kabag}
+                                                        <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 italic bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded inline-block">
+                                                            💬 {ra.rekomendasi_kabag}
                                                         </p>
                                                     )}
                                                 </div>
 
                                                 {/* Status badge */}
                                                 {cfg && Icon ? (
-                                                    <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                                        <Icon className="h-3 w-3" />
+                                                    <Badge variant="outline" className={`shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1 font-medium ${cfg.className}`}>
+                                                        <Icon className="h-3.5 w-3.5" />
                                                         {cfg.label}
                                                     </Badge>
                                                 ) : (
-                                                    <span className="shrink-0 text-xs text-muted-foreground italic">Belum ada RA</span>
+                                                    <span className="shrink-0 text-xs text-muted-foreground italic px-2 py-0.5 border border-dashed rounded">Belum ada RA</span>
                                                 )}
 
                                                 {/* Buka Kembali */}
@@ -161,7 +208,7 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                        className="shrink-0 h-7 gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
                                                         onClick={() => setReopenTarget(ra)}
                                                     >
                                                         <LockOpen className="h-3 w-3" />

@@ -61,6 +61,19 @@ function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S
 
 // ─── Laporan Status Panel ─────────────────────────────────────────────────────
 
+const LAPORAN_DOT_CONFIG = {
+    submitted:      { bg: 'bg-amber-400',   ring: 'ring-amber-300' },
+    kabag_approved: { bg: 'bg-emerald-500', ring: 'ring-emerald-400' },
+    rejected:       { bg: 'bg-red-500',     ring: 'ring-red-400' },
+} as const;
+
+const TW_PILL_CONFIG: Record<string, { pill: string; accent: string; bg: string }> = {
+    TW1: { pill: 'bg-[#003580]/10 text-[#003580] dark:bg-blue-900/50 dark:text-blue-300',      accent: 'border-l-4 border-l-[#003580]',  bg: 'bg-slate-50/60 dark:bg-slate-800/30' },
+    TW2: { pill: 'bg-teal-600/10 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',        accent: 'border-l-4 border-l-teal-500',    bg: 'bg-slate-50/60 dark:bg-slate-800/30' },
+    TW3: { pill: 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',accent: 'border-l-4 border-l-indigo-400',  bg: 'bg-slate-50/60 dark:bg-slate-800/30' },
+    TW4: { pill: 'bg-amber-500/10 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',    accent: 'border-l-4 border-l-amber-400',   bg: 'bg-slate-50/60 dark:bg-slate-800/30' },
+};
+
 function LaporanStatusPanel({ laporans }: { laporans: Laporan[] }) {
     const [reopenTarget, setReopenTarget] = useState<Laporan | null>(null);
 
@@ -80,9 +93,19 @@ function LaporanStatusPanel({ laporans }: { laporans: Laporan[] }) {
         byTw[l.periode_triwulan].push(l);
     });
 
+    // Stats
+    const statCounts = { kabag_approved: 0, submitted: 0, rejected: 0 };
+    laporans.forEach(l => { statCounts[l.status] = (statCounts[l.status] ?? 0) + 1; });
+
+    const STAT_ITEMS = [
+        { key: 'kabag_approved' as const, label: 'Disetujui', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' },
+        { key: 'submitted'      as const, label: 'Menunggu',  color: 'text-amber-700 dark:text-amber-400',      bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' },
+        { key: 'rejected'       as const, label: 'Ditolak',   color: 'text-red-700 dark:text-red-400',          bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' },
+    ];
+
     if (laporans.length === 0) {
         return (
-            <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
                 Belum ada laporan yang disubmit atau disetujui.
             </div>
         );
@@ -90,63 +113,101 @@ function LaporanStatusPanel({ laporans }: { laporans: Laporan[] }) {
 
     return (
         <>
-            <div className="rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-muted/40 border-b flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-sm font-semibold">Status Laporan Pengukuran per Tim Kerja</h2>
-                    <span className="ml-auto text-xs text-muted-foreground">Super Admin dapat membuka kembali laporan yang terkunci</span>
-                </div>
-                {Object.entries(byTw).map(([tw, items]) => (
-                    <div key={tw}>
-                        <div className="px-4 py-2 bg-muted/20 border-b">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                {TW_LABELS[tw] ?? tw}
-                            </span>
-                        </div>
-                        <div className="divide-y">
-                            {items.map(laporan => {
-                                const cfg  = LAPORAN_STATUS_CONFIG[laporan.status];
-                                const Icon = cfg.icon;
-                                const reopenable = canReopen(laporan);
-                                return (
-                                    <div key={laporan.id} className={`flex items-center gap-3 px-4 py-3 ${laporan.status === 'kabag_approved' ? 'bg-green-50/40 dark:bg-green-950/10' : laporan.status === 'submitted' ? 'bg-yellow-50/40 dark:bg-yellow-950/10' : ''}`}>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-sm font-semibold truncate">{laporan.tim_kerja?.nama ?? '—'}</span>
-                                                {laporan.tim_kerja?.kode && (
-                                                    <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded px-1.5 py-0.5 font-mono">
-                                                        {laporan.tim_kerja.kode}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {laporan.rekomendasi_kabag && (
-                                                <p className="text-xs text-muted-foreground mt-0.5 truncate">Catatan: {laporan.rekomendasi_kabag}</p>
-                                            )}
-                                            {laporan.approved_at && (
-                                                <p className="text-xs text-muted-foreground mt-0.5">Disetujui: {laporan.approved_at}</p>
-                                            )}
-                                        </div>
-                                        <Badge variant="outline" className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 ${cfg.className}`}>
-                                            <Icon className="h-3 w-3" />
-                                            {cfg.label}
-                                        </Badge>
-                                        {reopenable && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="shrink-0 h-7 gap-1 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                                                onClick={() => setReopenTarget(laporan)}
-                                            >
-                                                <LockOpen className="h-3 w-3" />
-                                                Buka Kembali
-                                            </Button>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+            {/* Stats Summary */}
+            <div className="grid grid-cols-3 gap-2">
+                {STAT_ITEMS.map(s => (
+                    <div key={s.key} className={`rounded-xl border px-3 py-2.5 flex flex-col items-center gap-0.5 ${s.bg}`}>
+                        <span className={`text-2xl font-bold leading-none ${s.color}`}>{statCounts[s.key]}</span>
+                        <span className={`text-[11px] font-medium ${s.color} opacity-80`}>{s.label}</span>
                     </div>
                 ))}
+            </div>
+
+            {/* Main Panel */}
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+                {/* Panel header */}
+                <div className="px-5 py-3 bg-[#003580] flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-300" />
+                    <h2 className="text-sm font-semibold text-white">Status Laporan Pengukuran per Tim Kerja</h2>
+                    <span className="ml-auto text-xs text-white/60">Super Admin dapat membuka kembali laporan yang terkunci</span>
+                </div>
+
+                {Object.entries(byTw).map(([tw, items]) => {
+                    const twCfg = TW_PILL_CONFIG[tw] ?? TW_PILL_CONFIG['TW1'];
+                    return (
+                        <div key={tw} className="border-b last:border-b-0">
+                            {/* TW header */}
+                            <div className={`flex items-center gap-2 px-5 py-2.5 ${twCfg.bg} ${twCfg.accent}`}>
+                                <span className={`inline-flex rounded-full px-3 py-0.5 text-xs font-semibold ${twCfg.pill}`}>
+                                    {TW_LABELS[tw] ?? tw}
+                                </span>
+                                <span className="ml-auto text-[11px] text-muted-foreground">{items.length} laporan</span>
+                            </div>
+
+                            {/* Laporan rows */}
+                            <div className="divide-y divide-border/50">
+                                {items.map(laporan => {
+                                    const cfg  = LAPORAN_STATUS_CONFIG[laporan.status];
+                                    const Icon = cfg.icon;
+                                    const dot  = LAPORAN_DOT_CONFIG[laporan.status];
+                                    const reopenable = canReopen(laporan);
+                                    return (
+                                        <div
+                                            key={laporan.id}
+                                            className={`flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors
+                                                ${laporan.status === 'kabag_approved' ? 'bg-emerald-50/40 dark:bg-emerald-950/10'
+                                                : laporan.status === 'submitted'      ? 'bg-amber-50/40 dark:bg-amber-950/10'
+                                                : laporan.status === 'rejected'       ? 'bg-red-50/40 dark:bg-red-950/10'
+                                                : ''}`}
+                                        >
+                                            {/* Status dot */}
+                                            <span className={`shrink-0 h-2.5 w-2.5 rounded-full ring-2 ${dot.bg} ${dot.ring}`} />
+
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-semibold">{laporan.tim_kerja?.nama ?? '—'}</span>
+                                                    {laporan.tim_kerja?.kode && (
+                                                        <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono">
+                                                            {laporan.tim_kerja.kode}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {laporan.rekomendasi_kabag && (
+                                                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 italic bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded inline-block">
+                                                        💬 {laporan.rekomendasi_kabag}
+                                                    </p>
+                                                )}
+                                                {laporan.approved_at && (
+                                                    <p className="text-[11px] text-muted-foreground mt-0.5">Disetujui: {laporan.approved_at}</p>
+                                                )}
+                                            </div>
+
+                                            {/* Status badge */}
+                                            <Badge variant="outline" className={`shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1 font-medium ${cfg.className}`}>
+                                                <Icon className="h-3.5 w-3.5" />
+                                                {cfg.label}
+                                            </Badge>
+
+                                            {/* Buka kembali */}
+                                            {reopenable && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="shrink-0 h-7 gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                    onClick={() => setReopenTarget(laporan)}
+                                                >
+                                                    <LockOpen className="h-3 w-3" />
+                                                    Buka Kembali
+                                                </Button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             <AlertDialog open={reopenTarget !== null} onOpenChange={v => !v && setReopenTarget(null)}>
@@ -487,7 +548,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                         )}
                     </TabsContent>
 
-                    <TabsContent value="status" className="mt-4">
+                    <TabsContent value="status" className="mt-4 flex flex-col gap-4">
                         <LaporanStatusPanel laporans={laporans} />
                     </TabsContent>
                 </Tabs>
