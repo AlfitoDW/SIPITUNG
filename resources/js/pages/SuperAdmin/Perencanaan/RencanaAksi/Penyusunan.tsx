@@ -42,11 +42,36 @@ const RA_STATUS_CONFIG = {
 
 // ─── RA Status Panel ──────────────────────────────────────────────────────────
 
+// Status priority untuk memilih RA terbaik per tim
+const STATUS_PRIORITY: Record<string, number> = { kabag_approved: 3, submitted: 2, rejected: 1, draft: 0 };
+
 function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[] }) {
     const [reopenTarget, setReopenTarget] = useState<RaStatus | null>(null);
 
-    // Lookup RA by id — untuk cari status berdasarkan ra_id dari indikator
-    const rasById = Object.fromEntries(ras.map(ra => [ra.id, ra]));
+    // Lookup RA berdasarkan tim_kerja_id → array semua RA milik tim tersebut
+    const rasByTimId: Record<number, RaStatus[]> = {};
+    for (const ra of ras) {
+        if (ra.tim_kerja) {
+            const tid = ra.tim_kerja.id;
+            if (!rasByTimId[tid]) rasByTimId[tid] = [];
+            rasByTimId[tid].push(ra);
+        }
+    }
+
+    // Ambil RA dengan status terbaik dari kumpulan PIC tim untuk satu IKU.
+    // Prioritas: kabag_approved > submitted > rejected > draft.
+    // Menggunakan pic_tim_kerjas (bukan ra_id) supaya robust meski RAI entry belum ada.
+    function getBestRa(picTeams: TimKerja[]): RaStatus | null {
+        let best: RaStatus | null = null;
+        for (const team of picTeams) {
+            for (const ra of rasByTimId[team.id] ?? []) {
+                if (!best || (STATUS_PRIORITY[ra.status] ?? -1) > (STATUS_PRIORITY[best.status] ?? -1)) {
+                    best = ra;
+                }
+            }
+        }
+        return best;
+    }
 
     function doReopen() {
         if (!reopenTarget) return;
@@ -87,7 +112,7 @@ function RaStatusPanel({ ras, sasarans }: { ras: RaStatus[]; sasarans: Sasaran[]
                                 {/* IKU rows */}
                                 <div className="divide-y divide-border/60">
                                     {sasaran.indikators.map(iku => {
-                                        const ra = iku.ra_id ? (rasById[iku.ra_id] ?? null) : null;
+                                        const ra = getBestRa(iku.pic_tim_kerjas);
                                         const status = ra?.status ?? null;
                                         const cfg = status ? RA_STATUS_CONFIG[status] : null;
                                         const Icon = cfg?.icon;
