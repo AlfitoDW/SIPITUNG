@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Eye, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle, CalendarClock, Trash2 } from 'lucide-react';
+import { Eye, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle, CalendarClock, Trash2, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -498,9 +498,16 @@ export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }:
             <Head title="Penyusunan — Rencana Aksi" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
-                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
+                        <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
+                        <a href="/super-admin/perencanaan/rencana-aksi/export/xls">
+                            <FileSpreadsheet className="h-3.5 w-3.5" /> Export XLSX
+                        </a>
+                    </Button>
                 </div>
 
                 {/* Summary */}

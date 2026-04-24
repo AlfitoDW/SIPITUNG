@@ -50,6 +50,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
     Route::prefix('perencanaan/rencana-aksi')->name('perencanaan.ra.')->group(function () {
         Route::get('penyusunan', [PerencanaanController::class, 'rencanaAksi'])->name('penyusunan');
         Route::get('progress', fn () => Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Progress'))->name('progress');
+        Route::get('export/xls', [PerencanaanController::class, 'exportRaXls'])->name('export.xls');
 
         Route::patch('batas', [PerencanaanController::class, 'raBatasUpdate'])->name('batas.update');
         Route::patch('{ra}/reopen', [PerencanaanController::class, 'raReopen'])->name('reopen');
