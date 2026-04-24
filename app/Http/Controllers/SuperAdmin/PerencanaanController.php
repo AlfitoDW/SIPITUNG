@@ -256,14 +256,23 @@ class PerencanaanController extends Controller
             ->where('jenis', 'awal')
             ->get();
 
-        // ── Index RAI (dengan kegiatan + tim kerja) by kode ───────────────────
+        // ── Index RAI (dengan kegiatan + tim kerja) grouped by kode ─────────
+        // Gunakan groupBy (bukan keyBy) agar semua RAI per kode tersimpan,
+        // lalu pilih yang statusnya tertinggi (kabag_approved > submitted > rejected > draft).
+        $statusPriority = ['kabag_approved' => 3, 'submitted' => 2, 'rejected' => 1, 'draft' => 0];
+
         $raiByKode = RencanaAksiIndikator::with([
             'kegiatans' => fn ($q) => $q->orderBy('triwulan')->orderBy('urutan'),
             'rencanaAksi.timKerja',
         ])
             ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
             ->get()
-            ->keyBy('kode');
+            ->groupBy('kode');
+
+        // Helper: pilih RAI terbaik (status tertinggi) dari sekumpulan RAI per kode
+        $bestRai = fn ($kode) => $raiByKode->get($kode, collect())
+            ->sortByDesc(fn ($r) => $statusPriority[$r->rencanaAksi?->status] ?? -1)
+            ->first();
 
         // ── Bangun sasaran map (dedup by kode) ────────────────────────────────
         $sasaranMap = [];
@@ -280,7 +289,7 @@ class PerencanaanController extends Controller
                     if (isset($sasaranMap[$sasaran->kode]['indikators'][$iku->kode])) {
                         continue;
                     }
-                    $rai = $raiByKode->get($iku->kode);
+                    $rai = $bestRai($iku->kode);
                     $picNames = $iku->picTimKerjas->map(fn ($t) => $t->nama)->join(', ');
                     $twKegiatan = [];
                     for ($tw = 1; $tw <= 4; $tw++) {
