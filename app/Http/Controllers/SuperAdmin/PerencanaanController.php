@@ -256,11 +256,32 @@ class PerencanaanController extends Controller
             ->where('jenis', 'awal')
             ->get();
 
-        // ── Index RAI (dengan kegiatan + tim kerja) grouped by kode ─────────
-        // Gunakan groupBy (bukan keyBy) agar semua RAI per kode tersimpan,
-        // lalu pilih yang statusnya tertinggi (kabag_approved > submitted > rejected > draft).
         $statusPriority = ['kabag_approved' => 3, 'submitted' => 2, 'rejected' => 1, 'draft' => 0];
 
+        // ── Lookup status RA per tim_kerja (selaras logika UI) ────────────────
+        // UI menentukan status IKU dari RA terbaik di antara SEMUA PIC teams,
+        // bukan dari apakah tim itu punya RAI untuk IKU tertentu.
+        $raByTimKerjaId = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
+            ->get()
+            ->groupBy('tim_kerja_id');
+
+        // Helper: status terbaik dari sekumpulan PIC teams (selaras UI getBestRa)
+        $bestStatusForPics = function ($picTimKerjas) use ($raByTimKerjaId, $statusPriority): ?string {
+            $bestPriority = -1;
+            $bestStatus   = null;
+            foreach ($picTimKerjas as $team) {
+                foreach ($raByTimKerjaId->get($team->id, collect()) as $ra) {
+                    $p = $statusPriority[$ra->status] ?? -1;
+                    if ($p > $bestPriority) {
+                        $bestPriority = $p;
+                        $bestStatus   = $ra->status;
+                    }
+                }
+            }
+            return $bestStatus;
+        };
+
+        // ── Index RAI by kode — pilih yang terbaik untuk data target & kegiatan ─
         $raiByKode = RencanaAksiIndikator::with([
             'kegiatans' => fn ($q) => $q->orderBy('triwulan')->orderBy('urutan'),
             'rencanaAksi.timKerja',
@@ -269,7 +290,7 @@ class PerencanaanController extends Controller
             ->get()
             ->groupBy('kode');
 
-        // Helper: pilih RAI terbaik (status tertinggi) dari sekumpulan RAI per kode
+        // Pilih RAI dengan status tertinggi untuk mengambil data target & kegiatan
         $bestRai = fn ($kode) => $raiByKode->get($kode, collect())
             ->sortByDesc(fn ($r) => $statusPriority[$r->rencanaAksi?->status] ?? -1)
             ->first();
@@ -289,8 +310,12 @@ class PerencanaanController extends Controller
                     if (isset($sasaranMap[$sasaran->kode]['indikators'][$iku->kode])) {
                         continue;
                     }
-                    $rai = $bestRai($iku->kode);
+                    $rai      = $bestRai($iku->kode);
                     $picNames = $iku->picTimKerjas->map(fn ($t) => $t->nama)->join(', ');
+
+                    // Status: ikuti logika UI — cek semua PIC teams, ambil status tertinggi
+                    $raStatus = $bestStatusForPics($iku->picTimKerjas);
+
                     $twKegiatan = [];
                     for ($tw = 1; $tw <= 4; $tw++) {
                         $twKegiatan[$tw] = $rai
@@ -308,7 +333,7 @@ class PerencanaanController extends Controller
                         'target_tw2' => $rai?->target_tw2,
                         'target_tw3' => $rai?->target_tw3,
                         'target_tw4' => $rai?->target_tw4,
-                        'ra_status' => $rai?->rencanaAksi?->status,
+                        'ra_status' => $raStatus,
                         'tw_kegiatan' => $twKegiatan,
                     ];
                 }
