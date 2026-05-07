@@ -19,6 +19,8 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
 
     Route::prefix('keuangan')->name('keuangan.')->group(function () {
         Route::get('permohonan-dana', [KeuanganController::class, 'permohonanDana'])->name('permohonan-dana');
+        Route::get('permohonan-dana/{pd}', [KeuanganController::class, 'showPermohonanDana'])->name('permohonan-dana.show');
+        Route::get('permohonan-dana/{pd}/print', [KeuanganController::class, 'printPermohonanDana'])->name('permohonan-dana.print');
 
         // ─── Master Anggaran DJA ──────────────────────────────────────────────────
         Route::prefix('master-anggaran')->name('master-anggaran.')->group(function () {

@@ -1,24 +1,17 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 import {
-    ArrowLeft, CheckCircle2, XCircle, FileText, Calendar,
-    User, MapPin, ClipboardList, Banknote, Eye,
-    Printer, History, CircleDot, Clock,
+    ArrowLeft, FileText, Calendar, User, MapPin, ClipboardList,
+    Banknote, Eye, Printer, History, XCircle, CheckCircle2,
+    Clock, CircleDot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import type { SharedData } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,11 +29,16 @@ interface Pd {
     status: string;
     status_label: string;
     catatan_katim: string | null;
+    catatan_kabag: string | null;
+    catatan_ppk: string | null;
+    catatan_pic: string | null;
+    catatan_pencairan: string | null;
     catatan_penolakan: string | null;
     created_by_name: string | null;
     created_at: string;
     submitted_at: string | null;
-    // approval actors & timestamps
+    tim_kerja: { id: number; nama: string; kode: string } | null;
+    // approval
     katim_approved_by: number | null;
     katim_approved_at: string | null;
     katim_approved_by_name: string | null;
@@ -58,10 +56,7 @@ interface Pd {
     dicairkan_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
-    catatan_kabag: string | null;
-    catatan_ppk: string | null;
-    catatan_pic: string | null;
-    catatan_pencairan: string | null;
+    // DJA
     dja_program?: { nama: string } | null;
     dja_sasaran?: { nama: string } | null;
     dja_kro?: { kode: string; nama: string } | null;
@@ -94,6 +89,9 @@ const STEPS = ['Informasi Kegiatan', 'Waktu & PJ', 'Dokumen', 'Rincian Biaya'] a
 const statusMeta = (s: string) => {
     if (s === 'submitted')      return { cls: 'bg-amber-100 text-amber-700 border-amber-200',   dot: 'bg-amber-400' };
     if (s === 'katim_approved') return { cls: 'bg-blue-100 text-blue-700 border-blue-200',     dot: 'bg-blue-500' };
+    if (s === 'kabag_approved') return { cls: 'bg-indigo-100 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500' };
+    if (s === 'ppk_approved')   return { cls: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-500' };
+    if (s === 'pic_approved')   return { cls: 'bg-purple-100 text-purple-700 border-purple-200', dot: 'bg-purple-500' };
     if (s === 'rejected')       return { cls: 'bg-red-100 text-red-700 border-red-200',        dot: 'bg-red-500' };
     if (s === 'dicairkan')      return { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' };
     return { cls: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' };
@@ -279,6 +277,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
 
                 <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
                     <div className="relative">
+                        {/* Center line */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border -translate-x-1/2" />
                         
                         <ol className="space-y-4">
@@ -290,6 +289,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
                                 
                                 return (
                                     <li key={step.key} className="relative flex items-center">
+                                        {/* Left side */}
                                         <div className={cn('flex-1 pr-6', isLeft ? 'text-right' : 'opacity-0 pointer-events-none')}>
                                             {isLeft && (
                                                 <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
@@ -313,10 +313,12 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
                                             )}
                                         </div>
 
+                                        {/* Center dot */}
                                         <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
                                             style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : '#e5e7eb' }}
                                         />
 
+                                        {/* Right side */}
                                         <div className={cn('flex-1 pl-6', !isLeft ? 'text-left' : 'opacity-0 pointer-events-none')}>
                                             {!isLeft && (
                                                 <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
@@ -352,23 +354,12 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-type ActionType = 'approve' | 'reject' | null;
-
 export default function Detail({ pd }: Props) {
-    const { auth } = usePage<SharedData>().props;
-    const currentUserId = auth.user.id;
-
     const [step, setStep]             = useState(1);
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
-    const [action, setAction]         = useState<ActionType>(null);
     const [showHistory, setShowHistory] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
-
-    const { data, setData, post, processing, reset } = useForm({ catatan: '' });
-
-    const isKapokja = pd.kapokja?.id === currentUserId;
-    const canApprove = isKapokja && pd.status === 'submitted';
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
@@ -376,12 +367,6 @@ export default function Detail({ pd }: Props) {
         const type = getFileType(dok.path_file);
         if (type === 'other') window.open(url, '_blank', 'noopener,noreferrer');
         else setPreviewDok({ url, nama: dok.nama_file });
-    };
-
-    const handleConfirm = () => {
-        if (!action) return;
-        const url = `/ketua-tim/keuangan/permohonan-dana/${pd.id}/${action}`;
-        post(url, { onSuccess: () => { reset(); setAction(null); } });
     };
 
     return (
@@ -397,15 +382,13 @@ export default function Detail({ pd }: Props) {
                 {/* Back + header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-3">
-                        <Link href="/ketua-tim/keuangan/permohonan-dana">
+                        <Link href="/super-admin/keuangan/permohonan-dana">
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                         </Link>
                         <div>
-                            <h1 className="text-lg font-bold text-gray-900 leading-tight">
-                                Detail Permohonan Dana
-                            </h1>
+                            <h1 className="text-lg font-bold text-gray-900 leading-tight">Detail Permohonan Dana</h1>
                             <p className="text-xs font-mono text-blue-700 font-semibold">{pd.nomor_permohonan}</p>
                         </div>
                     </div>
@@ -415,7 +398,7 @@ export default function Detail({ pd }: Props) {
                             <span className={cn('h-1.5 w-1.5 rounded-full', statusDot)} />
                             {pd.status_label}
                         </span>
-                        {/* Riwayat — selalu tampil */}
+                        {/* Riwayat */}
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button size="sm" variant="outline" onClick={() => setShowHistory(true)} className="gap-1.5 h-8 text-violet-600 border-violet-200 hover:bg-violet-50">
@@ -424,11 +407,11 @@ export default function Detail({ pd }: Props) {
                             </TooltipTrigger>
                             <TooltipContent>Riwayat proses ajuan</TooltipContent>
                         </Tooltip>
-                        {/* Cetak — hanya jika sudah diajukan */}
+                        {/* Cetak */}
                         {canPrint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Link href={`/ketua-tim/keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
+                                    <Link href={`/super-admin/keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
                                         <Button size="sm" variant="outline" className="gap-1.5 h-8 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
                                             <Printer className="h-4 w-4" /> Cetak
                                         </Button>
@@ -437,39 +420,10 @@ export default function Detail({ pd }: Props) {
                                 <TooltipContent>Cetak permohonan dana</TooltipContent>
                             </Tooltip>
                         )}
-                        {/* Approve / Reject — hanya jika user adalah kapokja dan status submitted */}
-                        {canApprove && (
-                            <>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button size="sm" onClick={() => { reset(); setAction('approve'); }}
-                                            className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-8">
-                                            <CheckCircle2 className="h-4 w-4" /> Setujui
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Setujui dan teruskan ke Kabag Umum</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button size="sm" variant="destructive" onClick={() => { reset(); setAction('reject'); }}
-                                            className="gap-1.5 h-8">
-                                            <XCircle className="h-4 w-4" /> Tolak
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Tolak — PUMK perlu merevisi</TooltipContent>
-                                </Tooltip>
-                            </>
-                        )}
-                        {/* Info jika bukan kapokja */}
-                        {pd.status === 'submitted' && !isKapokja && (
-                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
-                                Menunggu persetujuan Kapokja
-                            </span>
-                        )}
                     </div>
                 </div>
 
-                {/* Catatan penolakan / persetujuan */}
+                {/* Catatan */}
                 {pd.catatan_penolakan && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         <span className="font-semibold">Catatan Penolakan: </span>{pd.catatan_penolakan}
@@ -480,11 +434,26 @@ export default function Detail({ pd }: Props) {
                         <span className="font-semibold">Catatan KA.TIM: </span>{pd.catatan_katim}
                     </div>
                 )}
+                {pd.catatan_kabag && (
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                        <span className="font-semibold">Catatan Kabag: </span>{pd.catatan_kabag}
+                    </div>
+                )}
+                {pd.catatan_ppk && (
+                    <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+                        <span className="font-semibold">Catatan PPK: </span>{pd.catatan_ppk}
+                    </div>
+                )}
+                {pd.catatan_pic && (
+                    <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-700">
+                        <span className="font-semibold">Catatan PIC: </span>{pd.catatan_pic}
+                    </div>
+                )}
 
                 {/* Step Bar */}
                 <StepBar active={step} onChange={setStep} />
 
-                {/* ── Step 1: Informasi Kegiatan ── */}
+                {/* Step 1: Informasi Kegiatan */}
                 {step === 1 && (
                     <Card>
                         <CardHeader>
@@ -494,19 +463,20 @@ export default function Detail({ pd }: Props) {
                         </CardHeader>
                         <CardContent className="space-y-0">
                             <InfoRow label="No. Permohonan" value={pd.nomor_permohonan} mono />
-                            <InfoRow label="Diajukan Oleh"  value={pd.created_by_name} />
+                            <InfoRow label="Tim Kerja" value={pd.tim_kerja ? `${pd.tim_kerja.kode} — ${pd.tim_kerja.nama}` : null} />
+                            <InfoRow label="Diajukan Oleh" value={pd.created_by_name} />
                             <InfoRow label="Judul Pekerjaan" value={pd.judul_pekerjaan ?? pd.keperluan} />
-                            <InfoRow label="Program"        value={pd.dja_program?.nama} />
-                            <InfoRow label="Sasaran"        value={pd.dja_sasaran?.nama} />
-                            <InfoRow label="KRO"            value={pd.dja_kro ? `${pd.dja_kro.kode} — ${pd.dja_kro.nama}` : null} />
-                            <InfoRow label="RO"             value={pd.dja_ro?.nama} />
-                            <InfoRow label="Komponen"       value={pd.dja_komponen?.nama} />
-                            <InfoRow label="Kegiatan"       value={pd.dja_kegiatan ? `${pd.dja_kegiatan.kode} — ${pd.dja_kegiatan.nama}` : null} />
+                            <InfoRow label="Program" value={pd.dja_program?.nama} />
+                            <InfoRow label="Sasaran" value={pd.dja_sasaran?.nama} />
+                            <InfoRow label="KRO" value={pd.dja_kro ? `${pd.dja_kro.kode} — ${pd.dja_kro.nama}` : null} />
+                            <InfoRow label="RO" value={pd.dja_ro?.nama} />
+                            <InfoRow label="Komponen" value={pd.dja_komponen?.nama} />
+                            <InfoRow label="Kegiatan" value={pd.dja_kegiatan ? `${pd.dja_kegiatan.kode} — ${pd.dja_kegiatan.nama}` : null} />
                         </CardContent>
                     </Card>
                 )}
 
-                {/* ── Step 2: Waktu & PJ ── */}
+                {/* Step 2: Waktu & PJ */}
                 {step === 2 && (
                     <Card>
                         <CardHeader>
@@ -515,36 +485,24 @@ export default function Detail({ pd }: Props) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-0">
-                            <InfoRow label="Tanggal Mulai"    value={fmtDate(pd.tanggal_mulai)} />
-                            <InfoRow label="Tanggal Selesai"  value={fmtDate(pd.tanggal_selesai)} />
-                            <InfoRow label="Jam Pelaksanaan"  value={pd.jam_pelaksanaan} />
-                            <InfoRow label="Tempat"
-                                value={pd.tempat && (
-                                    <span className="flex items-center gap-1">
-                                        <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.tempat}
-                                    </span>
-                                )}
-                            />
+                            <InfoRow label="Tanggal Mulai" value={fmtDate(pd.tanggal_mulai)} />
+                            <InfoRow label="Tanggal Selesai" value={fmtDate(pd.tanggal_selesai)} />
+                            <InfoRow label="Jam Pelaksanaan" value={pd.jam_pelaksanaan} />
+                            <InfoRow label="Tempat" value={pd.tempat && (
+                                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.tempat}</span>
+                            )} />
                             <InfoRow label="Tgl. Pertanggungjawaban" value={fmtDate(pd.tgl_pertanggungjawaban)} />
-                            <InfoRow label="Kapokja Kegiatan"
-                                value={pd.kapokja && (
-                                    <span className="flex items-center gap-1">
-                                        <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.kapokja.nama_lengkap}
-                                    </span>
-                                )}
-                            />
-                            <InfoRow label="PIC Keuangan"
-                                value={pd.pic_keuangan && (
-                                    <span className="flex items-center gap-1">
-                                        <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.pic_keuangan.nama_lengkap}
-                                    </span>
-                                )}
-                            />
+                            <InfoRow label="Kapokja Kegiatan" value={pd.kapokja && (
+                                <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.kapokja.nama_lengkap}</span>
+                            )} />
+                            <InfoRow label="PIC Keuangan" value={pd.pic_keuangan && (
+                                <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.pic_keuangan.nama_lengkap}</span>
+                            )} />
                         </CardContent>
                     </Card>
                 )}
 
-                {/* ── Step 3: Dokumen ── */}
+                {/* Step 3: Dokumen */}
                 {step === 3 && (
                     <Card>
                         <CardHeader>
@@ -574,11 +532,7 @@ export default function Detail({ pd }: Props) {
                                                 <td className="py-2 text-center">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => openPreview(dok)}
-                                                                className="text-blue-500 hover:text-blue-700 transition-colors"
-                                                            >
+                                                            <button type="button" onClick={() => openPreview(dok)} className="text-blue-500 hover:text-blue-700 transition-colors">
                                                                 <Eye className="w-4 h-4" />
                                                             </button>
                                                         </TooltipTrigger>
@@ -594,7 +548,7 @@ export default function Detail({ pd }: Props) {
                     </Card>
                 )}
 
-                {/* ── Step 4: Rincian Biaya ── */}
+                {/* Step 4: Rincian Biaya */}
                 {step === 4 && (
                     <Card>
                         <CardHeader>
@@ -656,43 +610,6 @@ export default function Detail({ pd }: Props) {
 
             {/* Riwayat Timeline */}
             {showHistory && <VerticalTimeline pd={pd} open={showHistory} onClose={() => setShowHistory(false)} />}
-
-            {/* Approve / Reject Dialog */}
-            <AlertDialog open={!!action} onOpenChange={o => !o && setAction(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {action === 'approve' ? 'Setujui Permohonan' : 'Tolak Permohonan'}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {action === 'approve'
-                                ? `Setujui ${pd.nomor_permohonan} dan teruskan ke Kabag Umum?`
-                                : `Tolak ${pd.nomor_permohonan}? PUMK perlu merevisi dan mengajukan ulang.`}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="px-6 pb-2 space-y-1.5">
-                        <Label className="text-sm">
-                            Catatan {action === 'reject' && <span className="text-red-500">*</span>}
-                        </Label>
-                        <Textarea
-                            rows={3}
-                            value={data.catatan}
-                            onChange={e => setData('catatan', e.target.value)}
-                            placeholder={action === 'approve' ? 'Catatan persetujuan (opsional)' : 'Alasan penolakan (wajib diisi)'}
-                        />
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleConfirm}
-                            disabled={processing || (action === 'reject' && !data.catatan.trim())}
-                            className={action === 'reject' ? 'bg-red-600 hover:bg-red-700' : ''}
-                        >
-                            {processing ? 'Memproses...' : action === 'approve' ? 'Setujui' : 'Tolak'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </AppLayout>
     );
 }

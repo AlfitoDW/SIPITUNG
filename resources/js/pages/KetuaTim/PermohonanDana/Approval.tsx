@@ -1,7 +1,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
-import { Eye, History, Printer, Send, Clock, CheckCircle2, XCircle, FileText } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Eye, History, Printer, CircleDot, Clock, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -137,64 +137,97 @@ function VerticalTimeline({ pd, open, onClose }: { pd: PD; open: boolean; onClos
     const steps = buildTimeline(pd);
     const doneCount = steps.filter(s => s.state === 'done').length;
     const pct = Math.round((doneCount / steps.length) * 100);
-    const cfg = {
-        done:    { dot: 'bg-emerald-500 border-emerald-400 shadow-emerald-200', Icon: CheckCircle2, iconCls: 'text-white', card: 'border-emerald-100 bg-emerald-50/40', badge: 'bg-emerald-100 text-emerald-700' },
-        rejected:{ dot: 'bg-red-500 border-red-400 shadow-red-200',            Icon: XCircle,      iconCls: 'text-white', card: 'border-red-100 bg-red-50/40',       badge: 'bg-red-100 text-red-700' },
-        active:  { dot: 'bg-blue-500 border-blue-400 shadow-blue-200 animate-pulse', Icon: Send,  iconCls: 'text-white', card: 'border-blue-100 bg-blue-50/50',    badge: 'bg-blue-100 text-blue-700' },
-        pending: { dot: 'bg-gray-100 border-gray-300',                         Icon: Clock,        iconCls: 'text-gray-400', card: 'border-gray-100 bg-white',     badge: 'bg-gray-100 text-gray-400' },
+
+    const stateStyles = {
+        done:     { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
+        rejected: { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
+        active:   { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
+        pending:  { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
     } as const;
+
     return (
         <Dialog open={open} onOpenChange={o => !o && onClose()}>
-            <DialogContent className="max-w-lg p-0 overflow-hidden">
-                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-slate-800 to-slate-700">
-                    <div className="flex items-start justify-between mb-3">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Riwayat Proses Ajuan</p>
-                            <h2 className="text-base font-bold text-white font-mono">{pd.nomor_permohonan}</h2>
-                            <p className="text-xs text-slate-300 mt-0.5 truncate max-w-[280px]">{pd.judul_pekerjaan ?? pd.keperluan}</p>
+            <DialogContent className="max-w-2xl p-0 gap-0">
+                <DialogHeader className="p-6 pb-4 border-b">
+                    <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                            <DialogTitle className="text-base font-semibold">{pd.nomor_permohonan}</DialogTitle>
+                            <DialogDescription className="text-sm">{pd.judul_pekerjaan ?? pd.keperluan}</DialogDescription>
                         </div>
-                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-400/20 text-blue-300 shrink-0">{pd.status_label}</span>
+                        <Badge variant={pd.status === 'rejected' ? 'destructive' : pd.status === 'dicairkan' ? 'default' : 'secondary'}>
+                            {pd.status_label}
+                        </Badge>
                     </div>
-                    <div className="mt-3">
-                        <div className="flex justify-between text-[10px] text-slate-400 mb-1"><span>Progress</span><span>{doneCount}/{steps.length} langkah</span></div>
-                        <div className="h-1.5 rounded-full bg-slate-600 overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                    <div className="pt-4">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                            <span>Progress</span>
+                            <span>{doneCount} dari {steps.length} langkah</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
                         </div>
                     </div>
-                </div>
-                <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+                </DialogHeader>
+
+                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
                     <div className="relative">
-                        <div className="absolute left-[19px] top-5 bottom-5 w-[2px] bg-gradient-to-b from-emerald-200 via-gray-200 to-gray-100" />
-                        <ol className="space-y-3">
-                            {steps.map(step => {
-                                const c = cfg[step.state]; const dt = fmtDateTime(step.ts);
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border -translate-x-1/2" />
+                        
+                        <ol className="space-y-4">
+                            {steps.map((step, idx) => {
+                                const style = stateStyles[step.state];
+                                const Icon = style.icon;
+                                const dt = fmtDateTime(step.ts);
+                                const isLeft = idx % 2 === 0;
+                                
                                 return (
-                                    <li key={step.key} className="flex gap-3 relative">
-                                        <div className="relative z-10 flex-shrink-0 mt-0.5">
-                                            <div className={cn('h-[38px] w-[38px] rounded-full border-2 shadow-md flex items-center justify-center', c.dot)}>
-                                                <c.Icon className={cn('h-4 w-4', c.iconCls)} />
-                                            </div>
-                                        </div>
-                                        <div className={cn('flex-1 border rounded-xl px-3.5 py-2.5 min-w-0', c.card)}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', c.badge)}>#{step.stepNo}</span>
-                                                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{step.role}</span>
-                                            </div>
-                                            <p className={cn('text-sm font-bold', step.state === 'rejected' ? 'text-red-700' : step.state === 'done' ? 'text-gray-800' : step.state === 'active' ? 'text-blue-700' : 'text-gray-400')}>{step.action}</p>
-                                            {step.actorName && <p className="text-[11px] text-gray-600 mt-0.5">{step.actorName}</p>}
-                                            {dt ? (
-                                                <div className="mt-1.5 flex items-center gap-3">
-                                                    <span className={cn('text-[10px] font-semibold flex items-center gap-1', step.state === 'rejected' ? 'text-red-500' : 'text-emerald-600')}>
-                                                        <Clock className="h-3 w-3" />{dt.time}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-400">{dt.date}</span>
+                                    <li key={step.key} className="relative flex items-center">
+                                        <div className={cn('flex-1 pr-6', isLeft ? 'text-right' : 'opacity-0 pointer-events-none')}>
+                                            {isLeft && (
+                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
+                                                    <div className="flex items-center gap-2 mb-1 justify-end">
+                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
+                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
+                                                    </div>
+                                                    <p className="text-sm font-medium">{step.action}</p>
+                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
+                                                    {dt && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {dt.date} · {dt.time}
+                                                        </p>
+                                                    )}
+                                                    {step.catatan && (
+                                                        <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">
+                                                            {step.catatan}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                            ) : step.state === 'active' ? (
-                                                <p className="text-[10px] text-blue-500 mt-1">⏳ Sedang menunggu…</p>
-                                            ) : <p className="text-[10px] text-gray-400 mt-1">Belum diproses</p>}
-                                            {step.catatan && (
-                                                <div className={cn('mt-2 px-2.5 py-1.5 rounded-lg text-[11px] border-l-2', step.state === 'rejected' ? 'bg-red-50 border-red-300 text-red-700' : 'bg-gray-50 border-gray-300 text-gray-600')}>
-                                                    <span className="font-semibold">Catatan: </span>{step.catatan}
+                                            )}
+                                        </div>
+
+                                        <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
+                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : '#e5e7eb' }}
+                                        />
+
+                                        <div className={cn('flex-1 pl-6', !isLeft ? 'text-left' : 'opacity-0 pointer-events-none')}>
+                                            {!isLeft && (
+                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
+                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
+                                                    </div>
+                                                    <p className="text-sm font-medium">{step.action}</p>
+                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
+                                                    {dt && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {dt.date} · {dt.time}
+                                                        </p>
+                                                    )}
+                                                    {step.catatan && (
+                                                        <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">
+                                                            {step.catatan}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
