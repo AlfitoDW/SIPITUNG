@@ -789,6 +789,20 @@ class PerencanaanController extends Controller
             )->where('kode', $oldKode)->update(['kode' => $newKode]);
         }
 
+        // Sinkronisasi data indikator (target, nama, satuan, target TW) ke semua RAI
+        // pada tahun yang sama, agar Rencana Aksi selalu merefleksikan PK terbaru.
+        RencanaAksiIndikator::whereHas(
+            'rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId)
+        )->where('kode', $newKode)->update([
+            'nama'       => $data['nama'],
+            'satuan'     => $data['satuan'],
+            'target'     => $data['target'],
+            'target_tw1' => $data['target_tw1'] ?? null,
+            'target_tw2' => $data['target_tw2'] ?? null,
+            'target_tw3' => $data['target_tw3'] ?? null,
+            'target_tw4' => $data['target_tw4'] ?? null,
+        ]);
+
         return back()->with('success', 'Indikator berhasil diperbarui.');
     }
 

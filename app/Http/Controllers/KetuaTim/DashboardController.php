@@ -34,18 +34,26 @@ class DashboardController extends Controller
             ->where('tim_kerja_id', $tkPkId)
             ->select('id', 'status', 'tim_kerja_id')->first() : null;
 
-        // Ambil RA dengan status TERBAIK untuk tim ini — termasuk RA dari primary PIC
-        // yang menjadikan tim ini sebagai co-PIC (peer_tim_kerja_id = timKerjaId),
-        // agar co-PIC tidak stuck "draft" saat primary PIC sudah submit.
-        $ra = $tahun ? RencanaAksi::withCount('indikators')
-            ->where('tahun_anggaran_id', $tahun->id)
-            ->where(function ($q) use ($timKerjaId) {
-                $q->where('tim_kerja_id', $timKerjaId)
-                    ->orWhere('peer_tim_kerja_id', $timKerjaId);
-            })
-            ->select('id', 'status')
-            ->orderByRaw("FIELD(status,'kabag_approved','submitted','rejected','draft')")
-            ->first() : null;
+        // Ambil RA dengan status PALING URGENT untuk tim ini — termasuk RA dari primary PIC
+        // yang menjadikan tim ini sebagai co-PIC (peer_tim_kerja_id = timKerjaId).
+        // Prioritas: rejected > draft > submitted > kabag_approved, agar user tidak melewatkan
+        // RA yang butuh perbaikan meskipun RA lain sudah disetujui.
+        $ra = null;
+        if ($tahun) {
+            $ras = RencanaAksi::withCount('indikators')
+                ->where('tahun_anggaran_id', $tahun->id)
+                ->where(function ($q) use ($timKerjaId) {
+                    $q->where('tim_kerja_id', $timKerjaId)
+                        ->orWhere('peer_tim_kerja_id', $timKerjaId);
+                })
+                ->select('id', 'status')
+                ->get();
+
+            if ($ras->isNotEmpty()) {
+                $priority = ['rejected' => 0, 'draft' => 1, 'submitted' => 2, 'kabag_approved' => 3];
+                $ra = $ras->sortBy(fn ($r) => $priority[$r->status] ?? 4)->first();
+            }
+        }
 
         // ── Pengukuran Kinerja — tampilkan laporan terbaru tim (prioritas: ada laporan) ──
         $pengukuran = null;
