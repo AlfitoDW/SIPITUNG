@@ -614,6 +614,21 @@ class PerencanaanController extends Controller
                     ->delete();
             }
 
+            // Force-sync data RAI yang sudah ada dari PK terbaru
+            // agar perubahan target di PK langsung terrefleksikan di Rencana Aksi.
+            foreach ($ikuIds as $ikuId) {
+                $pkIku = IndikatorKinerja::find($ikuId);
+                if ($pkIku) {
+                    RencanaAksiIndikator::where('kode', $pkIku->kode)
+                        ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId))
+                        ->update([
+                            'nama' => $pkIku->nama,
+                            'satuan' => $pkIku->satuan,
+                            'target' => $pkIku->target,
+                        ]);
+                }
+            }
+
             // Auto-populasi RAI dari PK Awal jika belum ada untuk group ini
             $existingRaiCount = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)
                 ->whereIn('kode', $groupIkuKodes)
