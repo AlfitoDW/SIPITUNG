@@ -1,16 +1,15 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     FileText, ClipboardList, ChevronRight, Loader2, Building2,
     HandCoins, ShieldCheck, ChartNoAxesColumn, ArrowRight
 } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
-import type { SharedData } from '@/types';
 
 type DocStatus = { id: number; status: string; indikators_count?: number } | null;
 type Tahun     = { id: number; tahun: number; label: string } | null;
 type Permohonan = {
-    draft: number; submitted: number; kabag_approved: number;
-    bendahara_checked: number; katimku_approved: number;
+    draft: number; submitted: number; katim_approved: number;
+    kabag_approved: number; ppk_approved: number; pic_approved: number;
     dicairkan: number; rejected: number; nilai_dicairkan: number;
 };
 type PengukuranStatus = { status: string | null; triwulan: string; approved_at: string | null } | null;
@@ -34,13 +33,14 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
 };
 
 const PD_STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; spinner?: boolean; spinnerColor?: string }> = {
-    draft:              { label: 'Draft',                dot: 'bg-amber-400',  text: 'text-amber-600' },
-    submitted:          { label: 'Menunggu Kabag',       dot: 'bg-blue-400',   text: 'text-blue-600',    spinner: true, spinnerColor: 'text-blue-400' },
-    kabag_approved:     { label: 'Menunggu Bendahara',   dot: 'bg-sky-400',    text: 'text-sky-600',     spinner: true, spinnerColor: 'text-sky-400' },
-    bendahara_checked:  { label: 'Menunggu Katimku',     dot: 'bg-violet-400', text: 'text-violet-600',  spinner: true, spinnerColor: 'text-violet-400' },
-    katimku_approved:   { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
-    dicairkan:          { label: 'Sudah Cair',           dot: 'bg-emerald-400',text: 'text-emerald-600' },
-    rejected:           { label: 'Ditolak',              dot: 'bg-red-400',    text: 'text-red-600' },
+    draft:          { label: 'Draft',               dot: 'bg-amber-400',  text: 'text-amber-600' },
+    submitted:      { label: 'Menunggu KA.TIM',     dot: 'bg-blue-400',   text: 'text-blue-600',    spinner: true, spinnerColor: 'text-blue-400' },
+    katim_approved: { label: 'Menunggu Kabag',       dot: 'bg-sky-400',    text: 'text-sky-600',     spinner: true, spinnerColor: 'text-sky-400' },
+    kabag_approved: { label: 'Menunggu PPK',         dot: 'bg-indigo-400', text: 'text-indigo-600',  spinner: true, spinnerColor: 'text-indigo-400' },
+    ppk_approved:   { label: 'Menunggu PIC',         dot: 'bg-violet-400', text: 'text-violet-600',  spinner: true, spinnerColor: 'text-violet-400' },
+    pic_approved:   { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
+    dicairkan:      { label: 'Sudah Cair',           dot: 'bg-emerald-400',text: 'text-emerald-600' },
+    rejected:       { label: 'Ditolak',              dot: 'bg-red-400',    text: 'text-red-600' },
 };
 
 const fmt = (n: number) =>
@@ -95,11 +95,8 @@ function FlowCard({ step, index, isLast }: { step: FlowStep; index: number; isLa
 }
 
 export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra, pengukuran, permohonan, approvalPending }: Props) {
-    const { auth } = usePage<SharedData>().props;
-    const isKoordinator = auth.user?.is_koordinator ?? false;
-
-    const pdTotal = permohonan.draft + permohonan.submitted + permohonan.kabag_approved +
-        permohonan.bendahara_checked + permohonan.katimku_approved +
+    const pdTotal = permohonan.draft + permohonan.submitted + permohonan.katim_approved +
+        permohonan.kabag_approved + permohonan.ppk_approved + permohonan.pic_approved +
         permohonan.dicairkan + permohonan.rejected;
 
     const flowSteps: FlowStep[] = [
@@ -177,9 +174,9 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra,
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-sm font-semibold text-foreground">Keuangan {tahun ? `— ${tahun.label}` : ''}</p>
-                        {isKoordinator && approvalPending > 0 && (
+                        {approvalPending > 0 && (
                             <Link
-                                href="/ketua-tim/permohonan-dana/approval"
+                                href="/ketua-tim/keuangan/permohonan-dana"
                                 className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950/40 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-200 transition-colors"
                             >
                                 <ShieldCheck className="h-3.5 w-3.5" />

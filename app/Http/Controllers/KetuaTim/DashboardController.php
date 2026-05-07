@@ -88,6 +88,7 @@ class DashboardController extends Controller
         }
 
         // ── Keuangan — Permohonan Dana ─────────────────────────────────────────
+        // KA.TIM melihat permohonan yang dibuat oleh PUMK di tim mereka (via tim_kerja_id)
         $pdCounts = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
             ->where('tim_kerja_id', $timKerjaId)
             ->selectRaw('status, count(*) as n')
@@ -99,11 +100,11 @@ class DashboardController extends Controller
             ->where('status', 'dicairkan')
             ->sum('total_anggaran') : 0;
 
-        // Hanya tampil untuk ketua koordinator: antrian approval
-        $approvalPending = ($tahun && $user->isKetuaKoordinator())
-            ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
-                ->where('status', 'bendahara_checked')->count()
-            : 0;
+        // Antrian approval KA.TIM sendiri (submitted → katim_approved)
+        $approvalPending = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
+            ->where('tim_kerja_id', $timKerjaId)
+            ->where('status', 'submitted')
+            ->count() : 0;
 
         return Inertia::render('KetuaTim/Dashboard', [
             'user' => $user,
@@ -114,13 +115,14 @@ class DashboardController extends Controller
             'ra' => $ra,
             'pengukuran' => $pengukuran,
             'permohonan' => [
-                'draft' => $pdCounts->get('draft', 0),
-                'submitted' => $pdCounts->get('submitted', 0),
+                'draft'          => $pdCounts->get('draft', 0),
+                'submitted'      => $pdCounts->get('submitted', 0),
+                'katim_approved' => $pdCounts->get('katim_approved', 0),
                 'kabag_approved' => $pdCounts->get('kabag_approved', 0),
-                'bendahara_checked' => $pdCounts->get('bendahara_checked', 0),
-                'katimku_approved' => $pdCounts->get('katimku_approved', 0),
-                'dicairkan' => $pdCounts->get('dicairkan', 0),
-                'rejected' => $pdCounts->get('rejected', 0),
+                'ppk_approved'   => $pdCounts->get('ppk_approved', 0),
+                'pic_approved'   => $pdCounts->get('pic_approved', 0),
+                'dicairkan'      => $pdCounts->get('dicairkan', 0),
+                'rejected'       => $pdCounts->get('rejected', 0),
                 'nilai_dicairkan' => $nilaiDicairkan,
             ],
             'approvalPending' => $approvalPending,

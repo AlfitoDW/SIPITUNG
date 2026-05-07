@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
-import { ShieldCheck } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -11,20 +10,23 @@ import {
     SidebarHeader,
     useSidebar,
 } from '@/components/ui/sidebar';
-import bendaharaNav  from '@/config/navigation/bendahara';
-import ketuaTimNav   from '@/config/navigation/ketua-tim';
-import pimpinanNav   from '@/config/navigation/pimpinan';
-import superAdminNav from '@/config/navigation/super-admin';
+import bendaharaNav   from '@/config/navigation/bendahara';
+import ketuaTimNav    from '@/config/navigation/ketua-tim';
+import picKeuanganNav from '@/config/navigation/pic-keuangan';
+import pimpinanNav    from '@/config/navigation/pimpinan';
+import pumkNav        from '@/config/navigation/pumk';
+import superAdminNav  from '@/config/navigation/super-admin';
 import type { NavGroup, NavItem, SharedData } from '@/types';
 import type { UserRole } from '@/types/auth';
 import AppLogo from './app-logo';
-
 
 const navByRole: Record<UserRole, NavGroup[]> = {
     super_admin:     superAdminNav,
     ketua_tim_kerja: ketuaTimNav,
     pimpinan:        pimpinanNav,
     bendahara:       bendaharaNav,
+    pumk:            pumkNav,
+    pic_keuangan:    picKeuanganNav,
 };
 
 const footerNavItems: NavItem[] = [];
@@ -33,18 +35,8 @@ export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
     const { state } = useSidebar();
 
-    const isCollapsed  = state === 'collapsed';
-
-    // Inject approval nav item for ketua koordinator
-    let navGroups = navByRole[auth.user.role] ?? [];
-    if (auth.user.role === 'ketua_tim_kerja' && auth.user.is_koordinator) {
-        navGroups = navGroups.map(group =>
-            group.label === 'Keuangan'
-                ? { ...group, items: [...group.items, { title: 'Approval Permohonan', href: '/ketua-tim/permohonan-dana/approval', icon: ShieldCheck }] }
-                : group
-        );
-    }
-
+    const isCollapsed = state === 'collapsed';
+    const navGroups   = navByRole[auth.user.role] ?? [];
     const dashboardHref = navGroups[0]?.items[0]?.href ?? '/dashboard';
 
     return (

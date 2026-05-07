@@ -30,11 +30,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => fn () => $request->user()
-                    ? array_merge($request->user()->toArray(), [
-                        'is_koordinator' => $request->user()->isKetuaKoordinator(),
-                    ])
-                    : null,
+                'user' => fn () => $request->user()?->toArray(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'tahun_anggaran' => fn () => session('tahun_anggaran_id')
@@ -42,10 +38,11 @@ class HandleInertiaRequests extends Middleware
                 : null,
             'tahun_anggaran_list' => fn () => TahunAnggaran::active()->orderBy('tahun', 'desc')->get(['id', 'tahun', 'label']),
             'flash' => fn () => [
-                'success' => $request->session()->get('success'),
-                'error' => $request->session()->get('error'),
-                'warning' => $request->session()->get('warning'),
-                'info' => $request->session()->get('info'),
+                'success'    => $request->session()->get('success'),
+                'error'      => $request->session()->get('error'),
+                'warning'    => $request->session()->get('warning'),
+                'info'       => $request->session()->get('info'),
+                'wizard_step' => $request->session()->pull('wizard_step'),
             ],
         ];
     }

@@ -1,237 +1,208 @@
 import { Head } from '@inertiajs/react';
-import { ChevronDown, ChevronUp, Search, Building2 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Keuangan', href: '#' },
-    { title: 'Permohonan Dana', href: '/super-admin/keuangan/permohonan-dana' },
-];
-
-const fmt = (n: number | string) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(n));
-
-const STATUS: Record<string, { label: string; className: string }> = {
-    draft:              { label: 'Draft',                         className: 'bg-yellow-50 text-yellow-700 border-yellow-300' },
-    submitted:          { label: 'Menunggu Kabag Umum',           className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    kabag_approved:     { label: 'Menunggu Verifikasi Bendahara', className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    bendahara_checked:  { label: 'Menunggu Ketua Tim Perencanaan',className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    katimku_approved:   { label: 'Siap Dicairkan',                className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    dicairkan:          { label: 'Sudah Dicairkan',               className: 'bg-green-100 text-green-800 border-green-400' },
-    rejected:           { label: 'Ditolak',                       className: 'bg-red-100 text-red-800 border-red-400' },
-};
-
-type Item = { id: number; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string; keterangan: string | null };
+type Item = { id: number; kode_akun: string | null; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string };
 type PD = {
     id: number;
     nomor_permohonan: string;
     keperluan: string;
-    tanggal_kegiatan: string;
+    tanggal_mulai: string;
+    tanggal_selesai: string;
     total_anggaran: string;
     status: string;
-    keterangan: string | null;
-    rekomendasi_kabag: string | null;
-    catatan_bendahara: string | null;
-    rekomendasi_katimku: string | null;
-    catatan_pencairan: string | null;
-    dicairkan_at: string | null;
+    status_label: string;
     tim_kerja: { id: number; nama: string; kode: string } | null;
     items: Item[];
 };
-type Props = {
-    tahun: { id: number; tahun: string; label: string };
-    permohonan: PD[];
-    timKerjaList: { id: number; nama: string }[];
+type Tahun = { id: number; tahun: number; label: string } | null;
+type Props = { tahun: Tahun; permohonan: PD[]; timKerjaList: { id: number; nama: string }[] };
+
+const fmt = (n: string | number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(n));
+const fmtDate = (s: string) =>
+    new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const statusColor = (s: string) => {
+    if (s === 'dicairkan') return 'bg-green-500';
+    if (s === 'rejected') return 'bg-red-500';
+    if (s === 'draft') return 'bg-slate-400';
+    return 'bg-blue-500';
 };
 
-export default function Index({ tahun, permohonan, timKerjaList }: Props) {
-    const [expanded, setExpanded]         = useState<number | null>(null);
-    const [search, setSearch]             = useState('');
-    const [filterTimKerja, setFilterTimKerja] = useState('all');
-    const [filterStatus, setFilterStatus] = useState('all');
+const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    if (s === 'dicairkan') return 'default';
+    if (s === 'rejected') return 'destructive';
+    if (s === 'draft') return 'secondary';
+    return 'outline';
+};
 
-    const filtered = useMemo(() => {
-        return permohonan.filter((pd) => {
-            const matchSearch =
-                search === '' ||
-                pd.nomor_permohonan.toLowerCase().includes(search.toLowerCase()) ||
-                pd.keperluan.toLowerCase().includes(search.toLowerCase());
-            const matchTimKerja =
-                filterTimKerja === 'all' || pd.tim_kerja?.id.toString() === filterTimKerja;
-            const matchStatus =
-                filterStatus === 'all' || pd.status === filterStatus;
-            return matchSearch && matchTimKerja && matchStatus;
-        });
-    }, [permohonan, search, filterTimKerja, filterStatus]);
+const STATUS_ORDER = ['draft', 'submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved', 'dicairkan', 'rejected'];
+
+export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }: Props) {
+    const [expanded, setExpanded] = useState<number | null>(null);
+    const [search, setSearch] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterTim, setFilterTim] = useState('');
+
+    const filtered = permohonan.filter((pd) => {
+        const matchSearch =
+            !search ||
+            pd.nomor_permohonan.toLowerCase().includes(search.toLowerCase()) ||
+            pd.keperluan.toLowerCase().includes(search.toLowerCase());
+        const matchStatus = !filterStatus || pd.status === filterStatus;
+        const matchTim = !filterTim || String(pd.tim_kerja?.id) === filterTim;
+        return matchSearch && matchStatus && matchTim;
+    });
+
+    const stats = {
+        total: permohonan.length,
+        proses: permohonan.filter((p) => !['draft', 'dicairkan', 'rejected'].includes(p.status)).length,
+        dicairkan: permohonan.filter((p) => p.status === 'dicairkan').length,
+        rejected: permohonan.filter((p) => p.status === 'rejected').length,
+        totalCair: permohonan.filter((p) => p.status === 'dicairkan').reduce((s, p) => s + Number(p.total_anggaran), 0),
+    };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout>
             <Head title="Monitoring Permohonan Dana" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex flex-col gap-6 p-4 md:p-6">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Monitoring Permohonan Dana</h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Semua permohonan dana seluruh tim kerja — {tahun.label}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{tahun?.label}</p>
+                </div>
+
+                {/* Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                        { label: 'Total', value: stats.total, color: 'bg-slate-400' },
+                        { label: 'Proses', value: stats.proses, color: 'bg-blue-500' },
+                        { label: 'Dicairkan', value: `${stats.dicairkan} (${fmt(stats.totalCair)})`, color: 'bg-green-500' },
+                        { label: 'Ditolak', value: stats.rejected, color: 'bg-red-500' },
+                    ].map((s) => (
+                        <div key={s.label} className="overflow-hidden rounded-xl border bg-card">
+                            <div className={`h-0.5 w-full ${s.color}`} />
+                            <div className="p-3">
+                                <p className="text-xs text-muted-foreground">{s.label}</p>
+                                <p className="text-lg font-bold tabular-nums">{s.value}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Filters */}
                 <div className="flex flex-wrap gap-3">
-                    <div className="relative min-w-48 flex-1">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari nomor atau keperluan..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-8"
-                        />
-                    </div>
-                    <Select value={filterTimKerja} onValueChange={setFilterTimKerja}>
-                        <SelectTrigger className="w-48 overflow-hidden">
-                            <Building2 className="mr-2 h-4 w-4 shrink-0" />
-                            <SelectValue placeholder="Semua Tim Kerja" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Semua Tim Kerja</SelectItem>
-                            {timKerjaList.map((tk) => (
-                                <SelectItem key={tk.id} value={tk.id.toString()}>{tk.nama}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="w-48 overflow-hidden">
-                            <SelectValue placeholder="Semua Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Semua Status</SelectItem>
-                            {Object.entries(STATUS).map(([key, cfg]) => (
-                                <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <Input
+                        placeholder="Cari nomor / keperluan..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="max-w-xs"
+                    />
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="rounded-md border bg-background px-3 py-2 text-sm"
+                    >
+                        <option value="">Semua Status</option>
+                        {STATUS_ORDER.map((s) => (
+                            <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={filterTim}
+                        onChange={(e) => setFilterTim(e.target.value)}
+                        className="rounded-md border bg-background px-3 py-2 text-sm"
+                    >
+                        <option value="">Semua Tim</option>
+                        {timKerjaList.map((t) => (
+                            <option key={t.id} value={t.id}>{t.nama}</option>
+                        ))}
+                    </select>
                 </div>
 
                 {filtered.length === 0 ? (
-                    <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-                        {permohonan.length === 0
-                            ? 'Belum ada permohonan dana pada tahun anggaran ini.'
-                            : 'Tidak ada data yang sesuai dengan filter.'}
-                    </div>
+                    <Card>
+                        <CardContent className="flex flex-col items-center py-12 text-center">
+                            <FileText className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                            <p className="text-sm text-muted-foreground">Tidak ada data permohonan</p>
+                        </CardContent>
+                    </Card>
                 ) : (
-                    <div className="rounded-xl border overflow-hidden shadow-sm">
-                        <Table>
-                            <TableHeader>
-                                <TableRow style={{ backgroundColor: '#003580' }}>
-                                    <TableHead className="text-white font-semibold w-8"></TableHead>
-                                    <TableHead className="text-white font-semibold">Nomor</TableHead>
-                                    <TableHead className="text-white font-semibold">Tim Kerja</TableHead>
-                                    <TableHead className="text-white font-semibold">Keperluan</TableHead>
-                                    <TableHead className="text-white font-semibold">Tgl Kegiatan</TableHead>
-                                    <TableHead className="text-white font-semibold text-right">Total</TableHead>
-                                    <TableHead className="text-white font-semibold text-center">Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filtered.map((pd) => {
-                                    const statusCfg = STATUS[pd.status] ?? STATUS['draft'];
-                                    const isExpanded = expanded === pd.id;
+                    <div className="flex flex-col gap-2">
+                        {filtered.map((pd) => {
+                            const isOpen = expanded === pd.id;
+                            return (
+                                <div key={pd.id} className="overflow-hidden rounded-xl border bg-card">
+                                    <div className={`h-0.5 w-full ${statusColor(pd.status)}`} />
+                                    <div className="p-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-mono text-xs text-muted-foreground">{pd.nomor_permohonan}</span>
+                                                    {pd.tim_kerja && <Badge variant="outline" className="text-xs">{pd.tim_kerja.kode}</Badge>}
+                                                    <Badge variant={statusVariant(pd.status)} className="text-xs">{pd.status_label}</Badge>
+                                                </div>
+                                                <p className="font-semibold mt-1 truncate">{pd.keperluan}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {fmtDate(pd.tanggal_mulai)} – {fmtDate(pd.tanggal_selesai)}
+                                                </p>
+                                                <p className="text-sm font-bold mt-1">{fmt(pd.total_anggaran)}</p>
+                                            </div>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                                                        onClick={() => setExpanded(isOpen ? null : pd.id)}
+                                                    >
+                                                        {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>{isOpen ? 'Sembunyikan rincian' : 'Lihat rincian biaya'}</TooltipContent>
+                                            </Tooltip>
+                                        </div>
 
-                                    return (
-                                        <>
-                                            <TableRow key={pd.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setExpanded(isExpanded ? null : pd.id)}>
-                                                <TableCell>
-                                                    <span className="text-muted-foreground">
-                                                        {isExpanded
-                                                            ? <ChevronUp className="h-4 w-4" />
-                                                            : <ChevronDown className="h-4 w-4" />}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
-                                                <TableCell className="text-sm">
-                                                    {pd.tim_kerja ? (
-                                                        <span>
-                                                            <span className="font-medium">{pd.tim_kerja.nama}</span>
-                                                            <span className="ml-1 text-xs text-muted-foreground">({pd.tim_kerja.kode})</span>
-                                                        </span>
-                                                    ) : '-'}
-                                                </TableCell>
-                                                <TableCell className="font-medium">{pd.keperluan}</TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {new Date(pd.tanggal_kegiatan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                                </TableCell>
-                                                <TableCell className="text-right font-semibold">{fmt(pd.total_anggaran)}</TableCell>
-                                                <TableCell className="text-center">
-                                                    <Badge variant="outline" className={statusCfg.className}>
-                                                        {statusCfg.label}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-
-                                            {isExpanded && (
-                                                <TableRow key={`${pd.id}-detail`} className="bg-muted/20">
-                                                    <TableCell colSpan={7} className="p-0">
-                                                        <div className="px-6 py-4 space-y-3">
-                                                            {pd.keterangan && (
-                                                                <p className="text-sm text-muted-foreground italic">{pd.keterangan}</p>
-                                                            )}
-                                                            <Table>
-                                                                <TableHeader>
-                                                                    <TableRow className="bg-slate-100 hover:bg-slate-100">
-                                                                        <TableHead className="text-xs w-8">No</TableHead>
-                                                                        <TableHead className="text-xs">Uraian</TableHead>
-                                                                        <TableHead className="text-xs text-center">Volume</TableHead>
-                                                                        <TableHead className="text-xs text-center">Satuan</TableHead>
-                                                                        <TableHead className="text-xs text-right">Harga Satuan</TableHead>
-                                                                        <TableHead className="text-xs text-right">Total</TableHead>
-                                                                    </TableRow>
-                                                                </TableHeader>
-                                                                <TableBody>
-                                                                    {pd.items.map((item, idx) => (
-                                                                        <TableRow key={item.id} className="hover:bg-transparent">
-                                                                            <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                                                            <TableCell className="text-xs">{item.uraian}</TableCell>
-                                                                            <TableCell className="text-xs text-center">{item.volume}</TableCell>
-                                                                            <TableCell className="text-xs text-center">{item.satuan}</TableCell>
-                                                                            <TableCell className="text-xs text-right">{fmt(item.harga_satuan)}</TableCell>
-                                                                            <TableCell className="text-xs text-right font-medium">{fmt(item.total)}</TableCell>
-                                                                        </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                            {pd.rekomendasi_kabag && (
-                                                                <p className="text-xs text-indigo-700 bg-indigo-50 rounded px-3 py-1.5">
-                                                                    <span className="font-semibold">Catatan Kabag:</span> {pd.rekomendasi_kabag}
-                                                                </p>
-                                                            )}
-                                                            {pd.catatan_bendahara && (
-                                                                <p className="text-xs text-purple-700 bg-purple-50 rounded px-3 py-1.5">
-                                                                    <span className="font-semibold">Catatan Bendahara:</span> {pd.catatan_bendahara}
-                                                                </p>
-                                                            )}
-                                                            {pd.rekomendasi_katimku && (
-                                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-1.5">
-                                                                    <span className="font-semibold">Catatan Ketua Tim:</span> {pd.rekomendasi_katimku}
-                                                                </p>
-                                                            )}
-                                                            {pd.catatan_pencairan && (
-                                                                <p className="text-xs text-green-700 bg-green-50 rounded px-3 py-1.5">
-                                                                    <span className="font-semibold">Catatan Pencairan:</span> {pd.catatan_pencairan}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
+                                        {isOpen && pd.items.length > 0 && (
+                                            <div className="mt-4 border rounded-lg overflow-hidden">
+                                                <table className="w-full text-xs">
+                                                    <thead className="bg-muted/50">
+                                                        <tr>
+                                                            <th className="px-3 py-2 text-left">Kode Akun</th>
+                                                            <th className="px-3 py-2 text-left">Uraian</th>
+                                                            <th className="px-3 py-2 text-right">Vol</th>
+                                                            <th className="px-3 py-2 text-left">Sat</th>
+                                                            <th className="px-3 py-2 text-right">Harga Sat.</th>
+                                                            <th className="px-3 py-2 text-right">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y">
+                                                        {pd.items.map((item) => (
+                                                            <tr key={item.id}>
+                                                                <td className="px-3 py-2 font-mono text-muted-foreground">{item.kode_akun ?? '-'}</td>
+                                                                <td className="px-3 py-2">{item.uraian}</td>
+                                                                <td className="px-3 py-2 text-right">{Number(item.volume)}</td>
+                                                                <td className="px-3 py-2">{item.satuan}</td>
+                                                                <td className="px-3 py-2 text-right tabular-nums">{fmt(item.harga_satuan)}</td>
+                                                                <td className="px-3 py-2 text-right font-medium tabular-nums">{fmt(item.total)}</td>
+                                                            </tr>
+                                                        ))}
+                                                        <tr className="bg-muted/30 font-semibold">
+                                                            <td colSpan={5} className="px-3 py-2 text-right text-xs">Total</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums">{fmt(pd.total_anggaran)}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

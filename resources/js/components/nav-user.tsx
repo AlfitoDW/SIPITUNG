@@ -28,6 +28,7 @@ export function NavUser() {
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
+                            tooltip={{ children: auth.user.nama_lengkap ?? auth.user.name ?? 'Profil' }}
                             className="group text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent"
                             data-test="sidebar-menu-button"
                         >

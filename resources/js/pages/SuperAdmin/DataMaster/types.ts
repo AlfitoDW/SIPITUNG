@@ -32,7 +32,7 @@ export interface ManagementAccount {
     nip: string | null;
     username: string;
     email: string;
-    role: 'super_admin' | 'pimpinan' | 'bendahara' | 'ketua_tim_kerja';
+    role: 'super_admin' | 'pimpinan' | 'bendahara' | 'ketua_tim_kerja' | 'pumk' | 'pic_keuangan';
     pimpinan_type: 'kabag_umum' | 'ppk' | null;
     tim_kerja_id: number | null;
     is_active: boolean;

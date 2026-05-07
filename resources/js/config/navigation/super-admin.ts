@@ -74,17 +74,11 @@ const superAdminNav: NavGroup[] = [
         label: 'Keuangan',
         items: [
             {
-                title: 'Permohonan & Pencairan',
+                title: 'Permohonan Dana',
                 icon: HandCoins,
                 children: [
-                    {
-                        title: 'Permohonan Dana',
-                        href: '/super-admin/keuangan/permohonan-dana',
-                    },
-                    {
-                        title: 'Pencairan Dana',
-                        href: '/super-admin/keuangan/pencairan-dana',
-                    },
+                    { title: 'Monitoring', href: '/super-admin/keuangan/permohonan-dana' },
+                    { title: 'Master Anggaran DJA', href: '/super-admin/keuangan/master-anggaran' },
                 ],
             },
         ],
@@ -98,8 +92,8 @@ const superAdminNav: NavGroup[] = [
                 icon: Users,
             },
             {
-                title: 'Refrensi Nama',
-                href: '#',
+                title: 'Referensi Nama',
+                href: '/super-admin/ref-nama',
                 icon: UserCog,
             },
             {

@@ -46,17 +46,13 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
         Route::delete('kegiatan/{kegiatan}', [PerencanaanController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
     });
 
-    Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
-        Route::get('/buat', [PermohonanDanaController::class, 'create'])->name('create');
-        Route::post('/', [PermohonanDanaController::class, 'store'])->name('store');
-        Route::get('/approval', [PermohonanDanaController::class, 'approvalIndex'])->name('approval');
+    // ─── Keuangan — Approval dari PUMK (step 1) ──────────────────────────────────
+    Route::prefix('keuangan/permohonan-dana')->name('keuangan.permohonan-dana.')->group(function () {
+        Route::get('/',               [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/{pd}',          [PermohonanDanaController::class, 'show'])->name('show');
+        Route::get('/{pd}/print',    [PermohonanDanaController::class, 'print'])->name('print');
         Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
-        Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
-        Route::get('/{pd}/edit', [PermohonanDanaController::class, 'edit'])->name('edit');
-        Route::put('/{pd}', [PermohonanDanaController::class, 'update'])->name('update');
-        Route::delete('/{pd}', [PermohonanDanaController::class, 'destroy'])->name('destroy');
-        Route::patch('/{pd}/submit', [PermohonanDanaController::class, 'submit'])->name('submit');
+        Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
     });
 
     // Pengukuran Kinerja

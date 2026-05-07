@@ -10,10 +10,10 @@ Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->gr
     Route::get('/laporan', fn () => \Inertia\Inertia::render('Bendahara/Laporan'))->name('laporan');
     Route::get('/verifikasi-lpj', fn () => \Inertia\Inertia::render('Bendahara/VerifikasiLPJ'))->name('verifikasi-lpj');
 
-    // ─── Permohonan Dana ──────────────────────────────────────────────────────────
+    // ─── Permohonan Dana — Pencairan (step 5) ────────────────────────────────────
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
-        Route::post('/{pd}/cek', [PermohonanDanaController::class, 'cek'])->name('cek');
-        Route::post('/{pd}/cairkan', [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
+        Route::get('/',                         [PermohonanDanaController::class, 'index'])->name('index');
+        Route::post('/{pd}/cairkan',            [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
+        Route::get('/{pd}/nominatif',           [PermohonanDanaController::class, 'nominatif'])->name('nominatif');
     });
 });

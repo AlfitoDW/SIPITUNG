@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'ketua_tim_kerja' | 'pimpinan' | 'bendahara';
+export type UserRole = 'super_admin' | 'ketua_tim_kerja' | 'pimpinan' | 'bendahara' | 'pumk' | 'pic_keuangan';
 export type PimpinanType = 'kabag_umum' | 'ppk';
 
 export type User = {
@@ -14,7 +14,6 @@ export type User = {
     role: UserRole;
     pimpinan_type?: PimpinanType;
     tim_kerja_id?: number;
-    is_koordinator?: boolean;
     [key: string]: unknown;
 };
 

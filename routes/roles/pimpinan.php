@@ -44,12 +44,10 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
         Route::get('/export/pdf', [PengukuranController::class, 'exportPdf'])->name('export.pdf');
     });
 
-    // ─── Keuangan ─────────────────────────────────────────────────────────────────
-    Route::prefix('keuangan')->name('keuangan.')->group(function () {
-        Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-            Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
-            Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
-            Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
-        });
+    // ─── Keuangan — Approval step 2 (Kabag) & step 3 (PPK) ───────────────────────
+    Route::prefix('keuangan/permohonan-dana')->name('keuangan.permohonan-dana.')->group(function () {
+        Route::get('/',              [PermohonanDanaController::class, 'index'])->name('index');
+        Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
+        Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
     });
 });

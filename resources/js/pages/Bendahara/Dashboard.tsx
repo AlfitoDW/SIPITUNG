@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ClipboardCheck, Banknote, CheckCircle2, CircleDollarSign, ChevronRight, CalendarDays } from 'lucide-react';
+import { Banknote, CheckCircle2, CircleDollarSign, ChevronRight, CalendarDays } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 
@@ -15,12 +15,10 @@ type RiwayatItem = {
 type Props = {
     user: { nama_lengkap: string };
     tahun: Tahun;
-    verifikasi: number;
-    pencairan: number;
-    sudahCek: number;
+    siapCair: number;
     sudahCair: number;
     nilaiCair: number;
-    nilaiPending: number;
+    nilaiSiap: number;
     riwayatCair: RiwayatItem[];
 };
 
@@ -55,7 +53,7 @@ function SummaryCard({
     return href ? <Link href={href} className="block group h-full">{inner}</Link> : <div className="h-full">{inner}</div>;
 }
 
-export default function Dashboard({ user, tahun, verifikasi, pencairan, sudahCek, sudahCair, nilaiCair, nilaiPending, riwayatCair }: Props) {
+export default function Dashboard({ user, tahun, siapCair, sudahCair, nilaiCair, nilaiSiap, riwayatCair }: Props) {
     return (
         <AppLayout>
             <Head title="Dashboard Bendahara" />
@@ -65,7 +63,6 @@ export default function Dashboard({ user, tahun, verifikasi, pencairan, sudahCek
                     <p className="text-muted-foreground">Selamat datang, {user.nama_lengkap}</p>
                 </div>
 
-                {/* Jabatan + tahun */}
                 <Card className="border-blue-200 dark:border-blue-900 overflow-hidden">
                     <div className="h-0.5 w-full bg-blue-500" />
                     <CardContent className="p-5">
@@ -86,26 +83,15 @@ export default function Dashboard({ user, tahun, verifikasi, pencairan, sudahCek
                     </CardContent>
                 </Card>
 
-                {/* Summary cards */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <SummaryCard
-                        icon={ClipboardCheck}
-                        iconClass="text-amber-600 dark:text-amber-400"
-                        iconBg="bg-amber-50 dark:bg-amber-950/40"
-                        accentBg="bg-amber-400"
-                        label="Perlu Diverifikasi"
-                        value={verifikasi}
-                        sub="Menunggu pengecekan"
-                        href="/bendahara/permohonan-dana"
-                    />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <SummaryCard
                         icon={CircleDollarSign}
                         iconClass="text-violet-600 dark:text-violet-400"
                         iconBg="bg-violet-50 dark:bg-violet-950/40"
                         accentBg="bg-violet-400"
-                        label="Menunggu Pencairan"
-                        value={pencairan}
-                        sub={nilaiPending > 0 ? fmt(nilaiPending) : 'Belum ada'}
+                        label="Siap Dicairkan"
+                        value={siapCair}
+                        sub={nilaiSiap > 0 ? fmt(nilaiSiap) : 'Belum ada'}
                         href="/bendahara/permohonan-dana"
                     />
                     <SummaryCard
@@ -113,22 +99,21 @@ export default function Dashboard({ user, tahun, verifikasi, pencairan, sudahCek
                         iconClass="text-green-600 dark:text-green-400"
                         iconBg="bg-green-50 dark:bg-green-950/40"
                         accentBg="bg-green-400"
-                        label="Sudah Cair"
+                        label="Sudah Dicairkan"
                         value={sudahCair}
                         sub={nilaiCair > 0 ? fmt(nilaiCair) : 'Belum ada'}
                     />
                     <SummaryCard
-                        icon={ClipboardCheck}
-                        iconClass="text-sky-600 dark:text-sky-400"
-                        iconBg="bg-sky-50 dark:bg-sky-950/40"
-                        accentBg="bg-sky-400"
-                        label="Sudah Dicek"
-                        value={sudahCek}
-                        sub="Menunggu katimku"
+                        icon={Banknote}
+                        iconClass="text-blue-600 dark:text-blue-400"
+                        iconBg="bg-blue-50 dark:bg-blue-950/40"
+                        accentBg="bg-blue-400"
+                        label="Total Dicairkan"
+                        value={fmt(nilaiCair)}
+                        sub="Tahun ini"
                     />
                 </div>
 
-                {/* Riwayat pencairan */}
                 {riwayatCair.length > 0 && (
                     <div>
                         <div className="flex items-center justify-between mb-3">

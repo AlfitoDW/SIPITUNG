@@ -20,6 +20,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     require __DIR__.'/roles/ketua-tim.php';
     require __DIR__.'/roles/pimpinan.php';
     require __DIR__.'/roles/bendahara.php';
+    require __DIR__.'/roles/pumk.php';
+    require __DIR__.'/roles/pic-keuangan.php';
 });
 
 require __DIR__.'/settings.php';

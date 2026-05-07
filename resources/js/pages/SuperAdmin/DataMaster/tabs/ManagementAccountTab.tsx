@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
-import { Search, Plus, Edit, Trash2, MoreVertical, KeyRound } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { Search, Plus, Edit, Trash2, MoreVertical, KeyRound, Filter } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,19 +20,9 @@ interface Props {
     timKerja: TimKerja[];
 }
 
-interface AccountForm {
-    nama_lengkap: string;
-    nip: string;
-    username: string;
-    email: string;
-    password: string;
-    role: string;
-    pimpinan_type: string;
-    tim_kerja_id: string;
-}
-
-const defaultForm: AccountForm = {
-    nama_lengkap: '', nip: '', username: '', email: '', password: '', role: '', pimpinan_type: '', tim_kerja_id: '',
+const defaultFormData = {
+    nama_lengkap: '', nip: '', username: '', email: '',
+    password: '', role: '', pimpinan_type: '', tim_kerja_id: '',
 };
 
 const roleLabel = (item: ManagementAccount): string => {
@@ -40,46 +30,66 @@ const roleLabel = (item: ManagementAccount): string => {
     if (item.role === 'bendahara') return 'Bendahara';
     if (item.role === 'ketua_tim_kerja') return 'Ketua Tim Kerja';
     if (item.role === 'pimpinan') return item.pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
+    if (item.role === 'pumk') return 'PUMK';
+    if (item.role === 'pic_keuangan') return 'PIC Keuangan';
     return item.role;
 };
 
+const ROLE_FILTERS = [
+    { value: 'all', label: 'Semua' },
+    { value: 'super_admin', label: 'Super Admin' },
+    { value: 'ketua_tim_kerja', label: 'Ketua Tim' },
+    { value: 'pimpinan', label: 'Pimpinan' },
+    { value: 'bendahara', label: 'Bendahara' },
+    { value: 'pumk', label: 'PUMK' },
+    { value: 'pic_keuangan', label: 'PIC Keuangan' },
+] as const;
+
 export function ManagementAccountTab({ accounts, timKerja }: Props) {
     const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState<string>('all');
     const [perPage, setPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [showDialog, setShowDialog] = useState(false);
     const [editingItem, setEditingItem] = useState<ManagementAccount | null>(null);
-    const [form, setForm] = useState<AccountForm>(defaultForm);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<ManagementAccount | null>(null);
     const [showResetDialog, setShowResetDialog] = useState(false);
     const [itemToReset, setItemToReset] = useState<ManagementAccount | null>(null);
-    const [resetForm, setResetForm] = useState({ password: '', password_confirmation: '' });
 
-    const filtered = accounts.filter((item) =>
-        [item.nama_lengkap, item.nip, item.username, item.email, item.role].some((v) =>
+    const { data, setData, post, put, patch, processing, errors, reset, clearErrors } = useForm(defaultFormData);
+    const { data: resetData, setData: setResetData, patch: patchReset, processing: resetProcessing, errors: resetErrors, reset: resetPasswordForm } = useForm({
+        password: '', password_confirmation: '',
+    });
+
+    const filtered = accounts.filter((item) => {
+        const matchSearch = [item.nama_lengkap, item.nip, item.username, item.email, item.role].some((v) =>
             v?.toLowerCase().includes(search.toLowerCase())
-        )
-    );
+        );
+        const matchRole = roleFilter === 'all' || item.role === roleFilter;
+        return matchSearch && matchRole;
+    });
 
-const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-const safePage   = Math.min(currentPage, totalPages);
-const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
-
+    const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
     const openAdd = () => {
         setEditingItem(null);
-        setForm(defaultForm);
+        reset();
+        clearErrors();
         setShowDialog(true);
     };
 
     const openEdit = (item: ManagementAccount) => {
         setEditingItem(item);
-        setForm({
+        reset();
+        clearErrors();
+        setData({
             nama_lengkap: item.nama_lengkap,
             nip: item.nip ?? '',
             username: item.username,
-            email: item.email,
+            email: item.email ?? '',
             password: '',
             role: item.role,
             pimpinan_type: item.pimpinan_type ?? '',
@@ -89,23 +99,15 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
     };
 
     const handleSave = () => {
-        const payload = {
-            nama_lengkap: form.nama_lengkap,
-            nip: form.nip || null,
-            username: form.username,
-            email: form.email,
-            role: form.role,
-            pimpinan_type: form.role === 'pimpinan' ? form.pimpinan_type : null,
-            tim_kerja_id: form.role === 'ketua_tim_kerja' ? form.tim_kerja_id : null,
-        };
-
         if (editingItem) {
-            router.put(`/super-admin/data-master/users/${editingItem.id}`, payload, {
-                onSuccess: () => setShowDialog(false),
+            put(`/super-admin/data-master/users/${editingItem.id}`, {
+                preserveScroll: true,
+                onSuccess: () => { setShowDialog(false); reset(); },
             });
         } else {
-            router.post('/super-admin/data-master/users', { ...payload, password: form.password }, {
-                onSuccess: () => setShowDialog(false),
+            post('/super-admin/data-master/users', {
+                preserveScroll: true,
+                onSuccess: () => { setShowDialog(false); reset(); },
             });
         }
     };
@@ -116,10 +118,11 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
     const handleResetPassword = () => {
         if (!itemToReset) return;
-        router.patch(`/super-admin/data-master/users/${itemToReset.id}/reset-password`, resetForm, {
+        patchReset(`/super-admin/data-master/users/${itemToReset.id}/reset-password`, {
+            preserveScroll: true,
             onSuccess: () => {
                 setShowResetDialog(false);
-                setResetForm({ password: '', password_confirmation: '' });
+                resetPasswordForm();
             },
         });
     };
@@ -127,6 +130,7 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
     const confirmDelete = () => {
         if (!itemToDelete) return;
         router.delete(`/super-admin/data-master/users/${itemToDelete.id}`, {
+            preserveScroll: true,
             onSuccess: () => {
                 setShowDeleteDialog(false);
                 setItemToDelete(null);
@@ -149,16 +153,55 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {/* Role Filter */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Filter className="h-3.5 w-3.5" />
+                            <span>Filter Role</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {ROLE_FILTERS.map((rf) => {
+                                const count = rf.value === 'all'
+                                    ? accounts.length
+                                    : accounts.filter((a) => a.role === rf.value).length;
+                                const isActive = roleFilter === rf.value;
+                                return (
+                                    <button
+                                        key={rf.value}
+                                        onClick={() => { setRoleFilter(rf.value); setCurrentPage(1); }}
+                                        className={[
+                                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                                            isActive
+                                                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                                                : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground',
+                                        ].join(' ')}
+                                    >
+                                        {rf.label}
+                                        <span className={[
+                                            'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
+                                            isActive
+                                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                                : 'bg-muted text-muted-foreground',
+                                        ].join(' ')}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Search */}
                     <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Cari nama, username, atau email..."
                             value={search}
-                            onChange={(e) => {setSearch(e.target.value); setCurrentPage(1);}}
+                            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                             className="pl-8"
                         />
                     </div>
-                                        <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <span>Tampilkan</span>
                             <Select
@@ -177,12 +220,10 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                             </Select>
                             <span>entri</span>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                            Total {filtered.length} akun
-                        </span>
+                        <span className="text-sm text-muted-foreground">Total {filtered.length} akun</span>
                     </div>
 
-                    <div className="rounded-md border"> 
+                    <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -217,7 +258,7 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                                                     <DropdownMenuItem onClick={() => openEdit(item)}>
                                                         <Edit className="mr-2 h-4 w-4" />Edit
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => { setItemToReset(item); setShowResetDialog(true); }}>
+                                                    <DropdownMenuItem onClick={() => { setItemToReset(item); resetPasswordForm(); setShowResetDialog(true); }}>
                                                         <KeyRound className="mr-2 h-4 w-4" />Reset Password
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
@@ -244,7 +285,7 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                             </TableBody>
                         </Table>
                     </div>
-                        {totalPages > 1 && (
+                    {totalPages > 1 && (
                         <div className="flex justify-end">
                             <Pagination>
                                 <PaginationContent>
@@ -277,12 +318,11 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                             </Pagination>
                         </div>
                     )}
-
                 </CardContent>
             </Card>
 
             {/* Form Dialog */}
-            <Dialog open={showDialog} onOpenChange={setShowDialog}>
+            <Dialog open={showDialog} onOpenChange={(o) => { if (!o) { setShowDialog(false); clearErrors(); } }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingItem ? 'Edit' : 'Tambah'} Akun</DialogTitle>
@@ -291,31 +331,49 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>Nama Lengkap <span className="text-red-500">*</span></Label>
-                            <Input placeholder="Misal: Budi Santoso" value={form.nama_lengkap}
-                                onChange={(e) => setForm({ ...form, nama_lengkap: e.target.value })} />
+                            <Input
+                                placeholder="Misal: Budi Santoso"
+                                value={data.nama_lengkap}
+                                onChange={(e) => setData('nama_lengkap', e.target.value)}
+                            />
+                            {errors.nama_lengkap && <p className="text-xs text-red-500">{errors.nama_lengkap}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label>Username <span className="text-red-500">*</span></Label>
-                            <Input placeholder="Misal: budi.santoso" value={form.username}
-                                onChange={(e) => setForm({ ...form, username: e.target.value })} />
+                            <Input
+                                placeholder="Misal: budi.santoso"
+                                value={data.username}
+                                onChange={(e) => setData('username', e.target.value)}
+                            />
+                            {errors.username && <p className="text-xs text-red-500">{errors.username}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label>Email <span className="text-muted-foreground text-xs">(opsional)</span></Label>
-                            <Input type="email" placeholder="Misal: budi@lldikti3.id" value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                            <Input
+                                type="email"
+                                placeholder="Misal: budi@lldikti3.id"
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                            />
+                            {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                         </div>
                         {!editingItem && (
                             <div className="space-y-2">
                                 <Label>Password <span className="text-red-500">*</span></Label>
-                                <Input type="password" placeholder="Minimal 8 karakter" value={form.password}
-                                    onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                                <Input
+                                    type="password"
+                                    placeholder="Minimal 8 karakter"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                />
+                                {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
                             </div>
                         )}
                         <div className="space-y-2">
                             <Label>Role <span className="text-red-500">*</span></Label>
                             <Select
-                                value={form.role}
-                                onValueChange={(val) => setForm({ ...form, role: val, pimpinan_type: '', tim_kerja_id: '' })}
+                                value={data.role}
+                                onValueChange={(val) => setData({ ...data, role: val, pimpinan_type: '', tim_kerja_id: '' })}
                             >
                                 <SelectTrigger><SelectValue placeholder="Pilih role..." /></SelectTrigger>
                                 <SelectContent>
@@ -323,25 +381,29 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                                     <SelectItem value="ketua_tim_kerja">Ketua Tim Kerja</SelectItem>
                                     <SelectItem value="pimpinan">Pimpinan</SelectItem>
                                     <SelectItem value="bendahara">Bendahara</SelectItem>
+                                    <SelectItem value="pumk">PUMK</SelectItem>
+                                    <SelectItem value="pic_keuangan">PIC Keuangan</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
                         </div>
-                        {form.role === 'pimpinan' && (
+                        {data.role === 'pimpinan' && (
                             <div className="space-y-2">
                                 <Label>Tipe Pimpinan <span className="text-red-500">*</span></Label>
-                                <Select value={form.pimpinan_type} onValueChange={(val) => setForm({ ...form, pimpinan_type: val })}>
+                                <Select value={data.pimpinan_type} onValueChange={(val) => setData('pimpinan_type', val)}>
                                     <SelectTrigger><SelectValue placeholder="Pilih tipe pimpinan..." /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="kabag_umum">Kabag Umum</SelectItem>
                                         <SelectItem value="ppk">PPK</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {errors.pimpinan_type && <p className="text-xs text-red-500">{errors.pimpinan_type}</p>}
                             </div>
                         )}
-                        {form.role === 'ketua_tim_kerja' && (
+                        {['ketua_tim_kerja', 'pumk'].includes(data.role) && (
                             <div className="space-y-2">
                                 <Label>Tim Kerja <span className="text-red-500">*</span></Label>
-                                <Select value={form.tim_kerja_id} onValueChange={(val) => setForm({ ...form, tim_kerja_id: val })}>
+                                <Select value={data.tim_kerja_id} onValueChange={(val) => setData('tim_kerja_id', val)}>
                                     <SelectTrigger><SelectValue placeholder="Pilih tim kerja..." /></SelectTrigger>
                                     <SelectContent>
                                         {timKerja.map((tk) => (
@@ -351,12 +413,15 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {errors.tim_kerja_id && <p className="text-xs text-red-500">{errors.tim_kerja_id}</p>}
                             </div>
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowDialog(false)}>Batal</Button>
-                        <Button onClick={handleSave}>Simpan</Button>
+                        <Button variant="outline" onClick={() => { setShowDialog(false); clearErrors(); }}>Batal</Button>
+                        <Button onClick={handleSave} disabled={processing}>
+                            {processing ? 'Menyimpan...' : 'Simpan'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -368,10 +433,7 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
             />
 
             {/* Reset Password Dialog */}
-            <Dialog open={showResetDialog} onOpenChange={(open) => {
-                setShowResetDialog(open);
-                if (!open) setResetForm({ password: '', password_confirmation: '' });
-            }}>
+            <Dialog open={showResetDialog} onOpenChange={(open) => { setShowResetDialog(open); if (!open) resetPasswordForm(); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Reset Password</DialogTitle>
@@ -385,23 +447,27 @@ const paginated  = filtered.slice((safePage - 1) * perPage, safePage * perPage);
                             <Input
                                 type="password"
                                 placeholder="Minimal 8 karakter"
-                                value={resetForm.password}
-                                onChange={(e) => setResetForm({ ...resetForm, password: e.target.value })}
+                                value={resetData.password}
+                                onChange={(e) => setResetData('password', e.target.value)}
                             />
+                            {resetErrors.password && <p className="text-xs text-red-500">{resetErrors.password}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label>Konfirmasi Password <span className="text-red-500">*</span></Label>
                             <Input
                                 type="password"
                                 placeholder="Ulangi password baru"
-                                value={resetForm.password_confirmation}
-                                onChange={(e) => setResetForm({ ...resetForm, password_confirmation: e.target.value })}
+                                value={resetData.password_confirmation}
+                                onChange={(e) => setResetData('password_confirmation', e.target.value)}
                             />
+                            {resetErrors.password_confirmation && <p className="text-xs text-red-500">{resetErrors.password_confirmation}</p>}
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowResetDialog(false)}>Batal</Button>
-                        <Button onClick={handleResetPassword}>Reset Password</Button>
+                        <Button onClick={handleResetPassword} disabled={resetProcessing}>
+                            {resetProcessing ? 'Mereset...' : 'Reset Password'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

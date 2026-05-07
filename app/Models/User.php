@@ -57,13 +57,15 @@ class User extends Authenticatable
         ];
     }
 
-    // Relationships
+    // ─── Relationships ────────────────────────────────────────────────────────────
+
     public function timkerja()
     {
         return $this->belongsTo(TimKerja::class, 'tim_kerja_id');
     }
 
-    // Helper Methods
+    // ─── Role Helpers ─────────────────────────────────────────────────────────────
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
@@ -84,6 +86,16 @@ class User extends Authenticatable
         return $this->role === 'bendahara';
     }
 
+    public function isPumk(): bool
+    {
+        return $this->role === 'pumk';
+    }
+
+    public function isPicKeuangan(): bool
+    {
+        return $this->role === 'pic_keuangan';
+    }
+
     public function isPimpinanKabagUmum(): bool
     {
         return $this->isPimpinan() && $this->pimpinan_type === 'kabag_umum';
@@ -94,21 +106,20 @@ class User extends Authenticatable
         return $this->isPimpinan() && $this->pimpinan_type === 'ppk';
     }
 
-    public function isKetuaKoordinator(): bool
-    {
-        return $this->role === 'ketua_tim_kerja' && ($this->timkerja?->is_koordinator ?? false);
-    }
-
     public function getRoleNameAttribute(): string
     {
         return match ($this->role) {
-            'super_admin' => 'Super Admin',
+            'super_admin'   => 'Super Admin',
             'ketua_tim_kerja' => 'Ketua Tim Kerja',
-            'pimpinan' => $this->pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK',
-            'bendahara' => 'Bendahara',
-            default => 'Unknown',
+            'pimpinan'      => $this->pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK',
+            'bendahara'     => 'Bendahara',
+            'pumk'          => 'PUMK',
+            'pic_keuangan'  => 'PIC Keuangan',
+            default         => 'Unknown',
         };
     }
+
+    // ─── Scopes ───────────────────────────────────────────────────────────────────
 
     public function scopeActive($query)
     {

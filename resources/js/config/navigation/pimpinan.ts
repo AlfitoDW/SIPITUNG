@@ -62,7 +62,7 @@ const pimpinanNav: NavGroup[] = [
         label: 'Keuangan',
         items: [
             {
-                title: 'Permohonan Dana',
+                title: 'Approval Permohonan',
                 href: '/pimpinan/keuangan/permohonan-dana',
                 icon: HandCoins,
             },

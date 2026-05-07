@@ -1,429 +1,245 @@
-import { Head, router } from '@inertiajs/react';
-import { ClipboardCheck, Banknote, History, Search, Building2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState, useMemo } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Badge } from '@/components/ui/badge';
+import { Head, useForm } from '@inertiajs/react';
+import { Banknote, ChevronDown, ChevronUp, CheckCircle2, FileText, CalendarDays, Download } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Keuangan', href: '#' },
-    { title: 'Permohonan Dana', href: '/bendahara/permohonan-dana' },
-];
-
-const fmt = (n: number | string) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(n));
-
-const STATUS: Record<string, { label: string; className: string }> = {
-    bendahara_checked: { label: 'Terverifikasi',      className: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    katimku_approved:  { label: 'Disetujui Ketua Tim',className: 'bg-orange-100 text-orange-800 border-orange-400' },
-    dicairkan:         { label: 'Sudah Dicairkan',    className: 'bg-green-100 text-green-800 border-green-400' },
-    rejected:          { label: 'Ditolak',            className: 'bg-red-100 text-red-800 border-red-400' },
-};
-
-type Item = { id: number; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string; keterangan: string | null };
+type Item = { id: number; kode_akun: string | null; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string };
 type PD = {
     id: number;
     nomor_permohonan: string;
     keperluan: string;
-    tanggal_kegiatan: string;
+    tanggal_mulai: string;
+    tanggal_selesai: string;
+    submitted_at: string | null;
+    tempat: string | null;
     total_anggaran: string;
     status: string;
-    keterangan: string | null;
-    rekomendasi_kabag: string | null;
-    catatan_pencairan: string | null;
-    tim_kerja: { id: number; nama: string; kode: string };
-    items?: Item[];
+    status_label: string;
+    dicairkan_at: string | null;
+    tim_kerja: { nama: string; kode: string } | null;
+    catatan_pic: string | null;
+    items: Item[];
 };
-type Props = {
-    tahun: { id: number; tahun: number; label: string };
-    verifikasi: PD[];
-    pencairan: PD[];
-    riwayat: PD[];
-    timKerjaList: { id: number; nama: string }[];
-};
+type Tahun = { id: number; tahun: number; label: string } | null;
+type Props = { tahun: Tahun; siapCair: PD[]; riwayat: PD[] };
 
-type ActionDialog = { open: boolean; pd: PD | null; action: 'cek' | 'cairkan' };
+const fmt = (n: string | number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(n));
+const fmtDate = (s: string) =>
+    new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 
-function PDAccordion({ pds, onAction, actionLabel, actionClass, actionIcon, actionKey }: {
-    pds: PD[];
-    onAction: (pd: PD) => void;
-    actionLabel: string;
-    actionClass: string;
-    actionIcon: React.ReactNode;
-    actionKey: string;
-}) {
-    if (pds.length === 0) {
-        return (
-            <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground text-sm">
-                Tidak ada permohonan dana saat ini.
-            </div>
-        );
-    }
-
+function PDCard({ pd, onCairkan }: { pd: PD; onCairkan: () => void }) {
+    const [expanded, setExpanded] = useState(false);
     return (
-        <Accordion type="multiple" className="flex flex-col gap-2">
-            {pds.map((pd) => (
-                <AccordionItem key={pd.id} value={`${actionKey}-${pd.id}`} className="rounded-xl border shadow-sm overflow-hidden">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40 data-[state=open]:bg-muted/40">
-                        <div className="flex items-center gap-3 flex-1 mr-2 text-left">
-                            <div>
-                                <p className="font-semibold text-sm">{pd.tim_kerja.nama}</p>
-                                <p className="text-xs text-muted-foreground">{pd.nomor_permohonan} · {pd.keperluan}</p>
-                            </div>
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 ml-auto mr-2 font-semibold">
-                                {fmt(pd.total_anggaran)}
-                            </Badge>
+        <div className="overflow-hidden rounded-xl border bg-card">
+            <div className="h-0.5 w-full bg-violet-500" />
+            <div className="p-4">
+                <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs text-muted-foreground">{pd.nomor_permohonan}</span>
+                            {pd.tim_kerja && <Badge variant="outline" className="text-xs">{pd.tim_kerja.kode}</Badge>}
+                            <Badge variant="outline" className="text-xs text-violet-600 border-violet-300">Siap Cair</Badge>
                         </div>
-                        <Button
-                            size="sm" variant="outline"
-                            className={`h-7 gap-1.5 mr-2 ${actionClass}`}
-                            onClick={(e) => { e.stopPropagation(); onAction(pd); }}
-                        >
-                            {actionIcon}{actionLabel}
+                        <p className="font-semibold mt-1">{pd.keperluan}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {fmtDate(pd.tanggal_mulai)} – {fmtDate(pd.tanggal_selesai)}
+                            {pd.tempat && ` · ${pd.tempat}`}
+                        </p>
+                        {pd.submitted_at && (
+                            <p className="text-[10px] text-blue-600 mt-0.5">
+                                Tanggal Pengajuan: {fmtDate(pd.submitted_at)}
+                            </p>
+                        )}
+                        <p className="text-lg font-bold mt-1 text-violet-600 dark:text-violet-400">{fmt(pd.total_anggaran)}</p>
+                        {pd.catatan_pic && (
+                            <p className="text-xs text-muted-foreground mt-1 bg-muted/40 px-2 py-1 rounded">
+                                Catatan PIC: {pd.catatan_pic}
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <a href={`/bendahara/permohonan-dana/${pd.id}/nominatif`}
+                            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            target="_blank" rel="noopener noreferrer">
+                            <Download className="h-3.5 w-3.5" /> Nominatif
+                        </a>
+                        <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700" onClick={onCairkan}>
+                            <Banknote className="h-3.5 w-3.5" />
+                            Cairkan Dana
                         </Button>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-0">
-                        <div className="px-4 py-3 space-y-3">
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <span className="text-muted-foreground">Tanggal Kegiatan:</span>
-                                    <span className="ml-2">{new Date(pd.tanggal_kegiatan).toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
-                                </div>
-                            </div>
-                            {pd.keterangan && <p className="text-sm text-muted-foreground italic">{pd.keterangan}</p>}
-                            {pd.rekomendasi_kabag && (
-                                <p className="text-xs text-indigo-700 bg-indigo-50 rounded px-3 py-1.5">
-                                    <span className="font-semibold">Catatan Kabag:</span> {pd.rekomendasi_kabag}
-                                </p>
-                            )}
-                            {pd.items && pd.items.length > 0 && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent bg-slate-50">
-                                            <TableHead className="text-xs w-8">No</TableHead>
-                                            <TableHead className="text-xs">Uraian</TableHead>
-                                            <TableHead className="text-xs text-center">Vol</TableHead>
-                                            <TableHead className="text-xs text-center">Satuan</TableHead>
-                                            <TableHead className="text-xs text-right">Harga Satuan</TableHead>
-                                            <TableHead className="text-xs text-right">Total</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {pd.items.map((item, idx) => (
-                                            <TableRow key={item.id} className="hover:bg-transparent">
-                                                <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                                <TableCell className="text-xs">
-                                                    <p>{item.uraian}</p>
-                                                    {item.keterangan && <p className="text-muted-foreground">{item.keterangan}</p>}
-                                                </TableCell>
-                                                <TableCell className="text-xs text-center">{item.volume}</TableCell>
-                                                <TableCell className="text-xs text-center">{item.satuan}</TableCell>
-                                                <TableCell className="text-xs text-right">{fmt(item.harga_satuan)}</TableCell>
-                                                <TableCell className="text-xs text-right font-medium">{fmt(item.total)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                        <TableRow className="bg-slate-50 hover:bg-slate-50">
-                                            <TableCell colSpan={5} className="text-xs font-semibold text-right">Total</TableCell>
-                                            <TableCell className="text-sm font-bold text-right">{fmt(pd.total_anggaran)}</TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            ))}
-        </Accordion>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpanded(!expanded)}>
+                                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{expanded ? 'Sembunyikan rincian' : 'Lihat rincian biaya'}</TooltipContent>
+                        </Tooltip>
+                    </div>
+                </div>
+
+                {expanded && pd.items.length > 0 && (
+                    <div className="mt-4 border rounded-lg overflow-hidden">
+                        <table className="w-full text-xs">
+                            <thead className="bg-muted/50">
+                                <tr>
+                                    <th className="px-3 py-2 text-left">Kode Akun</th>
+                                    <th className="px-3 py-2 text-left">Uraian</th>
+                                    <th className="px-3 py-2 text-right">Vol</th>
+                                    <th className="px-3 py-2 text-left">Sat</th>
+                                    <th className="px-3 py-2 text-right">Harga Sat.</th>
+                                    <th className="px-3 py-2 text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {pd.items.map((item) => (
+                                    <tr key={item.id}>
+                                        <td className="px-3 py-2 font-mono text-muted-foreground">{item.kode_akun ?? '-'}</td>
+                                        <td className="px-3 py-2">{item.uraian}</td>
+                                        <td className="px-3 py-2 text-right">{Number(item.volume)}</td>
+                                        <td className="px-3 py-2">{item.satuan}</td>
+                                        <td className="px-3 py-2 text-right tabular-nums">{fmt(item.harga_satuan)}</td>
+                                        <td className="px-3 py-2 text-right font-medium tabular-nums">{fmt(item.total)}</td>
+                                    </tr>
+                                ))}
+                                <tr className="bg-muted/30 font-semibold">
+                                    <td colSpan={5} className="px-3 py-2 text-right text-xs">Total</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{fmt(pd.total_anggaran)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
 
-export default function Index({ tahun, verifikasi, pencairan, riwayat, timKerjaList }: Props) {
-    const [dialog, setDialog] = useState<ActionDialog>({ open: false, pd: null, action: 'cek' });
-    const [catatan, setCatatan] = useState('');
-    const [expanded, setExpanded] = useState<number | null>(null);
-    const [search, setSearch] = useState('');
-    const [filterTimKerja, setFilterTimKerja] = useState('all');
-    const [filterStatus, setFilterStatus] = useState('all');
+export default function PermohonanDanaIndex({ tahun, siapCair, riwayat }: Props) {
+    const [cairTarget, setCairTarget] = useState<PD | null>(null);
+    const { data, setData, post, processing, reset } = useForm({ catatan: '' });
 
-    const filteredRiwayat = useMemo(() => {
-        return riwayat.filter((pd) => {
-            const matchSearch =
-                search === '' ||
-                pd.nomor_permohonan.toLowerCase().includes(search.toLowerCase()) ||
-                pd.keperluan.toLowerCase().includes(search.toLowerCase());
-            const matchTimKerja =
-                filterTimKerja === 'all' || pd.tim_kerja.id.toString() === filterTimKerja;
-            const matchStatus =
-                filterStatus === 'all' || pd.status === filterStatus;
-            return matchSearch && matchTimKerja && matchStatus;
+    const handleCairkan = () => {
+        if (!cairTarget) return;
+        post(`/bendahara/permohonan-dana/${cairTarget.id}/cairkan`, {
+            onSuccess: () => { reset(); setCairTarget(null); },
         });
-    }, [riwayat, search, filterTimKerja, filterStatus]);
-
-    function openDialog(pd: PD, action: 'cek' | 'cairkan') {
-        setCatatan('');
-        setDialog({ open: true, pd, action });
-    }
-
-    function confirm() {
-        if (!dialog.pd) return;
-        const url = dialog.action === 'cek'
-            ? `/bendahara/permohonan-dana/${dialog.pd.id}/cek`
-            : `/bendahara/permohonan-dana/${dialog.pd.id}/cairkan`;
-
-        router.post(url, { catatan }, {
-            onSuccess: () => setDialog(d => ({ ...d, open: false })),
-        });
-    }
-
-    const totalVerifikasi = verifikasi.reduce((s, p) => s + Number(p.total_anggaran), 0);
-    const totalPencairan  = pencairan.reduce((s, p) => s + Number(p.total_anggaran), 0);
+    };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Permohonan Dana — Bendahara" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+        <AppLayout>
+            <Head title="Pencairan Dana" />
+            <div className="flex flex-col gap-6 p-4 md:p-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Permohonan Dana</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Verifikasi dan pencairan dana — {tahun.label}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Pencairan Dana</h1>
+                    <p className="text-sm text-muted-foreground">{tahun?.label} · Bendahara — Step 5</p>
                 </div>
 
-                {/* Summary cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {[
-                        { label: 'Perlu Diverifikasi', count: verifikasi.length, total: totalVerifikasi, color: 'blue' },
-                        { label: 'Perlu Dicairkan',    count: pencairan.length,  total: totalPencairan,  color: 'green' },
-                        { label: 'Riwayat',            count: riwayat.length,    total: null,            color: 'slate' },
-                    ].map(card => (
-                        <div key={card.label} className="rounded-xl border p-4 shadow-sm">
-                            <p className="text-sm text-muted-foreground">{card.label}</p>
-                            <p className="text-2xl font-bold mt-1">{card.count}</p>
-                            {card.total !== null && (
-                                <p className="text-xs text-muted-foreground mt-0.5">{fmt(card.total)}</p>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                <Tabs defaultValue="verifikasi">
-                    <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value="verifikasi" className="gap-2">
-                            <ClipboardCheck className="h-4 w-4" />
-                            Perlu Diverifikasi {verifikasi.length > 0 && <Badge className="ml-1 h-5 px-1.5 text-xs">{verifikasi.length}</Badge>}
-                        </TabsTrigger>
-                        <TabsTrigger value="pencairan" className="gap-2">
-                            <Banknote className="h-4 w-4" />
-                            Perlu Dicairkan {pencairan.length > 0 && <Badge className="ml-1 h-5 px-1.5 text-xs">{pencairan.length}</Badge>}
-                        </TabsTrigger>
-                        <TabsTrigger value="riwayat" className="gap-2">
-                            <History className="h-4 w-4" />Riwayat
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="verifikasi" className="mt-4">
-                        <PDAccordion
-                            pds={verifikasi}
-                            onAction={(pd) => openDialog(pd, 'cek')}
-                            actionLabel="Verifikasi"
-                            actionClass="border-purple-300 text-purple-700 hover:bg-purple-50"
-                            actionIcon={<ClipboardCheck className="h-3.5 w-3.5" />}
-                            actionKey="vrf"
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="pencairan" className="mt-4">
-                        <PDAccordion
-                            pds={pencairan}
-                            onAction={(pd) => openDialog(pd, 'cairkan')}
-                            actionLabel="Cairkan Dana"
-                            actionClass="border-green-300 text-green-700 hover:bg-green-50"
-                            actionIcon={<Banknote className="h-3.5 w-3.5" />}
-                            actionKey="cair"
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="riwayat" className="mt-4">
-                        <div className="flex flex-wrap gap-3 mb-4">
-                            <div className="relative min-w-48 flex-1">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Cari nomor atau keperluan..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-8"
+                <div>
+                    <h2 className="text-sm font-semibold mb-3">Siap Dicairkan ({siapCair.length})</h2>
+                    {siapCair.length === 0 ? (
+                        <Card>
+                            <CardContent className="flex flex-col items-center py-12 text-center">
+                                <FileText className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                                <p className="text-sm text-muted-foreground">Tidak ada dana yang siap dicairkan</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {siapCair.map((pd) => (
+                                <PDCard
+                                    key={pd.id}
+                                    pd={pd}
+                                    onCairkan={() => { reset(); setCairTarget(pd); }}
                                 />
-                            </div>
-                            <Select value={filterTimKerja} onValueChange={setFilterTimKerja}>
-                                <SelectTrigger className="w-48 overflow-hidden">
-                                    <Building2 className="mr-2 h-4 w-4 shrink-0" />
-                                    <SelectValue placeholder="Semua Tim Kerja" />
-                                </SelectTrigger>
-                                <SelectContent side="bottom" avoidCollisions={false}>
-                                    <SelectItem value="all">Semua Tim Kerja</SelectItem>
-                                    {timKerjaList.map((tk) => (
-                                        <SelectItem key={tk.id} value={tk.id.toString()}>{tk.nama}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                <SelectTrigger className="w-48 overflow-hidden">
-                                    <SelectValue placeholder="Semua Status" />
-                                </SelectTrigger>
-                                <SelectContent side="bottom" avoidCollisions={false}>
-                                    <SelectItem value="all">Semua Status</SelectItem>
-                                    {Object.entries(STATUS).map(([key, cfg]) => (
-                                        <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {riwayat.length === 0 ? (
-                            <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground text-sm">
-                                Belum ada riwayat.
-                            </div>
-                        ) : filteredRiwayat.length === 0 ? (
-                            <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground text-sm">
-                                Tidak ada data yang sesuai dengan filter.
-                            </div>
-                        ) : (
-                            <div className="rounded-xl border overflow-hidden shadow-sm">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow style={{ backgroundColor: '#003580' }}>
-                                            <TableHead className="text-white font-semibold w-8"></TableHead>
-                                            <TableHead className="text-white font-semibold">Nomor</TableHead>
-                                            <TableHead className="text-white font-semibold">Unit Kerja</TableHead>
-                                            <TableHead className="text-white font-semibold">Keperluan</TableHead>
-                                            <TableHead className="text-white font-semibold">Tgl Kegiatan</TableHead>
-                                            <TableHead className="text-white font-semibold text-right">Total</TableHead>
-                                            <TableHead className="text-white font-semibold text-center">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredRiwayat.map((pd) => {
-                                            const s = STATUS[pd.status] ?? { label: pd.status, className: 'bg-slate-100 text-slate-700 border-slate-200' };
-                                            const isExpanded = expanded === pd.id;
-                                            return (
-                                                <>
-                                                    <TableRow key={pd.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setExpanded(isExpanded ? null : pd.id)}>
-                                                        <TableCell>
-                                                            <span className="text-muted-foreground">
-                                                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="font-mono text-sm">{pd.nomor_permohonan}</TableCell>
-                                                        <TableCell className="text-sm">{pd.tim_kerja.nama}</TableCell>
-                                                        <TableCell className="text-sm">{pd.keperluan}</TableCell>
-                                                        <TableCell className="text-sm text-muted-foreground">
-                                                            {new Date(pd.tanggal_kegiatan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-semibold">{fmt(pd.total_anggaran)}</TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Badge variant="outline" className={s.className}>{s.label}</Badge>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                    {isExpanded && (
-                                                        <TableRow key={`${pd.id}-detail`} className="bg-muted/20">
-                                                            <TableCell colSpan={7} className="p-0">
-                                                                <div className="px-6 py-4 space-y-3">
-                                                                    {pd.keterangan && (
-                                                                        <p className="text-sm text-muted-foreground italic">{pd.keterangan}</p>
-                                                                    )}
-                                                                    {pd.items && pd.items.length > 0 && (
-                                                                        <Table>
-                                                                            <TableHeader>
-                                                                                <TableRow className="bg-slate-100 hover:bg-slate-100">
-                                                                                    <TableHead className="text-xs w-8">No</TableHead>
-                                                                                    <TableHead className="text-xs">Uraian</TableHead>
-                                                                                    <TableHead className="text-xs text-center">Volume</TableHead>
-                                                                                    <TableHead className="text-xs text-center">Satuan</TableHead>
-                                                                                    <TableHead className="text-xs text-right">Harga Satuan</TableHead>
-                                                                                    <TableHead className="text-xs text-right">Total</TableHead>
-                                                                                </TableRow>
-                                                                            </TableHeader>
-                                                                            <TableBody>
-                                                                                {pd.items.map((item, idx) => (
-                                                                                    <TableRow key={item.id} className="hover:bg-transparent">
-                                                                                        <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                                                                        <TableCell className="text-xs">{item.uraian}</TableCell>
-                                                                                        <TableCell className="text-xs text-center">{item.volume}</TableCell>
-                                                                                        <TableCell className="text-xs text-center">{item.satuan}</TableCell>
-                                                                                        <TableCell className="text-xs text-right">{fmt(item.harga_satuan)}</TableCell>
-                                                                                        <TableCell className="text-xs text-right font-medium">{fmt(item.total)}</TableCell>
-                                                                                    </TableRow>
-                                                                                ))}
-                                                                            </TableBody>
-                                                                        </Table>
-                                                                    )}
-                                                                    {pd.rekomendasi_kabag && (
-                                                                        <p className="text-xs text-indigo-700 bg-indigo-50 rounded px-3 py-1.5">
-                                                                            <span className="font-semibold">Catatan Kabag:</span> {pd.rekomendasi_kabag}
-                                                                        </p>
-                                                                    )}
-                                                                    {pd.catatan_pencairan && (
-                                                                        <p className="text-xs text-green-700 bg-green-50 rounded px-3 py-1.5">
-                                                                            <span className="font-semibold">Catatan Pencairan:</span> {pd.catatan_pencairan}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
-                    </TabsContent>
-                </Tabs>
-            </div>
-
-            <Dialog open={dialog.open} onOpenChange={(v) => setDialog(d => ({ ...d, open: v }))}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {dialog.action === 'cek'
-                                ? `Verifikasi — ${dialog.pd?.nomor_permohonan}`
-                                : `Cairkan Dana — ${dialog.pd?.nomor_permohonan}`}
-                        </DialogTitle>
-                    </DialogHeader>
-                    {dialog.action === 'cairkan' && (
-                        <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
-                            Total pencairan: <strong>{fmt(dialog.pd?.total_anggaran ?? 0)}</strong>
+                            ))}
                         </div>
                     )}
-                    <div className="flex flex-col gap-2">
-                        <Label htmlFor="catatan">Catatan <span className="text-muted-foreground">(opsional)</span></Label>
+                </div>
+
+                {riwayat.length > 0 && (
+                    <div>
+                        <h2 className="text-sm font-semibold mb-3">Riwayat Pencairan ({riwayat.length})</h2>
+                        <div className="overflow-hidden rounded-xl border bg-card">
+                            <div className="h-0.5 w-full bg-green-500" />
+                            <div className="divide-y">
+                                {riwayat.map((pd) => (
+                                    <div key={pd.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-50 dark:bg-green-950/40 shrink-0">
+                                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">{pd.keperluan}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs font-mono text-muted-foreground">{pd.nomor_permohonan}</span>
+                                                {pd.tim_kerja && <span className="text-xs text-muted-foreground">· {pd.tim_kerja.kode}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                                            <p className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums">{fmt(pd.total_anggaran)}</p>
+                                            {pd.submitted_at && (
+                                                <p className="text-[10px] text-blue-600">
+                                                    Diajukan: {fmtDate(pd.submitted_at)}
+                                                </p>
+                                            )}
+                                            {pd.dicairkan_at && (
+                                                <div className="flex items-center gap-1 justify-end">
+                                                    <CalendarDays className="h-3 w-3 text-muted-foreground/50" />
+                                                    <span className="text-xs text-muted-foreground">{fmtDate(pd.dicairkan_at)}</span>
+                                                </div>
+                                            )}
+                                            <a href={`/bendahara/permohonan-dana/${pd.id}/nominatif`}
+                                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                                target="_blank" rel="noopener noreferrer">
+                                                <Download className="h-3 w-3" /> Nominatif
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <AlertDialog open={!!cairTarget} onOpenChange={(o) => !o && setCairTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Cairkan Dana</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Cairkan dana sebesar <strong>{cairTarget ? fmt(cairTarget.total_anggaran) : ''}</strong> untuk permohonan{' '}
+                            <strong>{cairTarget?.nomor_permohonan}</strong>?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2">
+                        <Label className="text-sm">Catatan Pencairan</Label>
                         <Textarea
-                            id="catatan"
-                            placeholder={dialog.action === 'cek' ? 'Catatan hasil verifikasi...' : 'Catatan pencairan...'}
-                            value={catatan}
-                            onChange={(e) => setCatatan(e.target.value)}
+                            className="mt-1.5"
                             rows={3}
+                            value={data.catatan}
+                            onChange={(e) => setData('catatan', e.target.value)}
+                            placeholder="Catatan pencairan (opsional)"
                         />
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialog(d => ({ ...d, open: false }))}>Batal</Button>
-                        <Button
-                            variant={dialog.action === 'cairkan' ? 'default' : 'default'}
-                            className={dialog.action === 'cairkan' ? 'bg-green-600 hover:bg-green-700' : ''}
-                            onClick={confirm}
-                        >
-                            {dialog.action === 'cek' ? 'Tandai Terverifikasi' : 'Cairkan Dana'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCairkan} disabled={processing} className="bg-violet-600 hover:bg-violet-700">
+                            {processing ? 'Memproses...' : 'Cairkan Dana'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AppLayout>
     );
 }

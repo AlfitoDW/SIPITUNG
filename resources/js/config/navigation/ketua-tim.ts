@@ -71,8 +71,8 @@ const ketuaTimNav: NavGroup[] = [
         label: 'Keuangan',
         items: [
             {
-                title: 'Permohonan Dana',
-                href: '/ketua-tim/permohonan-dana',
+                title: 'Approval Permohonan',
+                href: '/ketua-tim/keuangan/permohonan-dana',
                 icon: HandCoins,
             },
         ],

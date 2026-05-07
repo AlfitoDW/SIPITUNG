@@ -17,14 +17,12 @@ class TimKerja extends Model
         'nama_singkat',
         'deskripsi',
         'is_active',
-        'is_koordinator',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
-            'is_koordinator' => 'boolean',
         ];
     }
 
@@ -37,6 +35,13 @@ class TimKerja extends Model
     {
         return $this->hasOne(User::class, 'tim_kerja_id')
             ->where('role', 'ketua_tim_kerja')
+            ->where('is_active', true);
+    }
+
+    public function pumk()
+    {
+        return $this->hasOne(User::class, 'tim_kerja_id')
+            ->where('role', 'pumk')
             ->where('is_active', true);
     }
 

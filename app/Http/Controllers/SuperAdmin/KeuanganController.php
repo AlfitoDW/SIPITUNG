@@ -15,31 +15,15 @@ class KeuanganController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        $permohonan = PermohonanDana::with(['timKerja', 'items'])
+        $permohonan = PermohonanDana::with(['timKerja', 'items', 'createdBy'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(fn ($pd) => array_merge($pd->toArray(), ['status_label' => $pd->status_label]));
 
         return Inertia::render('SuperAdmin/Keuangan/PermohonanDana/Index', [
-            'tahun' => $tahun,
-            'permohonan' => $permohonan,
-            'timKerjaList' => TimKerja::active()->orderBy('nama')->get(['id', 'nama']),
-        ]);
-    }
-
-    public function pencairanDana(): Response
-    {
-        $tahun = TahunAnggaran::forSession();
-
-        $pencairan = PermohonanDana::with(['timKerja', 'items'])
-            ->where('tahun_anggaran_id', $tahun->id)
-            ->where('status', 'dicairkan')
-            ->orderByDesc('dicairkan_at')
-            ->get();
-
-        return Inertia::render('SuperAdmin/Keuangan/PencairanDana/Index', [
-            'tahun' => $tahun,
-            'pencairan' => $pencairan,
+            'tahun'       => $tahun,
+            'permohonan'  => $permohonan,
             'timKerjaList' => TimKerja::active()->orderBy('nama')->get(['id', 'nama']),
         ]);
     }
