@@ -1,15 +1,15 @@
 import { Head, router } from '@inertiajs/react';
-import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -491,7 +491,7 @@ function HonorItemGroup({
             <div className="rounded-md border overflow-visible">
                 <table className="w-full text-xs">
                     <thead>
-                        <tr className="bg-orange-50 border-b text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                        <tr className="bg-orange-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             <th className="px-2 py-2.5 w-8 text-center">#</th>
                             <th className="px-2 py-2.5 text-left min-w-[200px]">Nama Peserta</th>
                             {showJabatan && <th className="px-2 py-2.5 text-left min-w-[140px]">Jabatan</th>}
@@ -657,7 +657,7 @@ function PerjadinItemGroup({
             <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-xs" style={{ minWidth: 1400 }}>
                     <thead>
-                        <tr className="bg-blue-50 border-b text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                        <tr className="bg-blue-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             <th className="px-2 py-2.5 w-8 text-center">#</th>
                             <th className="px-2 py-2.5 text-left min-w-[180px]">Nama Peserta</th>
                             <th className="px-2 py-2.5 text-right">Transport</th>
@@ -671,7 +671,7 @@ function PerjadinItemGroup({
                             <th className="px-2 py-2.5 text-right font-bold">Total</th>
                             <th className="px-2 py-2.5 w-10"></th>
                         </tr>
-                        <tr className="bg-blue-50/60 border-b text-[10px] text-gray-500">
+                        <tr className="bg-blue-50/60 border-b text-xs font-medium text-gray-500">
                             <th /><th />
                             <th className="px-2 py-1 text-right">Rp</th>
                             <th className="px-1 py-1 text-center">Hari</th>
@@ -897,7 +897,7 @@ export default function Nominatif({ permohonan, items_honor, items_perjadin, ref
                             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gray-900 mb-1 transition-colors">
                             <ArrowLeft className="h-3.5 w-3.5" /> Kembali ke Daftar
                         </button>
-                        <h1 className="text-xl font-bold tracking-tight">Input Daftar Nominatif</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Input Daftar Nominatif</h1>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="font-mono text-xs text-blue-700 font-semibold">{permohonan.nomor_permohonan}</span>
                             <span className="text-muted-foreground">·</span>
@@ -952,7 +952,7 @@ export default function Nominatif({ permohonan, items_honor, items_perjadin, ref
                 {(activeTab === 'honor' || !hasPerjadin) && hasHonor && (
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <span className="w-2 h-4 rounded bg-orange-400 shrink-0" />
                                 Daftar Nominatif Honorarium
                             </CardTitle>
@@ -978,7 +978,7 @@ export default function Nominatif({ permohonan, items_honor, items_perjadin, ref
                 {(activeTab === 'perjadin' || !hasHonor) && hasPerjadin && (
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <span className="w-2 h-4 rounded bg-blue-400 shrink-0" />
                                 Daftar Nominatif Perjalanan Dinas
                             </CardTitle>

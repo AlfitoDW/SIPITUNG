@@ -1,12 +1,12 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { ChevronRight, FileText, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronRight, FileText, Loader2 } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
 
 interface DjaItem { id: number; kode: string; nama: string; pagu: number; }
 interface Sasaran  extends DjaItem { program_id: number; }
@@ -68,8 +68,8 @@ export default function Create({ tahun, programs, sasarans, kros, ros, komponens
                         <FileText className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900">Buat Permohonan Dana</h1>
-                        <p className="text-sm text-gray-500">Tahun Anggaran {tahun.tahun} — Draft akan disimpan otomatis</p>
+                        <h1 className="text-2xl font-bold tracking-tight">Buat Permohonan Dana</h1>
+                        <p className="text-sm text-muted-foreground">Tahun Anggaran {tahun.tahun} — Draft akan disimpan otomatis</p>
                     </div>
                 </div>
 

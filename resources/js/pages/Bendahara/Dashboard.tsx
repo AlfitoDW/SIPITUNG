@@ -71,7 +71,7 @@ export default function Dashboard({ user, tahun, siapCair, sudahCair, nilaiCair,
                                 <Banknote className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Jabatan</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Jabatan</p>
                                 <h3 className="text-base font-bold text-foreground leading-tight">Bendahara</h3>
                                 {tahun && (
                                     <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-mono font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 mt-1.5">
@@ -117,7 +117,7 @@ export default function Dashboard({ user, tahun, siapCair, sudahCair, nilaiCair,
                 {riwayatCair.length > 0 && (
                     <div>
                         <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-medium text-muted-foreground">Riwayat Pencairan Terakhir</p>
+                            <p className="text-sm font-semibold text-muted-foreground">Riwayat Pencairan Terakhir</p>
                             <Link
                                 href="/bendahara/permohonan-dana"
                                 className="flex items-center gap-0.5 text-xs text-muted-foreground/50 hover:text-blue-600 transition-colors group"

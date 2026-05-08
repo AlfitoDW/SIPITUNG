@@ -47,6 +47,7 @@ Route::prefix('pimpinan')->middleware('role:pimpinan')->name('pimpinan.')->group
     // ─── Keuangan — Approval step 2 (Kabag) & step 3 (PPK) ───────────────────────
     Route::prefix('keuangan/permohonan-dana')->name('keuangan.permohonan-dana.')->group(function () {
         Route::get('/',              [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/{pd}',          [PermohonanDanaController::class, 'show'])->name('show');
         Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
         Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
     });

@@ -1,16 +1,16 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
 import {
     Eye, ClipboardList, Printer, History, CheckCircle2,
     XCircle, Clock, FileText, CircleDot
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
+import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -369,8 +369,8 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                 {/* Page Header */}
                 <div className="flex items-start justify-between">
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight uppercase">Monitoring Permohonan Dana</h1>
-                        <p className="text-sm font-medium text-muted-foreground">Semua ajuan dana dari tim kerja</p>
+                        <h1 className="text-2xl font-bold tracking-tight">Monitoring Permohonan Dana</h1>
+                        <p className="text-sm text-muted-foreground">Semua ajuan dana dari tim kerja</p>
                         <p className="text-xs text-muted-foreground/70 mt-0.5">{tahun?.label}</p>
                     </div>
                 </div>
@@ -453,7 +453,7 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                         <div className="overflow-x-auto rounded-md border">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                    <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                         <th className="px-3 py-3 text-center w-10">#</th>
                                         <th className="px-3 py-3 text-left">Nomor Permohonan</th>
                                         <th className="px-3 py-3 text-left">Tim Kerja</th>

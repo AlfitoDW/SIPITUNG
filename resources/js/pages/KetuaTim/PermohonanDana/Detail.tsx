@@ -1,21 +1,21 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { useState, type ReactNode } from 'react';
 import {
     ArrowLeft, CheckCircle2, XCircle, FileText, Calendar,
     User, MapPin, ClipboardList, Banknote, Eye,
     Printer, History, CircleDot, Clock,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { useState, type ReactNode } from 'react';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
@@ -403,7 +403,7 @@ export default function Detail({ pd }: Props) {
                             </Button>
                         </Link>
                         <div>
-                            <h1 className="text-lg font-bold text-gray-900 leading-tight">
+                            <h1 className="text-2xl font-bold tracking-tight">
                                 Detail Permohonan Dana
                             </h1>
                             <p className="text-xs font-mono text-blue-700 font-semibold">{pd.nomor_permohonan}</p>
@@ -488,7 +488,7 @@ export default function Detail({ pd }: Props) {
                 {step === 1 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
                                 <ClipboardList className="h-4 w-4 text-blue-600" /> Informasi Kegiatan
                             </CardTitle>
                         </CardHeader>
@@ -510,7 +510,7 @@ export default function Detail({ pd }: Props) {
                 {step === 2 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
                                 <Calendar className="h-4 w-4 text-blue-600" /> Waktu & Penanggung Jawab
                             </CardTitle>
                         </CardHeader>
@@ -548,7 +548,7 @@ export default function Detail({ pd }: Props) {
                 {step === 3 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
                                 <FileText className="h-4 w-4 text-blue-600" /> Dokumen Pendukung
                             </CardTitle>
                         </CardHeader>
@@ -558,7 +558,7 @@ export default function Detail({ pd }: Props) {
                             ) : (
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="border-b text-gray-500 text-xs">
+                                        <tr className="border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                             <th className="text-left py-2 w-8">No</th>
                                             <th className="text-left py-2">Jenis Dokumen</th>
                                             <th className="text-left py-2">Nama File</th>
@@ -598,7 +598,7 @@ export default function Detail({ pd }: Props) {
                 {step === 4 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
                                 <Banknote className="h-4 w-4 text-blue-600" /> Rincian Biaya
                             </CardTitle>
                         </CardHeader>
@@ -609,7 +609,7 @@ export default function Detail({ pd }: Props) {
                                 <div className="rounded-lg border overflow-hidden">
                                     <table className="w-full text-xs">
                                         <thead>
-                                            <tr className="bg-slate-50 border-b text-gray-500 text-[11px] uppercase tracking-wide">
+                                            <tr className="bg-slate-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                                 <th className="px-3 py-2.5 text-left">Kode Akun</th>
                                                 <th className="px-3 py-2.5 text-left">Uraian</th>
                                                 <th className="px-3 py-2.5 text-right w-16">Vol</th>

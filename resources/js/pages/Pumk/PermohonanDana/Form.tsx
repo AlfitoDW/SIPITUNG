@@ -1,11 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Plus, Trash2, ChevronLeft } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { Plus, Trash2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 
 type Item = {
@@ -106,7 +106,7 @@ export default function Form({ tahun, pd }: Props) {
                         </Button>
                     </Link>
                     <div>
-                        <h1 className="text-xl font-bold">{isEdit ? 'Edit Permohonan Dana' : 'Buat Permohonan Dana'}</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">{isEdit ? 'Edit Permohonan Dana' : 'Buat Permohonan Dana'}</h1>
                         <p className="text-sm text-muted-foreground">{tahun?.label}</p>
                     </div>
                 </div>
@@ -115,7 +115,7 @@ export default function Form({ tahun, pd }: Props) {
                     {/* Info Kegiatan */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Informasi Kegiatan</CardTitle>
+                            <CardTitle className="text-base font-semibold">Informasi Kegiatan</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
@@ -178,7 +178,7 @@ export default function Form({ tahun, pd }: Props) {
                     {/* SK & ST */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Surat Keputusan & Surat Tugas <span className="text-muted-foreground font-normal text-sm">(opsional)</span></CardTitle>
+                            <CardTitle className="text-base font-semibold">Surat Keputusan & Surat Tugas <span className="text-muted-foreground font-normal text-sm">(opsional)</span></CardTitle>
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
@@ -203,7 +203,7 @@ export default function Form({ tahun, pd }: Props) {
                     {/* Item Anggaran */}
                     <Card>
                         <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                            <CardTitle className="text-base">Rincian Anggaran</CardTitle>
+                            <CardTitle className="text-base font-semibold">Rincian Anggaran</CardTitle>
                             <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1.5">
                                 <Plus className="h-3.5 w-3.5" />
                                 Tambah Item

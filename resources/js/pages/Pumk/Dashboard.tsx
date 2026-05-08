@@ -55,7 +55,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
                 <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
                 <p className="text-sm font-semibold truncate">{value}</p>
             </div>
         </div>
@@ -118,7 +118,7 @@ export default function Dashboard({ tahun, stats, userInfo }: Props) {
                             <HandCoins className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tahun Anggaran</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tahun Anggaran</p>
                             <p className="text-base font-bold">{tahun?.label ?? '-'}</p>
                         </div>
                     </CardContent>

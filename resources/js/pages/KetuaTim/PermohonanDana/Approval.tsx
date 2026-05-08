@@ -1,22 +1,22 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
 import { Eye, History, Printer, CircleDot, Clock, CheckCircle2, XCircle, FileText } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
-import type { SharedData } from '@/types';
+import { useState, useMemo } from 'react';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+import type { SharedData } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -303,8 +303,8 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
                 {/* Page Header */}
                 <div className="flex items-start justify-between">
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight uppercase">Approval Permohonan Dana</h1>
-                        <p className="text-sm font-medium text-muted-foreground">Persetujuan Pengajuan Dana Tim</p>
+                        <h1 className="text-2xl font-bold tracking-tight">Approval Permohonan Dana</h1>
+                        <p className="text-sm text-muted-foreground">Persetujuan Pengajuan Dana Tim</p>
                         <p className="text-xs text-muted-foreground/70 mt-0.5">
                             KA.TIM — Step 1 Approval · {tahun?.label}
                         </p>
@@ -382,7 +382,7 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
                         <div className="overflow-x-auto rounded-md border">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                    <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                         <th className="px-3 py-3 text-center w-10">#</th>
                                         <th className="px-3 py-3 text-left">Nomor Permohonan</th>
                                         <th className="px-3 py-3 text-left">Judul Kegiatan</th>

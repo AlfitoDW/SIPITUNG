@@ -47,7 +47,7 @@ export default function Dashboard({ tahun, stats }: Props) {
                             <ClipboardCheck className="h-6 w-6 text-violet-600 dark:text-violet-400" />
                         </div>
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tahun Anggaran</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tahun Anggaran</p>
                             <p className="text-base font-bold">{tahun?.label ?? '-'}</p>
                         </div>
                     </CardContent>

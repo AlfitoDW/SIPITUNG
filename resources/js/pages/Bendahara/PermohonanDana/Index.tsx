@@ -1,17 +1,17 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Banknote, ChevronDown, ChevronUp, CheckCircle2, FileText, CalendarDays, Download } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import AppLayout from '@/layouts/app-layout';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import AppLayout from '@/layouts/app-layout';
 
 type Item = { id: number; kode_akun: string | null; uraian: string; volume: string; satuan: string; harga_satuan: string; total: string };
 type PD = {
@@ -51,7 +51,7 @@ function PDCard({ pd, onCairkan }: { pd: PD; onCairkan: () => void }) {
                             {pd.tim_kerja && <Badge variant="outline" className="text-xs">{pd.tim_kerja.kode}</Badge>}
                             <Badge variant="outline" className="text-xs text-violet-600 border-violet-300">Siap Cair</Badge>
                         </div>
-                        <p className="font-semibold mt-1">{pd.keperluan}</p>
+                        <p className="text-sm font-semibold mt-1">{pd.keperluan}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                             {fmtDate(pd.tanggal_mulai)} – {fmtDate(pd.tanggal_selesai)}
                             {pd.tempat && ` · ${pd.tempat}`}
@@ -61,7 +61,7 @@ function PDCard({ pd, onCairkan }: { pd: PD; onCairkan: () => void }) {
                                 Tanggal Pengajuan: {fmtDate(pd.submitted_at)}
                             </p>
                         )}
-                        <p className="text-lg font-bold mt-1 text-violet-600 dark:text-violet-400">{fmt(pd.total_anggaran)}</p>
+                        <p className="text-sm font-bold tabular-nums mt-1 text-violet-600 dark:text-violet-400">{fmt(pd.total_anggaran)}</p>
                         {pd.catatan_pic && (
                             <p className="text-xs text-muted-foreground mt-1 bg-muted/40 px-2 py-1 rounded">
                                 Catatan PIC: {pd.catatan_pic}
@@ -93,7 +93,7 @@ function PDCard({ pd, onCairkan }: { pd: PD; onCairkan: () => void }) {
                     <div className="mt-4 border rounded-lg overflow-hidden">
                         <table className="w-full text-xs">
                             <thead className="bg-muted/50">
-                                <tr>
+                                <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     <th className="px-3 py-2 text-left">Kode Akun</th>
                                     <th className="px-3 py-2 text-left">Uraian</th>
                                     <th className="px-3 py-2 text-right">Vol</th>
@@ -113,7 +113,7 @@ function PDCard({ pd, onCairkan }: { pd: PD; onCairkan: () => void }) {
                                         <td className="px-3 py-2 text-right font-medium tabular-nums">{fmt(item.total)}</td>
                                     </tr>
                                 ))}
-                                <tr className="bg-muted/30 font-semibold">
+                                <tr className="bg-muted/30 font-semibold text-xs">
                                     <td colSpan={5} className="px-3 py-2 text-right text-xs">Total</td>
                                     <td className="px-3 py-2 text-right tabular-nums">{fmt(pd.total_anggaran)}</td>
                                 </tr>

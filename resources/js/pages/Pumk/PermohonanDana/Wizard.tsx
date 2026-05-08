@@ -1,14 +1,14 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import AppLayout from '@/layouts/app-layout';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ function Step1({ pd, onNext }: { pd: Pd; onNext: () => void }) {
     ];
     return (
         <Card>
-            <CardHeader><CardTitle className="text-base">Informasi Kegiatan</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base font-semibold">Informasi Kegiatan</CardTitle></CardHeader>
             <CardContent className="space-y-3">
                 {fields.map(([label, val]) => (
                     <div key={label} className="grid grid-cols-5 gap-2 py-2 border-b border-gray-100 last:border-0">
@@ -210,7 +210,7 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
     return (
         <form onSubmit={readonly ? (e) => e.preventDefault() : submit}>
             <Card>
-                <CardHeader><CardTitle className="text-base">Waktu dan Penanggung Jawab</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base font-semibold">Waktu dan Penanggung Jawab</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     {/* Fields — dinonaktifkan saat readonly, tombol navigasi tetap bisa diklik */}
                     <div className={readonly ? 'pointer-events-none opacity-75 space-y-4' : 'space-y-4'}>
@@ -440,7 +440,7 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                 />
             )}
             <Card>
-                <CardHeader><CardTitle className="text-base">Dokumen Pendukung</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base font-semibold">Dokumen Pendukung</CardTitle></CardHeader>
                 <CardContent className="space-y-5">
                     {/* Upload area — disembunyikan saat readonly */}
                     {!readonly && (
@@ -620,7 +620,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-base">Rincian Biaya</CardTitle>
+                <CardTitle className="text-base font-semibold">Rincian Biaya</CardTitle>
                 <p className="text-xs text-gray-500 mt-1">
                     Harga satuan dapat disesuaikan dengan kondisi di lapangan. Jumlah permintaan dan sisa anggaran dihitung otomatis.
                 </p>
@@ -645,7 +645,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs">
                                         <thead>
-                                            <tr className="border-b bg-gray-50 text-gray-500 text-[11px]">
+                                            <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                                 <th className="text-left px-3 py-2">Uraian</th>
                                                 <th className="text-right px-2 py-2 w-28">Pagu Anggaran</th>
                                                 <th className="text-center px-2 py-2 w-20">Volume</th>
@@ -746,7 +746,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                     <div className="flex justify-end">
                         <div className="rounded-lg bg-blue-50 border border-blue-200 px-5 py-3 text-right">
                             <p className="text-xs text-blue-600 mb-1">Total Permintaan</p>
-                            <p className="text-lg font-bold text-blue-800">Rp {fmt(grandTotal)}</p>
+                            <p className="text-lg font-bold tabular-nums text-blue-800">Rp {fmt(grandTotal)}</p>
                         </div>
                     </div>
                 )}
@@ -856,8 +856,8 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                     <Badge variant="outline" className="text-xs uppercase tracking-widest">
                         {isEditable ? 'Draft Permohonan Dana' : pd.status_label}
                     </Badge>
-                    <h1 className="text-xl font-bold text-gray-900">Pengajuan Pendanaan Kegiatan</h1>
-                    <p className="text-sm text-gray-500">{pd.nomor_permohonan}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Pengajuan Pendanaan Kegiatan</h1>
+                    <p className="text-sm text-muted-foreground">{pd.nomor_permohonan}</p>
                 </div>
 
                 {/* Banner terkunci — tampil bila sudah disubmit */}

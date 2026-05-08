@@ -1,18 +1,18 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { Pencil, Trash2, Power, Plus, Upload, ChevronRight, Database } from 'lucide-react';
 import { useState, useRef } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pencil, Trash2, Power, Plus, Upload, ChevronRight, Database } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ function ProgramTab({ programs }: { programs: Program[] }) {
         <div className="space-y-4">
             {/* Form Tambah */}
             <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Tambah Program</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Tambah Program</CardTitle></CardHeader>
                 <CardContent>
                     <form onSubmit={store} className="grid grid-cols-4 gap-3 items-end">
                         <div>
@@ -179,12 +179,12 @@ function ProgramTab({ programs }: { programs: Program[] }) {
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
-                        <tr>
-                            <th className="text-left px-4 py-2 text-xs text-gray-500">Kode</th>
-                            <th className="text-left px-4 py-2 text-xs text-gray-500">Nama</th>
-                            <th className="text-right px-4 py-2 text-xs text-gray-500">Pagu</th>
-                            <th className="text-center px-4 py-2 text-xs text-gray-500">Status</th>
-                            <th className="text-center px-4 py-2 text-xs text-gray-500 w-28">Aksi</th>
+                        <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="text-left px-4 py-2">Kode</th>
+                            <th className="text-left px-4 py-2">Nama</th>
+                            <th className="text-right px-4 py-2">Pagu</th>
+                            <th className="text-center px-4 py-2">Status</th>
+                            <th className="text-center px-4 py-2 w-28">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -285,7 +285,7 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Tambah {config.label}</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Tambah {config.label}</CardTitle></CardHeader>
                 <CardContent>
                     <form onSubmit={store} className="grid grid-cols-5 gap-3 items-end">
                         <div>
@@ -335,14 +335,14 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
-                        <tr>
-                            <th className="text-left px-3 py-2 text-xs text-gray-500">{config.parentLabel}</th>
-                            <th className="text-left px-3 py-2 text-xs text-gray-500">Kode</th>
-                            <th className="text-left px-3 py-2 text-xs text-gray-500">Nama</th>
-                            {config.withJenis && <th className="text-center px-3 py-2 text-xs text-gray-500">Jenis</th>}
-                            <th className="text-right px-3 py-2 text-xs text-gray-500">Pagu</th>
-                            <th className="text-center px-3 py-2 text-xs text-gray-500">Status</th>
-                            <th className="text-center px-3 py-2 text-xs text-gray-500 w-24">Aksi</th>
+                        <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="text-left px-3 py-2">{config.parentLabel}</th>
+                            <th className="text-left px-3 py-2">Kode</th>
+                            <th className="text-left px-3 py-2">Nama</th>
+                            {config.withJenis && <th className="text-center px-3 py-2">Jenis</th>}
+                            <th className="text-right px-3 py-2">Pagu</th>
+                            <th className="text-center px-3 py-2">Status</th>
+                            <th className="text-center px-3 py-2 w-24">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -447,7 +447,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Tambah Rincian Biaya</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Tambah Rincian Biaya</CardTitle></CardHeader>
                 <CardContent>
                     <form onSubmit={store} className="space-y-3">
                         <div className="grid grid-cols-3 gap-3">
@@ -506,15 +506,15 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-xs">
                     <thead className="bg-gray-50 border-b">
-                        <tr>
-                            <th className="text-left px-3 py-2 text-gray-500">Kegiatan</th>
-                            <th className="text-left px-3 py-2 text-gray-500">Kode Akun</th>
-                            <th className="text-left px-3 py-2 text-gray-500">Nama Item</th>
-                            <th className="text-center px-2 py-2 text-gray-500">Sat.</th>
-                            <th className="text-right px-3 py-2 text-gray-500">Harga Satuan</th>
-                            <th className="text-right px-3 py-2 text-gray-500">Pagu Total</th>
-                            <th className="text-center px-2 py-2 text-gray-500">Status</th>
-                            <th className="text-center px-2 py-2 text-gray-500 w-24">Aksi</th>
+                        <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="text-left px-3 py-2">Kegiatan</th>
+                            <th className="text-left px-3 py-2">Kode Akun</th>
+                            <th className="text-left px-3 py-2">Nama Item</th>
+                            <th className="text-center px-2 py-2">Sat.</th>
+                            <th className="text-right px-3 py-2">Harga Satuan</th>
+                            <th className="text-right px-3 py-2">Pagu Total</th>
+                            <th className="text-center px-2 py-2">Status</th>
+                            <th className="text-center px-2 py-2 w-24">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -593,8 +593,8 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
                             <Database className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900">Master Anggaran DJA</h1>
-                            <p className="text-sm text-gray-500">Tahun Anggaran {tahun.tahun} — Kelola hierarki program dan rincian biaya</p>
+                            <h1 className="text-2xl font-bold tracking-tight">Master Anggaran DJA</h1>
+                            <p className="text-sm text-muted-foreground">Tahun Anggaran {tahun.tahun} — Kelola hierarki program dan rincian biaya</p>
                         </div>
                     </div>
                     <ImportDialog />
@@ -612,7 +612,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
                         ['Rincian', rincians.length],
                     ].map(([label, count]) => (
                         <div key={label} className="bg-white border rounded-lg px-3 py-2 text-center">
-                            <p className="text-lg font-bold text-gray-800">{count}</p>
+                            <p className="text-2xl font-bold tabular-nums">{count}</p>
                             <p className="text-xs text-gray-500">{label}</p>
                         </div>
                     ))}
