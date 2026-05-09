@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pumk;
 
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
+use App\Models\PermohonanDanaItem;
 use App\Models\PermohonanDanaItemNominatif;
 use App\Models\RefNama;
 use Illuminate\Http\JsonResponse;
@@ -66,6 +67,53 @@ class NominatifController extends Controller
             'nominatif.*.tiket_pesawat'     => 'nullable|numeric|min:0',
             'nominatif.*.hotel'             => 'nullable|numeric|min:0',
         ]);
+
+        // ── Validasi: total nominatif harus sama dengan total rincian biaya ──
+        $rows = $request->input('nominatif', []);
+        if (! empty($rows)) {
+            $rowsByItem = collect($rows)->groupBy('item_id');
+            $itemIds    = $rowsByItem->keys()->toArray();
+            $items      = PermohonanDanaItem::whereIn('id', $itemIds)->get()->keyBy('id');
+
+            foreach ($rowsByItem as $itemId => $itemRows) {
+                $item = $items[$itemId] ?? null;
+                if (! $item) {
+                    continue;
+                }
+
+                $totalNominatif = 0;
+
+                foreach ($itemRows as $row) {
+                    if ($item->isHonor()) {
+                        $vol   = (float) ($row['volume'] ?? 1);
+                        $harga = (float) ($row['harga_satuan'] ?? 0);
+                        $totalNominatif += round($vol * $harga, 2);
+                    } elseif ($item->isPerjadin()) {
+                        $uh = (float) ($row['uang_harian_vol'] ?? 0) * (float) ($row['uang_harian_satuan'] ?? 0);
+                        $fb = (float) ($row['fullboard_vol'] ?? 0) * (float) ($row['fullboard_satuan'] ?? 0);
+                        $fd = (float) ($row['fullday_vol'] ?? 0) * (float) ($row['fullday_satuan'] ?? 0);
+                        $totalNominatif += (float) ($row['transport'] ?? 0)
+                            + $uh + $fb + $fd
+                            + (float) ($row['representasi'] ?? 0)
+                            + (float) ($row['taksi_pp'] ?? 0)
+                            + (float) ($row['tiket_pesawat'] ?? 0)
+                            + (float) ($row['hotel'] ?? 0);
+                    }
+                }
+
+                $totalRincian = (float) $item->total;
+
+                if (abs($totalNominatif - $totalRincian) > 0.01) {
+                    return redirect()->back()->with('error',
+                        "Total nominatif untuk [{$item->kode_akun}] {$item->uraian} " .
+                        '(Rp ' . number_format($totalNominatif, 0, ',', '.') . ') ' .
+                        'tidak sesuai dengan total rincian biaya ' .
+                        '(Rp ' . number_format($totalRincian, 0, ',', '.') . '). ' .
+                        'Harap perbaiki data pada menu Rincian Biaya sebelum menyimpan nominatif.'
+                    );
+                }
+            }
+        }
 
         // Hapus nominatif lama untuk permohonan ini
         PermohonanDanaItemNominatif::where('permohonan_dana_id', $pd->id)->delete();

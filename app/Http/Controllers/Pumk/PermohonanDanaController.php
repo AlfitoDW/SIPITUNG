@@ -294,6 +294,34 @@ class PermohonanDanaController extends Controller
             'items.*.jumlah_permintaan'      => 'required|numeric|min:0',
         ]);
 
+        // ── Validasi: tidak boleh melebihi sisa pagu ─────────────────────────────
+        foreach ($request->items as $item) {
+            if ($item['volume'] == 0) {
+                continue;
+            }
+
+            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+
+            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                ->whereHas('permohonanDana', fn ($q) => $q
+                    ->whereNotIn('status', ['draft', 'rejected'])
+                    ->where('id', '!=', $pd->id))
+                ->sum('jumlah_permintaan');
+
+            $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
+            $jumlah       = (int) round($item['volume'] * $item['harga_satuan']);
+
+            if ($jumlah > $sisaAnggaran) {
+                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                    ->with('error',
+                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                        "memerlukan Rp " . number_format($jumlah, 0, ',', '.') . ' ' .
+                        "tetapi sisa pagu hanya Rp " . number_format($sisaAnggaran, 0, ',', '.') . '.'
+                    )
+                    ->with('wizard_step', 4);
+            }
+        }
+
         // ── Upsert: update existing items, create new ones, delete removed ones ──
         // PENTING: Jangan delete-all karena cascade akan menghapus nominatif yang sudah diisi!
 
@@ -388,6 +416,36 @@ class PermohonanDanaController extends Controller
             return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                 ->with('error', "Isi data nominatif peserta terlebih dahulu untuk item berikut: {$labels}.")
                 ->with('wizard_step', 4);
+        }
+
+        // ── Safety Net: Validasi tidak melebihi sisa pagu ──────────────────────
+        foreach ($pd->items as $item) {
+            if ($item->volume == 0) {
+                continue;
+            }
+
+            $rincian = $item->djaRincianBiaya;
+            if (! $rincian) {
+                continue;
+            }
+
+            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                ->whereHas('permohonanDana', fn ($q) => $q
+                    ->whereNotIn('status', ['draft', 'rejected'])
+                    ->where('id', '!=', $pd->id))
+                ->sum('jumlah_permintaan');
+
+            $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
+
+            if ($item->jumlah_permintaan > $sisaAnggaran) {
+                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                    ->with('error',
+                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                        "memerlukan Rp " . number_format($item->jumlah_permintaan, 0, ',', '.') . ' ' .
+                        "tetapi sisa pagu hanya Rp " . number_format($sisaAnggaran, 0, ',', '.') . '.'
+                    )
+                    ->with('wizard_step', 4);
+            }
         }
         // ───────────────────────────────────────────────────────────────────────
 

@@ -575,7 +575,14 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
             getVol(item) > 0 &&
             item.nominatif_count === 0,
     );
+
+    // Item yang melebihi sisa pagu (semua item, termasuk non-nominatif)
+    const itemsOverBudget = rincianBiaya.flat().filter(
+        item => jumlah(item) > item.sisa_anggaran,
+    );
+
     const blockSubmit = itemsBelumNominatif.length > 0;
+    const blockSave   = itemsOverBudget.length > 0;
 
     const saveAndSubmit = () => {
         setSubmitting(true);
@@ -751,6 +758,36 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                     </div>
                 )}
 
+                {/* Banner over-budget */}
+                {itemsOverBudget.length > 0 && (
+                    <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-2">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-red-800">
+                                    Jumlah permintaan melebihi sisa pagu anggaran
+                                </p>
+                                <p className="text-xs text-red-700 mt-0.5">
+                                    Item berikut melebihi sisa pagu yang tersedia:
+                                </p>
+                                <ul className="mt-2 space-y-1.5">
+                                    {itemsOverBudget.map(item => (
+                                        <li key={item.id} className="flex items-center justify-between gap-3">
+                                            <span className="text-xs text-red-800">
+                                                <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}
+                                                {item.nama_item}
+                                                <span className="block text-red-600 mt-0.5">
+                                                    Melebihi Rp {fmt(jumlah(item) - item.sisa_anggaran)}
+                                                </span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Banner wajib nominatif */}
                 {itemsBelumNominatif.length > 0 && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
@@ -788,17 +825,28 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                     <Button type="button" variant="outline" onClick={onPrev}>← Sebelumnya</Button>
                     {!readonly && (
                         <div className="flex gap-2">
-                            <Button type="button" variant="outline" onClick={save} disabled={submitting}>
-                                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                Simpan Rincian
-                            </Button>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span tabIndex={blockSubmit ? 0 : undefined}>
+                                    <span tabIndex={blockSave ? 0 : undefined}>
+                                        <Button type="button" variant="outline" onClick={save} disabled={submitting || blockSave}>
+                                            {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                            Simpan Rincian
+                                        </Button>
+                                    </span>
+                                </TooltipTrigger>
+                                {blockSave && (
+                                    <TooltipContent side="top" className="max-w-xs">
+                                        Ada item yang melebihi sisa pagu. Perbaiki rincian biaya terlebih dahulu.
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span tabIndex={(blockSubmit || blockSave) ? 0 : undefined}>
                                         <Button
                                             type="button"
                                             onClick={saveAndSubmit}
-                                            disabled={submitting || blockSubmit}
+                                            disabled={submitting || blockSubmit || blockSave}
                                             className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                                         >
                                             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -809,6 +857,11 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                 {blockSubmit && (
                                     <TooltipContent side="top" className="max-w-xs">
                                         Isi daftar nominatif untuk semua item honor/perjadin terlebih dahulu
+                                    </TooltipContent>
+                                )}
+                                {blockSave && !blockSubmit && (
+                                    <TooltipContent side="top" className="max-w-xs">
+                                        Ada item yang melebihi sisa pagu. Perbaiki rincian biaya terlebih dahulu.
                                     </TooltipContent>
                                 )}
                             </Tooltip>
