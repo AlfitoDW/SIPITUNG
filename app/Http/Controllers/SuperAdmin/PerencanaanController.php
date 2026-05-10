@@ -268,16 +268,17 @@ class PerencanaanController extends Controller
         // Helper: status terbaik dari sekumpulan PIC teams (selaras UI getBestRa)
         $bestStatusForPics = function ($picTimKerjas) use ($raByTimKerjaId, $statusPriority): ?string {
             $bestPriority = -1;
-            $bestStatus   = null;
+            $bestStatus = null;
             foreach ($picTimKerjas as $team) {
                 foreach ($raByTimKerjaId->get($team->id, collect()) as $ra) {
                     $p = $statusPriority[$ra->status] ?? -1;
                     if ($p > $bestPriority) {
                         $bestPriority = $p;
-                        $bestStatus   = $ra->status;
+                        $bestStatus = $ra->status;
                     }
                 }
             }
+
             return $bestStatus;
         };
 
@@ -310,7 +311,7 @@ class PerencanaanController extends Controller
                     if (isset($sasaranMap[$sasaran->kode]['indikators'][$iku->kode])) {
                         continue;
                     }
-                    $rai      = $bestRai($iku->kode);
+                    $rai = $bestRai($iku->kode);
                     $picNames = $iku->picTimKerjas->map(fn ($t) => $t->nama)->join(', ');
 
                     // Status: ikuti logika UI — cek semua PIC teams, ambil status tertinggi
@@ -355,10 +356,10 @@ class PerencanaanController extends Controller
 
         // ── Status label map ──────────────────────────────────────────────────
         $statusLabels = [
-            'draft'          => 'Draft',
-            'submitted'      => 'Menunggu Kabag',
+            'draft' => 'Draft',
+            'submitted' => 'Menunggu Kabag',
             'kabag_approved' => 'Disetujui',
-            'rejected'       => 'Ditolak',
+            'rejected' => 'Ditolak',
         ];
 
         // ── Spreadsheet ───────────────────────────────────────────────────────
@@ -404,7 +405,7 @@ class PerencanaanController extends Controller
         // ── Header row 2–3 ────────────────────────────────────────────────────
         // Static columns merged rows 2:3: No, Sasaran, Kode IKU, Indikator, Satuan, Target Tahunan, PIC Tim Kerja, Tim Kerja Pengisi
         $staticHeaders = ['No', 'Sasaran', 'Kode IKU', 'Indikator Kinerja', 'Satuan', 'Target Tahunan', 'PIC Tim Kerja', 'Tim Kerja Pengisi'];
-        $staticCols    = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $staticCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         foreach ($staticHeaders as $i => $label) {
             $col = $staticCols[$i];
             $sheet->mergeCells("{$col}2:{$col}3");
@@ -442,9 +443,9 @@ class PerencanaanController extends Controller
         }
 
         // ── Data rows ─────────────────────────────────────────────────────────
-        $startRow    = 4;
-        $currentRow  = $startRow;
-        $no          = 1;
+        $startRow = 4;
+        $currentRow = $startRow;
+        $no = 1;
 
         $sasaranGroups = [];
         foreach ($dataRows as $dr) {
@@ -453,7 +454,7 @@ class PerencanaanController extends Controller
 
         foreach ($sasaranGroups as $sasaranKode => $rows) {
             $groupStartRow = $currentRow;
-            $groupSize     = count($rows);
+            $groupSize = count($rows);
 
             foreach ($rows as $dr) {
                 $sheet->getRowDimension($currentRow)->setRowHeight(-1);
@@ -525,7 +526,7 @@ class PerencanaanController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ];
 
-        $twSheetNames  = [1 => 'Kegiatan TW I', 2 => 'Kegiatan TW II', 3 => 'Kegiatan TW III', 4 => 'Kegiatan TW IV'];
+        $twSheetNames = [1 => 'Kegiatan TW I', 2 => 'Kegiatan TW II', 3 => 'Kegiatan TW III', 4 => 'Kegiatan TW IV'];
         $twSheetTitles = [
             1 => 'Rencana Kegiatan Triwulan I',
             2 => 'Rencana Kegiatan Triwulan II',
@@ -565,8 +566,8 @@ class PerencanaanController extends Controller
             }
 
             // Data rows
-            $rowTw         = 3;
-            $noTw          = 1;
+            $rowTw = 3;
+            $noTw = 1;
             $prevSasaranTw = null;
 
             foreach ($dataRows as $dr) {
@@ -606,14 +607,14 @@ class PerencanaanController extends Controller
         $spreadsheet->setActiveSheetIndex(0);
 
         $filename = "Rencana_Aksi_{$tahun->tahun}.xlsx";
-        $writer   = new Xlsx($spreadsheet);
+        $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, $filename, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-            'Cache-Control'       => 'max-age=0',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 
@@ -794,7 +795,7 @@ class PerencanaanController extends Controller
 
     public function indikatorDestroy(IndikatorKinerja $indikator): RedirectResponse
     {
-        $kode    = $indikator->kode;
+        $kode = $indikator->kode;
         $tahunId = $indikator->sasaran->perjanjianKinerja->tahun_anggaran_id;
 
         // Hapus RAI dengan kode yang sama agar data Rencana Aksi tidak menyimpan IKU orphan.

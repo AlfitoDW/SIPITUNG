@@ -8,14 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DjaRincianBiaya extends Model
 {
     protected $table = 'dja_rincian_biaya';
+
     protected $fillable = [
         'kegiatan_id', 'kode_akun', 'nama_akun', 'nama_item',
         'volume_default', 'satuan', 'harga_satuan', 'pagu_total', 'urutan', 'is_aktif',
     ];
+
     protected $casts = [
-        'is_aktif'     => 'boolean',
+        'is_aktif' => 'boolean',
         'harga_satuan' => 'integer',
-        'pagu_total'   => 'integer',
+        'pagu_total' => 'integer',
     ];
 
     public function kegiatan(): BelongsTo

@@ -12,7 +12,7 @@ class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $user  = auth()->user();
+        $user = auth()->user();
         $tahun = TahunAnggaran::forSession();
 
         $stats = PermohonanDana::where('tahun_anggaran_id', $tahun->id)
@@ -33,11 +33,11 @@ class DashboardController extends Controller
             'tahun' => $tahun,
             'stats' => $stats,
             'userInfo' => [
-                'nama'       => $user->nama_lengkap,
-                'nip'        => $user->nip,
-                'role'       => $user->role_name,
-                'nama_unit'  => $user->timkerja?->nama,
-                'kode_unit'  => $user->timkerja?->kode,
+                'nama' => $user->nama_lengkap,
+                'nip' => $user->nip,
+                'role' => $user->role_name,
+                'nama_unit' => $user->timkerja?->nama,
+                'kode_unit' => $user->timkerja?->kode,
             ],
         ]);
     }

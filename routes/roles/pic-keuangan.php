@@ -10,10 +10,10 @@ Route::prefix('pic-keuangan')->middleware('role:pic_keuangan')->name('pic-keuang
 
     // ─── Permohonan Dana — Verifikasi (step 4) ────────────────────────────────────
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/',                  [PermohonanDanaController::class, 'index'])->name('index');
-        Route::get('/{pd}',              [PermohonanDanaController::class, 'show'])->name('show');
-        Route::get('/{pd}/print',        [PermohonanDanaController::class, 'print'])->name('print');
-        Route::post('/{pd}/approve',     [PermohonanDanaController::class, 'approve'])->name('approve');
-        Route::post('/{pd}/reject',      [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/{pd}', [PermohonanDanaController::class, 'show'])->name('show');
+        Route::get('/{pd}/print', [PermohonanDanaController::class, 'print'])->name('print');
+        Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
+        Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
     });
 });

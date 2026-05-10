@@ -26,15 +26,16 @@ class PermohonanDanaItem extends Model
     ];
 
     protected $casts = [
-        'volume'            => 'decimal:2',
-        'harga_satuan'      => 'decimal:2',
-        'total'             => 'decimal:2',
+        'volume' => 'decimal:2',
+        'harga_satuan' => 'decimal:2',
+        'total' => 'decimal:2',
         'jumlah_permintaan' => 'integer',
     ];
 
     // ─── Kode akun honor & perjadin ───────────────────────────────────────────
 
-    const HONOR_AKUN   = ['521115', '521213', '522151'];
+    const HONOR_AKUN = ['521115', '521213', '522151'];
+
     const PERJADIN_AKUN = ['524111', '524119', '524113'];
 
     public function isHonor(): bool
@@ -79,6 +80,6 @@ class PermohonanDanaItem extends Model
     public function nominatif(): HasMany
     {
         return $this->hasMany(PermohonanDanaItemNominatif::class, 'permohonan_dana_item_id')
-                    ->orderBy('urutan');
+            ->orderBy('urutan');
     }
 }

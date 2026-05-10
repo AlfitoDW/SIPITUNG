@@ -136,18 +136,18 @@ class PerencanaanController extends Controller
             ->orderBy('id')
             ->get();
 
-        $rasMandiri     = [];
-        $raDisplayMap   = []; // key simetris untuk dedup pasangan kolaborasi
+        $rasMandiri = [];
+        $raDisplayMap = []; // key simetris untuk dedup pasangan kolaborasi
 
         foreach ($allRas as $ra) {
             if ($ra->peer_tim_kerja_id === null) {
                 $rasMandiri[] = [
-                    'id'               => $ra->id,
-                    'status'           => $ra->status,
-                    'rekomendasi_kabag'=> $ra->rekomendasi_kabag,
-                    'tim_kerja'        => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
-                    'peer_tim_kerja'   => null,
-                    'is_kolaborasi'    => false,
+                    'id' => $ra->id,
+                    'status' => $ra->status,
+                    'rekomendasi_kabag' => $ra->rekomendasi_kabag,
+                    'tim_kerja' => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
+                    'peer_tim_kerja' => null,
+                    'is_kolaborasi' => false,
                 ];
             } else {
                 $a = min($ra->tim_kerja_id, $ra->peer_tim_kerja_id);
@@ -164,13 +164,13 @@ class PerencanaanController extends Controller
         // Status gabungan kolaborasi: submitted > rejected > draft > kabag_approved
         // (submitted paling utama — butuh perhatian Kabag)
         $kolabPriority = ['submitted' => 4, 'rejected' => 3, 'draft' => 2, 'kabag_approved' => 1];
-        $rasKolaborasi  = [];
+        $rasKolaborasi = [];
 
         foreach ($raDisplayMap as $pair) {
-            $ra     = $pair['ra'];
+            $ra = $pair['ra'];
             $mirror = $pair['mirror'];
 
-            $raStatus     = $ra->status;
+            $raStatus = $ra->status;
             $mirrorStatus = $mirror?->status ?? $ra->status;
 
             $displayStatus = ($kolabPriority[$raStatus] ?? 0) >= ($kolabPriority[$mirrorStatus] ?? 0)
@@ -186,17 +186,17 @@ class PerencanaanController extends Controller
             }
 
             // Tim utama (RA milik tim pertama secara ID) dan peer
-            $timRa   = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $ra : $mirror;
-            $peerRa  = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $mirror : $ra;
+            $timRa = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $ra : $mirror;
+            $peerRa = ($ra->tim_kerja_id < ($mirror?->tim_kerja_id ?? PHP_INT_MAX)) ? $mirror : $ra;
 
             $rasKolaborasi[] = [
-                'id'               => ($timRa ?? $ra)->id,
-                'status'           => $displayStatus,
-                'rekomendasi_kabag'=> $note,
-                'tim_kerja'        => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
-                'peer_tim_kerja'   => $mirror?->peerTimKerja?->only(['id', 'nama', 'kode', 'nama_singkat'])
+                'id' => ($timRa ?? $ra)->id,
+                'status' => $displayStatus,
+                'rekomendasi_kabag' => $note,
+                'tim_kerja' => $ra->timKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
+                'peer_tim_kerja' => $mirror?->peerTimKerja?->only(['id', 'nama', 'kode', 'nama_singkat'])
                                    ?? $ra->peerTimKerja?->only(['id', 'nama', 'kode', 'nama_singkat']),
-                'is_kolaborasi'    => true,
+                'is_kolaborasi' => true,
             ];
         }
 
@@ -212,10 +212,10 @@ class PerencanaanController extends Controller
         ksort($sasaranMap);
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
-            'tahun'   => $tahun,
-            'sasarans'=> array_values($sasaranMap),
-            'ras'     => $ras,
-            'role'    => $user->pimpinan_type,
+            'tahun' => $tahun,
+            'sasarans' => array_values($sasaranMap),
+            'ras' => $ras,
+            'role' => $user->pimpinan_type,
         ]);
     }
 
@@ -257,8 +257,8 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status'           => 'kabag_approved',
-            'rekomendasi_kabag'=> null,
+            'status' => 'kabag_approved',
+            'rekomendasi_kabag' => null,
         ]);
 
         // Jika RA kolaborasi, sync mirror RA pasangannya
@@ -269,8 +269,8 @@ class PerencanaanController extends Controller
                 ->first();
             if ($mirrorRa) {
                 $mirrorRa->update([
-                    'status'           => 'kabag_approved',
-                    'rekomendasi_kabag'=> null,
+                    'status' => 'kabag_approved',
+                    'rekomendasi_kabag' => null,
                 ]);
             }
         }
@@ -285,9 +285,9 @@ class PerencanaanController extends Controller
         abort_if($ra->status !== 'submitted', 422, 'Status tidak valid.');
 
         $ra->update([
-            'status'           => 'rejected',
-            'rejected_by'      => 'kabag_umum',
-            'rekomendasi_kabag'=> $request->rekomendasi,
+            'status' => 'rejected',
+            'rejected_by' => 'kabag_umum',
+            'rekomendasi_kabag' => $request->rekomendasi,
         ]);
 
         // Jika RA kolaborasi, sync mirror RA pasangannya
@@ -298,9 +298,9 @@ class PerencanaanController extends Controller
                 ->first();
             if ($mirrorRa) {
                 $mirrorRa->update([
-                    'status'           => 'rejected',
-                    'rejected_by'      => 'kabag_umum',
-                    'rekomendasi_kabag'=> $request->rekomendasi,
+                    'status' => 'rejected',
+                    'rejected_by' => 'kabag_umum',
+                    'rekomendasi_kabag' => $request->rekomendasi,
                 ]);
             }
         }

@@ -16,8 +16,8 @@ class RefNama extends Model
     ];
 
     protected $casts = [
-        'is_aktif'      => 'boolean',
-        'pph21_persen'  => 'decimal:2',
+        'is_aktif' => 'boolean',
+        'pph21_persen' => 'decimal:2',
     ];
 
     public function scopeAktif($query)
@@ -36,13 +36,15 @@ class RefNama extends Model
         }
 
         // PNS — berdasarkan golongan
-        if (!$gol) return 0;
+        if (! $gol) {
+            return 0;
+        }
         $golKelas = strtoupper(substr($gol, 0, 2)); // 'II', 'III', 'IV'
 
         return match (true) {
-            str_starts_with($golKelas, 'IV')  => 15.0,
+            str_starts_with($golKelas, 'IV') => 15.0,
             str_starts_with($golKelas, 'III') => 5.0,
-            default                           => 0.0,
+            default => 0.0,
         };
     }
 }

@@ -48,11 +48,11 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
 
     // ─── Keuangan — Approval dari PUMK (step 1) ──────────────────────────────────
     Route::prefix('keuangan/permohonan-dana')->name('keuangan.permohonan-dana.')->group(function () {
-        Route::get('/',               [PermohonanDanaController::class, 'index'])->name('index');
-        Route::get('/{pd}',          [PermohonanDanaController::class, 'show'])->name('show');
-        Route::get('/{pd}/print',    [PermohonanDanaController::class, 'print'])->name('print');
+        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/{pd}', [PermohonanDanaController::class, 'show'])->name('show');
+        Route::get('/{pd}/print', [PermohonanDanaController::class, 'print'])->name('print');
         Route::post('/{pd}/approve', [PermohonanDanaController::class, 'approve'])->name('approve');
-        Route::post('/{pd}/reject',  [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
     });
 
     // Pengukuran Kinerja

@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Carbon\Carbon;
 
 class PermohonanDana extends Model
 {
@@ -50,37 +49,71 @@ class PermohonanDana extends Model
         'rejected_at_step',  'catatan_penolakan', 'rejected_at',
         'submitted_at',
         'created_by',
+        // Bukti bayar
+        'bukti_bayar_path', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by',
     ];
 
     protected $casts = [
-        'tanggal_mulai'             => 'date',
-        'tanggal_selesai'           => 'date',
-        'tgl_sk'                    => 'date',
-        'tgl_st'                    => 'date',
-        'tgl_pertanggungjawaban'    => 'date',
-        'total_anggaran'            => 'decimal:2',
-        'tgl_nominatif'             => 'date',
+        'tanggal_mulai' => 'date',
+        'tanggal_selesai' => 'date',
+        'tgl_sk' => 'date',
+        'tgl_st' => 'date',
+        'tgl_pertanggungjawaban' => 'date',
+        'total_anggaran' => 'decimal:2',
+        'tgl_nominatif' => 'date',
         // Approval timestamps
-        'submitted_at'              => 'datetime',
-        'katim_approved_at'         => 'datetime',
-        'kabag_approved_at'         => 'datetime',
-        'ppk_approved_at'           => 'datetime',
-        'pic_approved_at'           => 'datetime',
-        'dicairkan_at'              => 'datetime',
-        'rejected_at'               => 'datetime',
-        'wizard_step'               => 'integer',
+        'submitted_at' => 'datetime',
+        'katim_approved_at' => 'datetime',
+        'kabag_approved_at' => 'datetime',
+        'ppk_approved_at' => 'datetime',
+        'pic_approved_at' => 'datetime',
+        'dicairkan_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'bukti_bayar_uploaded_at' => 'datetime',
+        'wizard_step' => 'integer',
     ];
 
     // ─── Status helpers ───────────────────────────────────────────────────────────
 
-    public function isDraft(): bool          { return $this->status === 'draft'; }
-    public function isSubmitted(): bool      { return $this->status === 'submitted'; }
-    public function isKatimApproved(): bool  { return $this->status === 'katim_approved'; }
-    public function isKabagApproved(): bool  { return $this->status === 'kabag_approved'; }
-    public function isPpkApproved(): bool    { return $this->status === 'ppk_approved'; }
-    public function isPicApproved(): bool    { return $this->status === 'pic_approved'; }
-    public function isDicairkan(): bool      { return $this->status === 'dicairkan'; }
-    public function isRejected(): bool       { return $this->status === 'rejected'; }
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->status === 'submitted';
+    }
+
+    public function isKatimApproved(): bool
+    {
+        return $this->status === 'katim_approved';
+    }
+
+    public function isKabagApproved(): bool
+    {
+        return $this->status === 'kabag_approved';
+    }
+
+    public function isPpkApproved(): bool
+    {
+        return $this->status === 'ppk_approved';
+    }
+
+    public function isPicApproved(): bool
+    {
+        return $this->status === 'pic_approved';
+    }
+
+    public function isDicairkan(): bool
+    {
+        return $this->status === 'dicairkan';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
 
     /** PUMK dapat edit saat draft atau rejected */
     public function isEditable(): bool
@@ -92,15 +125,15 @@ class PermohonanDana extends Model
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'draft'          => 'Draft',
-            'submitted'      => 'Menunggu KA.TIM',
-            'katim_approved' => 'Menunggu Kabag Umum',
-            'kabag_approved' => 'Menunggu PPK',
-            'ppk_approved'   => 'Menunggu PIC Keuangan',
-            'pic_approved'   => 'Menunggu Pencairan',
-            'dicairkan'      => 'Dicairkan',
-            'rejected'       => 'Ditolak',
-            default          => $this->status,
+            'draft' => 'Draft',
+            'submitted',
+            'katim_approved',
+            'kabag_approved',
+            'ppk_approved',
+            'pic_approved' => 'diajukan',
+            'dicairkan' => 'Selesai',
+            'rejected' => 'Revisi',
+            default => $this->status,
         };
     }
 
@@ -146,6 +179,11 @@ class PermohonanDana extends Model
         return $this->belongsTo(User::class, 'dicairkan_by');
     }
 
+    public function buktiBayarUploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'bukti_bayar_uploaded_by');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PermohonanDanaItem::class)->orderBy('urutan');
@@ -168,19 +206,50 @@ class PermohonanDana extends Model
 
     // ─── DJA Relationships ────────────────────────────────────────────────────────
 
-    public function djaProgram(): BelongsTo    { return $this->belongsTo(DjaProgram::class,   'dja_program_id'); }
-    public function djaSasaran(): BelongsTo    { return $this->belongsTo(DjaSasaran::class,   'dja_sasaran_id'); }
-    public function djaKro(): BelongsTo        { return $this->belongsTo(DjaKro::class,       'dja_kro_id'); }
-    public function djaRo(): BelongsTo         { return $this->belongsTo(DjaRo::class,        'dja_ro_id'); }
-    public function djaKomponen(): BelongsTo   { return $this->belongsTo(DjaKomponen::class,  'dja_komponen_id'); }
-    public function djaKegiatan(): BelongsTo   { return $this->belongsTo(DjaKegiatan::class,  'dja_kegiatan_id'); }
-    public function kapokja(): BelongsTo       { return $this->belongsTo(User::class,         'kapokja_id'); }
-    public function picKeuangan(): BelongsTo   { return $this->belongsTo(User::class,         'pic_keuangan_id'); }
+    public function djaProgram(): BelongsTo
+    {
+        return $this->belongsTo(DjaProgram::class, 'dja_program_id');
+    }
+
+    public function djaSasaran(): BelongsTo
+    {
+        return $this->belongsTo(DjaSasaran::class, 'dja_sasaran_id');
+    }
+
+    public function djaKro(): BelongsTo
+    {
+        return $this->belongsTo(DjaKro::class, 'dja_kro_id');
+    }
+
+    public function djaRo(): BelongsTo
+    {
+        return $this->belongsTo(DjaRo::class, 'dja_ro_id');
+    }
+
+    public function djaKomponen(): BelongsTo
+    {
+        return $this->belongsTo(DjaKomponen::class, 'dja_komponen_id');
+    }
+
+    public function djaKegiatan(): BelongsTo
+    {
+        return $this->belongsTo(DjaKegiatan::class, 'dja_kegiatan_id');
+    }
+
+    public function kapokja(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'kapokja_id');
+    }
+
+    public function picKeuangan(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pic_keuangan_id');
+    }
 
     /** Format nomor permohonan: SEQ/LL3/PerD/BULAN-ROMAWI/TAHUN */
     public static function generateNomor(int $tahunAnggaranId, string $tahun): string
     {
-        $roman = ['', 'I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+        $roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
         $bulan = $roman[(int) now()->format('n')];
 
         // Ambil nomor urut tertinggi yang sudah dipakai untuk tahun anggaran ini,
@@ -199,7 +268,9 @@ class PermohonanDana extends Model
         do {
             $nomor = str_pad($seq, 3, '0', STR_PAD_LEFT).'/LL3/PerD/'.$bulan.'/'.$tahun;
             $exists = static::where('nomor_permohonan', $nomor)->exists();
-            if ($exists) $seq++;
+            if ($exists) {
+                $seq++;
+            }
         } while ($exists);
 
         return $nomor;

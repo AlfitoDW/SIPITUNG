@@ -19,7 +19,7 @@ return new class extends Migration
                 if (strlen((string) $row->tanggal_selesai) <= 10) {
                     \Illuminate\Support\Facades\DB::table('periode_pengukuran')
                         ->where('id', $row->id)
-                        ->update(['tanggal_selesai' => $row->tanggal_selesai . ' 23:59:59']);
+                        ->update(['tanggal_selesai' => $row->tanggal_selesai.' 23:59:59']);
                 }
             });
 

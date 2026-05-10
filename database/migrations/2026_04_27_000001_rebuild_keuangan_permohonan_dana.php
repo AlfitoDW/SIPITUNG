@@ -106,7 +106,7 @@ return new class extends Migration
         Schema::dropIfExists('permohonan_dana_item');
         Schema::dropIfExists('permohonan_dana');
 
-        if (!Schema::hasColumn('tim_kerja', 'is_koordinator')) {
+        if (! Schema::hasColumn('tim_kerja', 'is_koordinator')) {
             Schema::table('tim_kerja', function (Blueprint $table) {
                 $table->boolean('is_koordinator')->default(false)->after('is_active');
             });

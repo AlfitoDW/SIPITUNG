@@ -9,9 +9,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class DjaKegiatan extends Model
 {
     protected $table = 'dja_kegiatan';
+
     protected $fillable = ['komponen_id', 'kode', 'nama', 'pagu', 'is_aktif'];
+
     protected $casts = ['is_aktif' => 'boolean', 'pagu' => 'integer'];
 
-    public function komponen(): BelongsTo      { return $this->belongsTo(DjaKomponen::class, 'komponen_id'); }
-    public function rincianBiayas(): HasMany   { return $this->hasMany(DjaRincianBiaya::class, 'kegiatan_id'); }
+    public function komponen(): BelongsTo
+    {
+        return $this->belongsTo(DjaKomponen::class, 'komponen_id');
+    }
+
+    public function rincianBiayas(): HasMany
+    {
+        return $this->hasMany(DjaRincianBiaya::class, 'kegiatan_id');
+    }
 }

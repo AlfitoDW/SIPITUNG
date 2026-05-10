@@ -52,6 +52,8 @@ type PD = {
     dicairkan_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
+    next_approver_role: string | null;
+    next_approver_name: string | null;
 };
 
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -67,12 +69,12 @@ const fmtDate = (s: string | null) =>
 
 const statusColor = (s: string) => {
     if (s === 'dicairkan')      return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (s === 'rejected')       return 'bg-red-100 text-red-700 border-red-200';
-    if (s === 'submitted')      return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (s === 'rejected')       return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (s === 'submitted')      return 'bg-blue-100 text-blue-700 border-blue-200';
     if (s === 'katim_approved') return 'bg-blue-100 text-blue-700 border-blue-200';
-    if (s === 'kabag_approved') return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-    if (s === 'ppk_approved')   return 'bg-violet-100 text-violet-700 border-violet-200';
-    if (s === 'pic_approved')   return 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200';
+    if (s === 'kabag_approved') return 'bg-blue-100 text-blue-700 border-blue-200';
+    if (s === 'ppk_approved')   return 'bg-blue-100 text-blue-700 border-blue-200';
+    if (s === 'pic_approved')   return 'bg-blue-100 text-blue-700 border-blue-200';
     return 'bg-gray-100 text-gray-600 border-gray-200';
 };
 
@@ -82,8 +84,9 @@ type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
     { key: 'all',      label: 'Semua Ajuan', statuses: null },
     { key: 'waiting',  label: 'Menunggu',    statuses: ['ppk_approved'] },
-    { key: 'done',     label: 'Selesai',     statuses: ['pic_approved', 'dicairkan'] },
-    { key: 'rejected', label: 'Ditolak',     statuses: ['rejected'] },
+    { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'revisi',   label: 'Revisi',      statuses: ['rejected'] },
+    { key: 'selesai',  label: 'Selesai',     statuses: ['dicairkan'] },
 ];
 
 // ── VerticalTimeline ─────────────────────────────────────────────────────────
@@ -106,10 +109,10 @@ function buildTimeline(pd: PD): TLStep[] {
     return [
         { key: 'dibuat',    stepNo: 1, role: 'PUMK',         action: 'Permohonan Dibuat',    actorName: pd.created_by_user?.nama_lengkap ?? null, ts: null, catatan: null, state: 'done' },
         { key: 'submitted', stepNo: 2, role: 'PUMK',         action: 'Diajukan ke KA.TIM',   actorName: pd.created_by_user?.nama_lengkap ?? null, ts: pd.submitted_at, catatan: null, state: pd.submitted_at ? 'done' : 'pending' },
-        { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Ditolak' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : 'pending' },
-        { key: 'kabag',     stepNo: 4, role: 'Kabag Umum',   action: isRej && rejStep === 'kabag' ? 'Ditolak' : 'Disetujui', actorName: pd.kabag_approved_by_name, ts: pd.kabag_approved_at, catatan: pd.catatan_kabag, state: isRej && rejStep === 'kabag' ? 'rejected' : pd.kabag_approved_at ? 'done' : 'pending' },
-        { key: 'ppk',       stepNo: 5, role: 'PPK',          action: isRej && rejStep === 'ppk'   ? 'Ditolak' : 'Disetujui', actorName: pd.ppk_approved_by_name,   ts: pd.ppk_approved_at,   catatan: pd.catatan_ppk,   state: isRej && rejStep === 'ppk'   ? 'rejected' : pd.ppk_approved_at   ? 'done' : 'pending' },
-        { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Ditolak' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : 'pending' },
+        { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Revisi' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : 'pending' },
+        { key: 'kabag',     stepNo: 4, role: 'Kabag Umum',   action: isRej && rejStep === 'kabag' ? 'Revisi' : 'Disetujui', actorName: pd.kabag_approved_by_name, ts: pd.kabag_approved_at, catatan: pd.catatan_kabag, state: isRej && rejStep === 'kabag' ? 'rejected' : pd.kabag_approved_at ? 'done' : 'pending' },
+        { key: 'ppk',       stepNo: 5, role: 'PPK',          action: isRej && rejStep === 'ppk'   ? 'Revisi' : 'Disetujui', actorName: pd.ppk_approved_by_name,   ts: pd.ppk_approved_at,   catatan: pd.catatan_ppk,   state: isRej && rejStep === 'ppk'   ? 'rejected' : pd.ppk_approved_at   ? 'done' : 'pending' },
+        { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Revisi' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : 'pending' },
         { key: 'cair',      stepNo: 7, role: 'Bendahara',    action: 'Dana Dicairkan',           actorName: pd.dicairkan_by_name,      ts: pd.dicairkan_at,     catatan: null,             state: pd.dicairkan_at ? 'done' : 'pending' },
     ];
 }
@@ -368,16 +371,16 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props)
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-3 text-center">
-                                                        {canAct ? (
+                                                        {pd.next_approver_role ? (
                                                             <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                                                                Perlu
+                                                                {pd.next_approver_role}
                                                             </Badge>
                                                         ) : (
                                                             <span className="text-xs text-muted-foreground">—</span>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
-                                                        {pd.tim_kerja?.kode ?? '-'}
+                                                        {pd.next_approver_name ?? '—'}
                                                     </td>
                                                     <td className="px-3 py-3">
                                                         <div className="flex items-center justify-center gap-1">

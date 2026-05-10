@@ -28,44 +28,44 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
             Route::post('/import', [DjaController::class, 'importExcel'])->name('import');
 
             // Program
-            Route::post('/program',           [DjaController::class, 'programStore'])->name('program.store');
-            Route::put('/program/{program}',   [DjaController::class, 'programUpdate'])->name('program.update');
+            Route::post('/program', [DjaController::class, 'programStore'])->name('program.store');
+            Route::put('/program/{program}', [DjaController::class, 'programUpdate'])->name('program.update');
             Route::patch('/program/{program}/toggle', [DjaController::class, 'programToggle'])->name('program.toggle');
             Route::delete('/program/{program}', [DjaController::class, 'programDestroy'])->name('program.destroy');
 
             // Sasaran
-            Route::post('/sasaran',             [DjaController::class, 'sasaranStore'])->name('sasaran.store');
-            Route::put('/sasaran/{sasaran}',    [DjaController::class, 'sasaranUpdate'])->name('sasaran.update');
+            Route::post('/sasaran', [DjaController::class, 'sasaranStore'])->name('sasaran.store');
+            Route::put('/sasaran/{sasaran}', [DjaController::class, 'sasaranUpdate'])->name('sasaran.update');
             Route::patch('/sasaran/{sasaran}/toggle', [DjaController::class, 'sasaranToggle'])->name('sasaran.toggle');
             Route::delete('/sasaran/{sasaran}', [DjaController::class, 'sasaranDestroy'])->name('sasaran.destroy');
 
             // KRO
-            Route::post('/kro',           [DjaController::class, 'kroStore'])->name('kro.store');
-            Route::put('/kro/{kro}',      [DjaController::class, 'kroUpdate'])->name('kro.update');
+            Route::post('/kro', [DjaController::class, 'kroStore'])->name('kro.store');
+            Route::put('/kro/{kro}', [DjaController::class, 'kroUpdate'])->name('kro.update');
             Route::patch('/kro/{kro}/toggle', [DjaController::class, 'kroToggle'])->name('kro.toggle');
-            Route::delete('/kro/{kro}',   [DjaController::class, 'kroDestroy'])->name('kro.destroy');
+            Route::delete('/kro/{kro}', [DjaController::class, 'kroDestroy'])->name('kro.destroy');
 
             // RO
-            Route::post('/ro',        [DjaController::class, 'roStore'])->name('ro.store');
-            Route::put('/ro/{ro}',    [DjaController::class, 'roUpdate'])->name('ro.update');
+            Route::post('/ro', [DjaController::class, 'roStore'])->name('ro.store');
+            Route::put('/ro/{ro}', [DjaController::class, 'roUpdate'])->name('ro.update');
             Route::patch('/ro/{ro}/toggle', [DjaController::class, 'roToggle'])->name('ro.toggle');
             Route::delete('/ro/{ro}', [DjaController::class, 'roDestroy'])->name('ro.destroy');
 
             // Komponen
-            Route::post('/komponen',              [DjaController::class, 'komponenStore'])->name('komponen.store');
-            Route::put('/komponen/{komponen}',    [DjaController::class, 'komponenUpdate'])->name('komponen.update');
+            Route::post('/komponen', [DjaController::class, 'komponenStore'])->name('komponen.store');
+            Route::put('/komponen/{komponen}', [DjaController::class, 'komponenUpdate'])->name('komponen.update');
             Route::patch('/komponen/{komponen}/toggle', [DjaController::class, 'komponenToggle'])->name('komponen.toggle');
             Route::delete('/komponen/{komponen}', [DjaController::class, 'komponenDestroy'])->name('komponen.destroy');
 
             // Kegiatan
-            Route::post('/kegiatan',              [DjaController::class, 'kegiatanStore'])->name('kegiatan.store');
-            Route::put('/kegiatan/{kegiatan}',    [DjaController::class, 'kegiatanUpdate'])->name('kegiatan.update');
+            Route::post('/kegiatan', [DjaController::class, 'kegiatanStore'])->name('kegiatan.store');
+            Route::put('/kegiatan/{kegiatan}', [DjaController::class, 'kegiatanUpdate'])->name('kegiatan.update');
             Route::patch('/kegiatan/{kegiatan}/toggle', [DjaController::class, 'kegiatanToggle'])->name('kegiatan.toggle');
             Route::delete('/kegiatan/{kegiatan}', [DjaController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
 
             // Rincian Biaya
-            Route::post('/rincian',             [DjaController::class, 'rincianStore'])->name('rincian.store');
-            Route::put('/rincian/{rincian}',    [DjaController::class, 'rincianUpdate'])->name('rincian.update');
+            Route::post('/rincian', [DjaController::class, 'rincianStore'])->name('rincian.store');
+            Route::put('/rincian/{rincian}', [DjaController::class, 'rincianUpdate'])->name('rincian.update');
             Route::patch('/rincian/{rincian}/toggle', [DjaController::class, 'rincianToggle'])->name('rincian.toggle');
             Route::delete('/rincian/{rincian}', [DjaController::class, 'rincianDestroy'])->name('rincian.destroy');
         });
@@ -73,12 +73,12 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
 
     // ─── Referensi Nama (Pegawai) ─────────────────────────────────────────────────
     Route::prefix('ref-nama')->name('ref-nama.')->group(function () {
-        Route::get('/',           [RefNamaController::class, 'index'])->name('index');
-        Route::post('/',          [RefNamaController::class, 'store'])->name('store');
-        Route::put('/{refNama}',  [RefNamaController::class, 'update'])->name('update');
+        Route::get('/', [RefNamaController::class, 'index'])->name('index');
+        Route::post('/', [RefNamaController::class, 'store'])->name('store');
+        Route::put('/{refNama}', [RefNamaController::class, 'update'])->name('update');
         Route::delete('/{refNama}', [RefNamaController::class, 'destroy'])->name('destroy');
         Route::patch('/{refNama}/toggle', [RefNamaController::class, 'toggleStatus'])->name('toggle');
-        Route::post('/import',    [RefNamaController::class, 'importExcel'])->name('import');
+        Route::post('/import', [RefNamaController::class, 'importExcel'])->name('import');
     });
     Route::get('/perencanaan', fn () => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');
 

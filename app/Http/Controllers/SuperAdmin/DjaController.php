@@ -62,14 +62,14 @@ class DjaController extends Controller
             ->get();
 
         return Inertia::render('SuperAdmin/Keuangan/MasterAnggaran/Index', [
-            'tahun'     => $tahun,
-            'programs'  => $programs,
-            'sasarans'  => $sasarans,
-            'kros'      => $kros,
-            'ros'       => $ros,
+            'tahun' => $tahun,
+            'programs' => $programs,
+            'sasarans' => $sasarans,
+            'kros' => $kros,
+            'ros' => $ros,
             'komponens' => $komponens,
             'kegiatans' => $kegiatans,
-            'rincians'  => $rincians,
+            'rincians' => $rincians,
         ]);
     }
 
@@ -85,11 +85,12 @@ class DjaController extends Controller
         ]);
         DjaProgram::create([
             'tahun_anggaran' => $tahun->tahun,
-            'kode'  => $request->kode,
-            'nama'  => $request->nama,
-            'pagu'  => $request->pagu,
+            'kode' => $request->kode,
+            'nama' => $request->nama,
+            'pagu' => $request->pagu,
             'is_aktif' => true,
         ]);
+
         return back()->with('success', 'Program berhasil ditambahkan.');
     }
 
@@ -101,18 +102,21 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         $program->update($request->only('kode', 'nama', 'pagu'));
+
         return back()->with('success', 'Program berhasil diperbarui.');
     }
 
     public function programToggle(DjaProgram $program): RedirectResponse
     {
-        $program->update(['is_aktif' => !$program->is_aktif]);
+        $program->update(['is_aktif' => ! $program->is_aktif]);
+
         return back()->with('success', 'Status program diperbarui.');
     }
 
     public function programDestroy(DjaProgram $program): RedirectResponse
     {
         $program->delete();
+
         return back()->with('success', 'Program dihapus.');
     }
 
@@ -127,6 +131,7 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         DjaSasaran::create($request->only('program_id', 'kode', 'nama', 'pagu') + ['is_aktif' => true]);
+
         return back()->with('success', 'Sasaran berhasil ditambahkan.');
     }
 
@@ -138,18 +143,21 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         $sasaran->update($request->only('kode', 'nama', 'pagu'));
+
         return back()->with('success', 'Sasaran berhasil diperbarui.');
     }
 
     public function sasaranToggle(DjaSasaran $sasaran): RedirectResponse
     {
-        $sasaran->update(['is_aktif' => !$sasaran->is_aktif]);
+        $sasaran->update(['is_aktif' => ! $sasaran->is_aktif]);
+
         return back()->with('success', 'Status sasaran diperbarui.');
     }
 
     public function sasaranDestroy(DjaSasaran $sasaran): RedirectResponse
     {
         $sasaran->delete();
+
         return back()->with('success', 'Sasaran dihapus.');
     }
 
@@ -164,6 +172,7 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         DjaKro::create($request->only('sasaran_id', 'kode', 'nama', 'pagu') + ['is_aktif' => true]);
+
         return back()->with('success', 'KRO berhasil ditambahkan.');
     }
 
@@ -175,18 +184,21 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         $kro->update($request->only('kode', 'nama', 'pagu'));
+
         return back()->with('success', 'KRO berhasil diperbarui.');
     }
 
     public function kroToggle(DjaKro $kro): RedirectResponse
     {
-        $kro->update(['is_aktif' => !$kro->is_aktif]);
+        $kro->update(['is_aktif' => ! $kro->is_aktif]);
+
         return back()->with('success', 'Status KRO diperbarui.');
     }
 
     public function kroDestroy(DjaKro $kro): RedirectResponse
     {
         $kro->delete();
+
         return back()->with('success', 'KRO dihapus.');
     }
 
@@ -196,11 +208,12 @@ class DjaController extends Controller
     {
         $request->validate([
             'kro_id' => 'required|exists:dja_kro,id',
-            'kode'   => 'required|string|max:20',
-            'nama'   => 'required|string|max:400',
-            'pagu'   => 'required|integer|min:0',
+            'kode' => 'required|string|max:20',
+            'nama' => 'required|string|max:400',
+            'pagu' => 'required|integer|min:0',
         ]);
         DjaRo::create($request->only('kro_id', 'kode', 'nama', 'pagu') + ['is_aktif' => true]);
+
         return back()->with('success', 'RO berhasil ditambahkan.');
     }
 
@@ -212,18 +225,21 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         $ro->update($request->only('kode', 'nama', 'pagu'));
+
         return back()->with('success', 'RO berhasil diperbarui.');
     }
 
     public function roToggle(DjaRo $ro): RedirectResponse
     {
-        $ro->update(['is_aktif' => !$ro->is_aktif]);
+        $ro->update(['is_aktif' => ! $ro->is_aktif]);
+
         return back()->with('success', 'Status RO diperbarui.');
     }
 
     public function roDestroy(DjaRo $ro): RedirectResponse
     {
         $ro->delete();
+
         return back()->with('success', 'RO dihapus.');
     }
 
@@ -233,36 +249,40 @@ class DjaController extends Controller
     {
         $request->validate([
             'ro_id' => 'required|exists:dja_ro,id',
-            'kode'  => 'required|string|max:10',
-            'nama'  => 'required|string|max:300',
+            'kode' => 'required|string|max:10',
+            'nama' => 'required|string|max:300',
             'jenis' => ['required', Rule::in(['Utama', 'Pendukung'])],
-            'pagu'  => 'required|integer|min:0',
+            'pagu' => 'required|integer|min:0',
         ]);
         DjaKomponen::create($request->only('ro_id', 'kode', 'nama', 'jenis', 'pagu') + ['is_aktif' => true]);
+
         return back()->with('success', 'Komponen berhasil ditambahkan.');
     }
 
     public function komponenUpdate(Request $request, DjaKomponen $komponen): RedirectResponse
     {
         $request->validate([
-            'kode'  => 'required|string|max:10',
-            'nama'  => 'required|string|max:300',
+            'kode' => 'required|string|max:10',
+            'nama' => 'required|string|max:300',
             'jenis' => ['required', Rule::in(['Utama', 'Pendukung'])],
-            'pagu'  => 'required|integer|min:0',
+            'pagu' => 'required|integer|min:0',
         ]);
         $komponen->update($request->only('kode', 'nama', 'jenis', 'pagu'));
+
         return back()->with('success', 'Komponen berhasil diperbarui.');
     }
 
     public function komponenToggle(DjaKomponen $komponen): RedirectResponse
     {
-        $komponen->update(['is_aktif' => !$komponen->is_aktif]);
+        $komponen->update(['is_aktif' => ! $komponen->is_aktif]);
+
         return back()->with('success', 'Status komponen diperbarui.');
     }
 
     public function komponenDestroy(DjaKomponen $komponen): RedirectResponse
     {
         $komponen->delete();
+
         return back()->with('success', 'Komponen dihapus.');
     }
 
@@ -272,11 +292,12 @@ class DjaController extends Controller
     {
         $request->validate([
             'komponen_id' => 'required|exists:dja_komponen,id',
-            'kode'        => 'required|string|max:5',
-            'nama'        => 'required|string|max:400',
-            'pagu'        => 'required|integer|min:0',
+            'kode' => 'required|string|max:5',
+            'nama' => 'required|string|max:400',
+            'pagu' => 'required|integer|min:0',
         ]);
         DjaKegiatan::create($request->only('komponen_id', 'kode', 'nama', 'pagu') + ['is_aktif' => true]);
+
         return back()->with('success', 'Kegiatan berhasil ditambahkan.');
     }
 
@@ -288,18 +309,21 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
         ]);
         $kegiatan->update($request->only('kode', 'nama', 'pagu'));
+
         return back()->with('success', 'Kegiatan berhasil diperbarui.');
     }
 
     public function kegiatanToggle(DjaKegiatan $kegiatan): RedirectResponse
     {
-        $kegiatan->update(['is_aktif' => !$kegiatan->is_aktif]);
+        $kegiatan->update(['is_aktif' => ! $kegiatan->is_aktif]);
+
         return back()->with('success', 'Status kegiatan diperbarui.');
     }
 
     public function kegiatanDestroy(DjaKegiatan $kegiatan): RedirectResponse
     {
         $kegiatan->delete();
+
         return back()->with('success', 'Kegiatan dihapus.');
     }
 
@@ -308,49 +332,53 @@ class DjaController extends Controller
     public function rincianStore(Request $request): RedirectResponse
     {
         $request->validate([
-            'kegiatan_id'    => 'required|exists:dja_kegiatan,id',
-            'kode_akun'      => 'required|string|max:10',
-            'nama_akun'      => 'required|string|max:150',
-            'nama_item'      => 'required|string|max:300',
-            'satuan'         => 'required|string|max:20',
-            'harga_satuan'   => 'required|integer|min:0',
-            'pagu_total'     => 'required|integer|min:0',
-            'urutan'         => 'nullable|integer|min:0',
+            'kegiatan_id' => 'required|exists:dja_kegiatan,id',
+            'kode_akun' => 'required|string|max:10',
+            'nama_akun' => 'required|string|max:150',
+            'nama_item' => 'required|string|max:300',
+            'satuan' => 'required|string|max:20',
+            'harga_satuan' => 'required|integer|min:0',
+            'pagu_total' => 'required|integer|min:0',
+            'urutan' => 'nullable|integer|min:0',
         ]);
         DjaRincianBiaya::create($request->only(
             'kegiatan_id', 'kode_akun', 'nama_akun', 'nama_item',
             'satuan', 'harga_satuan', 'pagu_total', 'urutan'
         ) + ['is_aktif' => true]);
+
         return back()->with('success', 'Rincian biaya berhasil ditambahkan.');
     }
 
     public function rincianUpdate(Request $request, DjaRincianBiaya $rincian): RedirectResponse
     {
         $request->validate([
-            'kode_akun'    => 'required|string|max:10',
-            'nama_akun'    => 'required|string|max:150',
-            'nama_item'    => 'required|string|max:300',
-            'satuan'       => 'required|string|max:20',
+            'kode_akun' => 'required|string|max:10',
+            'nama_akun' => 'required|string|max:150',
+            'nama_item' => 'required|string|max:300',
+            'satuan' => 'required|string|max:20',
             'harga_satuan' => 'required|integer|min:0',
-            'pagu_total'   => 'required|integer|min:0',
-            'urutan'       => 'nullable|integer|min:0',
+            'pagu_total' => 'required|integer|min:0',
+            'urutan' => 'nullable|integer|min:0',
         ]);
         $rincian->update($request->only(
             'kode_akun', 'nama_akun', 'nama_item',
             'satuan', 'harga_satuan', 'pagu_total', 'urutan'
         ));
+
         return back()->with('success', 'Rincian biaya berhasil diperbarui.');
     }
 
     public function rincianToggle(DjaRincianBiaya $rincian): RedirectResponse
     {
-        $rincian->update(['is_aktif' => !$rincian->is_aktif]);
+        $rincian->update(['is_aktif' => ! $rincian->is_aktif]);
+
         return back()->with('success', 'Status rincian diperbarui.');
     }
 
     public function rincianDestroy(DjaRincianBiaya $rincian): RedirectResponse
     {
         $rincian->delete();
+
         return back()->with('success', 'Rincian biaya dihapus.');
     }
 
@@ -380,22 +408,22 @@ class DjaController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
-        $sheet       = $spreadsheet->getActiveSheet();
-        $rows        = $sheet->toArray(null, true, true, true); // keyed by column letter
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true); // keyed by column letter
 
         // ── State tracker (hierarki vertikal) ────────────────────────────────
-        $currentProgram  = null;
-        $currentSasaran  = null;
-        $currentKro      = null;
-        $currentRo       = null;
+        $currentProgram = null;
+        $currentSasaran = null;
+        $currentKro = null;
+        $currentRo = null;
         $currentKomponen = null;
         $currentKegiatan = null;
         $currentKodeAkun = null;
         $currentNamaAkun = null;
-        $urutan          = 0;
-        $imported        = 0;
+        $urutan = 0;
+        $imported = 0;
 
-        $paguInt = fn($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
+        $paguInt = fn ($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
 
         foreach ($rows as $rowNum => $row) {
             $a = trim((string) ($row['A'] ?? ''));
@@ -405,7 +433,9 @@ class DjaController extends Controller
             $e = trim((string) ($row['E'] ?? ''));
             $f = trim((string) ($row['F'] ?? ''));
 
-            if ($a === '' && $b === '') continue; // baris kosong
+            if ($a === '' && $b === '') {
+                continue;
+            } // baris kosong
 
             // ── Program  e.g. "139.03.DK" ────────────────────────────────────
             if (preg_match('/^\d{3}\.\d{2}\.[A-Z]{2,3}$/', $a)) {
@@ -415,6 +445,7 @@ class DjaController extends Controller
                 );
                 $currentSasaran = $currentKro = $currentRo = $currentKomponen = $currentKegiatan = null;
                 $imported++;
+
                 continue;
             }
 
@@ -426,6 +457,7 @@ class DjaController extends Controller
                 );
                 $currentKro = $currentRo = $currentKomponen = $currentKegiatan = null;
                 $imported++;
+
                 continue;
             }
 
@@ -437,6 +469,7 @@ class DjaController extends Controller
                 );
                 $currentRo = $currentKomponen = $currentKegiatan = null;
                 $imported++;
+
                 continue;
             }
 
@@ -448,6 +481,7 @@ class DjaController extends Controller
                 );
                 $currentKomponen = $currentKegiatan = null;
                 $imported++;
+
                 continue;
             }
 
@@ -459,6 +493,7 @@ class DjaController extends Controller
                 );
                 $currentKegiatan = null;
                 $imported++;
+
                 continue;
             }
 
@@ -471,6 +506,7 @@ class DjaController extends Controller
                 $currentKodeAkun = $currentNamaAkun = null;
                 $urutan = 0;
                 $imported++;
+
                 continue;
             }
 
@@ -479,6 +515,7 @@ class DjaController extends Controller
                 $currentKodeAkun = $a;
                 $currentNamaAkun = $b;
                 $urutan = 0;
+
                 continue;
             }
 
@@ -488,14 +525,14 @@ class DjaController extends Controller
                 DjaRincianBiaya::updateOrCreate(
                     ['kegiatan_id' => $currentKegiatan->id, 'nama_item' => $b],
                     [
-                        'kode_akun'    => $currentKodeAkun,
-                        'nama_akun'    => $currentNamaAkun ?? '',
+                        'kode_akun' => $currentKodeAkun,
+                        'nama_akun' => $currentNamaAkun ?? '',
                         'volume_default' => is_numeric(str_replace(['.', ','], ['', '.'], $c)) ? (float) str_replace(['.', ','], ['', '.'], $c) : 0,
-                        'satuan'       => $d ?: 'OK',
+                        'satuan' => $d ?: 'OK',
                         'harga_satuan' => $paguInt($e),
-                        'pagu_total'   => $paguInt($f),
-                        'urutan'       => $urutan,
-                        'is_aktif'     => true,
+                        'pagu_total' => $paguInt($f),
+                        'urutan' => $urutan,
+                        'is_aktif' => true,
                     ]
                 );
                 $imported++;

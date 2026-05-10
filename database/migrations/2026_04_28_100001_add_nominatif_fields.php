@@ -16,8 +16,8 @@ return new class extends Migration
         // tipe_nominatif di permohonan_dana_item
         Schema::table('permohonan_dana_item', function (Blueprint $table) {
             $table->enum('tipe_nominatif', ['honor', 'perjadin', 'non_nominatif'])
-                  ->default('non_nominatif')
-                  ->after('keterangan');
+                ->default('non_nominatif')
+                ->after('keterangan');
         });
     }
 

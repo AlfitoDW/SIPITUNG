@@ -38,26 +38,43 @@ class PermohonanDanaController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->map(fn ($pd) => array_merge($pd->toArray(), [
-                'status_label'           => $pd->status_label,
+                'status_label' => $pd->status_label,
                 // timestamps
-                'submitted_at'           => $pd->submitted_at?->toIso8601String(),
-                'katim_approved_at'      => $pd->katim_approved_at?->toIso8601String(),
-                'kabag_approved_at'      => $pd->kabag_approved_at?->toIso8601String(),
-                'ppk_approved_at'        => $pd->ppk_approved_at?->toIso8601String(),
-                'pic_approved_at'        => $pd->pic_approved_at?->toIso8601String(),
-                'dicairkan_at'           => $pd->dicairkan_at?->toIso8601String(),
-                'rejected_at'            => $pd->rejected_at?->toIso8601String(),
+                'submitted_at' => $pd->submitted_at?->toIso8601String(),
+                'katim_approved_at' => $pd->katim_approved_at?->toIso8601String(),
+                'kabag_approved_at' => $pd->kabag_approved_at?->toIso8601String(),
+                'ppk_approved_at' => $pd->ppk_approved_at?->toIso8601String(),
+                'pic_approved_at' => $pd->pic_approved_at?->toIso8601String(),
+                'dicairkan_at' => $pd->dicairkan_at?->toIso8601String(),
+                'rejected_at' => $pd->rejected_at?->toIso8601String(),
+                'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
                 // actor names
-                'created_by_name'        => $pd->createdBy?->nama_lengkap ?? $pd->createdBy?->name,
+                'created_by_name' => $pd->createdBy?->nama_lengkap ?? $pd->createdBy?->name,
                 'katim_approved_by_name' => $pd->katimApprovedBy?->nama_lengkap ?? $pd->katimApprovedBy?->name,
                 'kabag_approved_by_name' => $pd->kabagApprovedBy?->nama_lengkap ?? $pd->kabagApprovedBy?->name,
-                'ppk_approved_by_name'   => $pd->ppkApprovedBy?->nama_lengkap  ?? $pd->ppkApprovedBy?->name,
-                'pic_approved_by_name'   => $pd->picApprovedBy?->nama_lengkap  ?? $pd->picApprovedBy?->name,
-                'dicairkan_by_name'      => $pd->dicairkanBy?->nama_lengkap    ?? $pd->dicairkanBy?->name,
+                'ppk_approved_by_name' => $pd->ppkApprovedBy?->nama_lengkap ?? $pd->ppkApprovedBy?->name,
+                'pic_approved_by_name' => $pd->picApprovedBy?->nama_lengkap ?? $pd->picApprovedBy?->name,
+                'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap ?? $pd->dicairkanBy?->name,
+                'next_approver_role' => match ($pd->status) {
+                    'submitted' => 'KA.TIM',
+                    'katim_approved' => 'Kabag Umum',
+                    'kabag_approved' => 'PPK',
+                    'ppk_approved' => 'PIC Keuangan',
+                    'pic_approved' => 'Bendahara',
+                    default => null,
+                },
+                'next_approver_name' => match ($pd->status) {
+                    'submitted' => $pd->kapokja?->nama_lengkap,
+                    'katim_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
+                    'kabag_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => $pd->picKeuangan?->nama_lengkap,
+                    'pic_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    default => null,
+                },
             ]));
 
         return Inertia::render('Pumk/PermohonanDana/Index', [
-            'tahun'      => $tahun,
+            'tahun' => $tahun,
             'permohonan' => $permohonan,
         ]);
     }
@@ -89,11 +106,11 @@ class PermohonanDanaController extends Controller
             ->get(['id', 'komponen_id', 'kode', 'nama', 'pagu']);
 
         return Inertia::render('Pumk/PermohonanDana/Create', [
-            'tahun'     => $tahun,
-            'programs'  => $programs,
-            'sasarans'  => $sasarans,
-            'kros'      => $kros,
-            'ros'       => $ros,
+            'tahun' => $tahun,
+            'programs' => $programs,
+            'sasarans' => $sasarans,
+            'kros' => $kros,
+            'ros' => $ros,
             'komponens' => $komponens,
             'kegiatans' => $kegiatans,
         ]);
@@ -104,26 +121,26 @@ class PermohonanDanaController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'dja_program_id'   => 'required|exists:dja_program,id',
-            'dja_sasaran_id'   => 'required|exists:dja_sasaran,id',
-            'dja_kro_id'       => 'required|exists:dja_kro,id',
-            'dja_ro_id'        => 'required|exists:dja_ro,id',
-            'dja_komponen_id'  => 'required|exists:dja_komponen,id',
-            'dja_kegiatan_id'  => 'required|exists:dja_kegiatan,id',
-            'judul_pekerjaan'  => 'required|string|max:300',
+            'dja_program_id' => 'required|exists:dja_program,id',
+            'dja_sasaran_id' => 'required|exists:dja_sasaran,id',
+            'dja_kro_id' => 'required|exists:dja_kro,id',
+            'dja_ro_id' => 'required|exists:dja_ro,id',
+            'dja_komponen_id' => 'required|exists:dja_komponen,id',
+            'dja_kegiatan_id' => 'required|exists:dja_kegiatan,id',
+            'judul_pekerjaan' => 'required|string|max:300',
         ]);
 
-        $tahun  = TahunAnggaran::forSession();
-        $nomor  = PermohonanDana::generateNomor($tahun->id, $tahun->tahun);
+        $tahun = TahunAnggaran::forSession();
+        $nomor = PermohonanDana::generateNomor($tahun->id, $tahun->tahun);
 
         $pd = PermohonanDana::create(array_merge($validated, [
             'tahun_anggaran_id' => $tahun->id,
-            'tim_kerja_id'      => $request->user()->tim_kerja_id,
-            'nomor_permohonan'  => $nomor,
-            'keperluan'         => $validated['judul_pekerjaan'],
-            'status'            => 'draft',
-            'wizard_step'       => 1,
-            'created_by'        => $request->user()->id,
+            'tim_kerja_id' => $request->user()->tim_kerja_id,
+            'nomor_permohonan' => $nomor,
+            'keperluan' => $validated['judul_pekerjaan'],
+            'status' => 'draft',
+            'wizard_step' => 1,
+            'created_by' => $request->user()->id,
         ]));
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -148,10 +165,10 @@ class PermohonanDanaController extends Controller
             ->orderBy('nama_lengkap')
             ->get(['id', 'nama_lengkap', 'role', 'pimpinan_type', 'tim_kerja_id'])
             ->map(fn ($u) => [
-                'id'             => $u->id,
-                'nama_lengkap'   => $u->nama_lengkap,
-                'role'           => $u->role,
-                'role_label'     => $u->role_name,
+                'id' => $u->id,
+                'nama_lengkap' => $u->nama_lengkap,
+                'role' => $u->role,
+                'role_label' => $u->role_name,
                 'tim_kerja_kode' => $u->timkerja?->kode,
                 'tim_kerja_nama' => $u->timkerja?->nama,
             ]);
@@ -178,21 +195,21 @@ class PermohonanDanaController extends Controller
                     $existing = $pd->items->firstWhere('dja_rincian_biaya_id', $item->id);
 
                     return [
-                        'id'            => $item->id,
-                        'kode_akun'     => $item->kode_akun,
-                        'nama_akun'     => $item->nama_akun,
-                        'nama_item'     => $item->nama_item,
-                        'satuan'        => $item->satuan,
-                        'harga_satuan'  => $item->harga_satuan,
+                        'id' => $item->id,
+                        'kode_akun' => $item->kode_akun,
+                        'nama_akun' => $item->nama_akun,
+                        'nama_item' => $item->nama_item,
+                        'satuan' => $item->satuan,
+                        'harga_satuan' => $item->harga_satuan,
                         'harga_satuan_aktual' => (int) ($existing?->harga_satuan ?? $item->harga_satuan),
-                        'pagu_total'    => $item->pagu_total,
-                        'terpakai'      => $terpakai,
+                        'pagu_total' => $item->pagu_total,
+                        'terpakai' => $terpakai,
                         'sisa_anggaran' => max(0, $item->pagu_total - $terpakai),
-                        'volume_diminta'    => $existing?->volume ?? 0,
+                        'volume_diminta' => $existing?->volume ?? 0,
                         'jumlah_permintaan' => $existing?->jumlah_permintaan ?? 0,
                         // Nominatif info — tipe & jumlah peserta yang sudah diisi
-                        'tipe_nominatif'    => $existing?->tipe_nominatif ?? 'non_nominatif',
-                        'nominatif_count'   => $existing ? $existing->nominatif()->count() : 0,
+                        'tipe_nominatif' => $existing?->tipe_nominatif ?? 'non_nominatif',
+                        'nominatif_count' => $existing ? $existing->nominatif()->count() : 0,
                     ];
                 });
 
@@ -204,9 +221,9 @@ class PermohonanDanaController extends Controller
         }
 
         return Inertia::render('Pumk/PermohonanDana/Wizard', [
-            'pd'          => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
+            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
             'kapokjaList' => $kapokjaList,
-            'picList'     => $picList,
+            'picList' => $picList,
             'rincianBiaya' => array_values($rincianBiaya),
             'jenisDokumen' => PermohonanDanaDokumen::$JENIS,
         ]);
@@ -217,16 +234,16 @@ class PermohonanDanaController extends Controller
     public function updateStep2(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403);
+        abort_if(! $pd->isEditable(), 403);
 
         $validated = $request->validate([
-            'tanggal_mulai'          => 'required|date',
-            'tanggal_selesai'        => 'required|date|after_or_equal:tanggal_mulai',
-            'jam_pelaksanaan'        => 'nullable|date_format:H:i',
-            'kapokja_id'             => 'required|exists:users,id',
-            'tempat'                 => 'nullable|string|max:300',
+            'tanggal_mulai' => 'required|date',
+            'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+            'jam_pelaksanaan' => 'nullable|date_format:H:i',
+            'kapokja_id' => 'required|exists:users,id',
+            'tempat' => 'nullable|string|max:300',
             'tgl_pertanggungjawaban' => 'nullable|date',
-            'pic_keuangan_id'        => 'required|exists:users,id',
+            'pic_keuangan_id' => 'required|exists:users,id',
         ]);
 
         $pd->update(array_merge($validated, ['wizard_step' => 3]));  // advance to step 3
@@ -241,25 +258,26 @@ class PermohonanDanaController extends Controller
     public function uploadDokumen(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
+        abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
 
         $request->validate([
             'jenis_dokumen_id' => 'required|integer|between:1,8',
-            'file'             => 'required|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png|max:10240',
+            'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png|max:10240',
         ]);
 
-        $jenis  = (int) $request->jenis_dokumen_id;
-        $file   = $request->file('file');
-        $path   = $file->store("permohonan_dana/{$pd->id}/dokumen", 'public');
+        $jenis = (int) $request->jenis_dokumen_id;
+        $file = $request->file('file');
+        $path = $file->store("permohonan_dana/{$pd->id}/dokumen", 'public');
 
         PermohonanDanaDokumen::create([
             'permohonan_dana_id' => $pd->id,
-            'jenis_dokumen_id'   => $jenis,
-            'nama_jenis'         => PermohonanDanaDokumen::$JENIS[$jenis] ?? 'Dokumen',
-            'nama_file'          => $file->getClientOriginalName(),
-            'path_file'          => $path,
-            'ukuran_file'        => $file->getSize(),
+            'jenis_dokumen_id' => $jenis,
+            'nama_jenis' => PermohonanDanaDokumen::$JENIS[$jenis] ?? 'Dokumen',
+            'nama_file' => $file->getClientOriginalName(),
+            'path_file' => $path,
+            'ukuran_file' => $file->getSize(),
         ]);
+
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Dokumen berhasil diupload.')
             ->with('wizard_step', 3);
@@ -268,7 +286,7 @@ class PermohonanDanaController extends Controller
     public function hapusDokumen(Request $request, PermohonanDana $pd, PermohonanDanaDokumen $dokumen): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
+        abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
         abort_if($dokumen->permohonan_dana_id !== $pd->id, 403);
 
         Storage::disk('public')->delete($dokumen->path_file);
@@ -284,14 +302,14 @@ class PermohonanDanaController extends Controller
     public function updateStep4(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403);
+        abort_if(! $pd->isEditable(), 403);
 
         $request->validate([
-            'items'                          => 'required|array',
-            'items.*.dja_rincian_biaya_id'   => 'required|exists:dja_rincian_biaya,id',
-            'items.*.volume'                 => 'required|numeric|min:0',
-            'items.*.harga_satuan'           => 'required|numeric|min:0',
-            'items.*.jumlah_permintaan'      => 'required|numeric|min:0',
+            'items' => 'required|array',
+            'items.*.dja_rincian_biaya_id' => 'required|exists:dja_rincian_biaya,id',
+            'items.*.volume' => 'required|numeric|min:0',
+            'items.*.harga_satuan' => 'required|numeric|min:0',
+            'items.*.jumlah_permintaan' => 'required|numeric|min:0',
         ]);
 
         // ── Validasi: tidak boleh melebihi sisa pagu ─────────────────────────────
@@ -309,14 +327,14 @@ class PermohonanDanaController extends Controller
                 ->sum('jumlah_permintaan');
 
             $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
-            $jumlah       = (int) round($item['volume'] * $item['harga_satuan']);
+            $jumlah = (int) round($item['volume'] * $item['harga_satuan']);
 
             if ($jumlah > $sisaAnggaran) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                     ->with('error',
-                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
-                        "memerlukan Rp " . number_format($jumlah, 0, ',', '.') . ' ' .
-                        "tetapi sisa pagu hanya Rp " . number_format($sisaAnggaran, 0, ',', '.') . '.'
+                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                        'memerlukan Rp '.number_format($jumlah, 0, ',', '.').' '.
+                        'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
                     )
                     ->with('wizard_step', 4);
             }
@@ -337,12 +355,14 @@ class PermohonanDanaController extends Controller
 
         $total = 0;
         foreach ($request->items as $idx => $item) {
-            if ($item['volume'] == 0) continue;
+            if ($item['volume'] == 0) {
+                continue;
+            }
 
-            $rincian     = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
             $hargaAktual = (int) $item['harga_satuan'];
-            $jumlah      = (int) round($item['volume'] * $hargaAktual);
-            $total      += $jumlah;
+            $jumlah = (int) round($item['volume'] * $hargaAktual);
+            $total += $jumlah;
 
             // Cek apakah item dengan rincian ini sudah ada
             $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
@@ -350,32 +370,32 @@ class PermohonanDanaController extends Controller
             if ($existingItem) {
                 // Update item yang sudah ada — nominatif tetap aman karena ID tidak berubah
                 $existingItem->update([
-                    'uraian'            => $rincian->nama_item,
-                    'volume'            => $item['volume'],
-                    'harga_satuan'      => $hargaAktual,
-                    'total'             => $jumlah,
+                    'uraian' => $rincian->nama_item,
+                    'volume' => $item['volume'],
+                    'harga_satuan' => $hargaAktual,
+                    'total' => $jumlah,
                     'jumlah_permintaan' => $jumlah,
-                    'urutan'            => $idx + 1,
+                    'urutan' => $idx + 1,
                 ]);
             } else {
                 // Buat item baru jika belum ada
                 $pd->items()->create([
                     'dja_rincian_biaya_id' => $rincian->id,
-                    'kode_akun'            => $rincian->kode_akun,
-                    'uraian'               => $rincian->nama_item,
-                    'volume'               => $item['volume'],
-                    'satuan'               => $rincian->satuan,
-                    'harga_satuan'         => $hargaAktual,
-                    'total'                => $jumlah,
-                    'jumlah_permintaan'    => $jumlah,
-                    'urutan'               => $idx + 1,
+                    'kode_akun' => $rincian->kode_akun,
+                    'uraian' => $rincian->nama_item,
+                    'volume' => $item['volume'],
+                    'satuan' => $rincian->satuan,
+                    'harga_satuan' => $hargaAktual,
+                    'total' => $jumlah,
+                    'jumlah_permintaan' => $jumlah,
+                    'urutan' => $idx + 1,
                 ]);
             }
         }
 
         $pd->update([
             'total_anggaran' => $total,
-            'wizard_step'    => max($pd->wizard_step, 4),
+            'wizard_step' => max($pd->wizard_step, 4),
         ]);
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -388,9 +408,9 @@ class PermohonanDanaController extends Controller
     public function submit(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403, 'Permohonan tidak dapat diajukan pada status ini.');
+        abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diajukan pada status ini.');
 
-        if (!$pd->tanggal_mulai || !$pd->kapokja_id || !$pd->pic_keuangan_id) {
+        if (! $pd->tanggal_mulai || ! $pd->kapokja_id || ! $pd->pic_keuangan_id) {
             return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                 ->with('error', 'Lengkapi data waktu & penanggung jawab (Step 2) terlebih dahulu sebelum mengajukan.')
                 ->with('wizard_step', 2);
@@ -398,7 +418,7 @@ class PermohonanDanaController extends Controller
 
         // ── Validasi Nominatif ─────────────────────────────────────────────────
         // Item honor/perjadin yang volume > 0 WAJIB memiliki minimal 1 data nominatif.
-        $honorAkun   = \App\Models\PermohonanDanaItem::HONOR_AKUN;
+        $honorAkun = \App\Models\PermohonanDanaItem::HONOR_AKUN;
         $perjadinAkun = \App\Models\PermohonanDanaItem::PERJADIN_AKUN;
 
         $itemsBelumNominatif = $pd->items()
@@ -409,8 +429,7 @@ class PermohonanDanaController extends Controller
             ->filter(fn ($item) => $item->nominatif->isEmpty());
 
         if ($itemsBelumNominatif->isNotEmpty()) {
-            $labels = $itemsBelumNominatif->map(fn ($item) =>
-                "[{$item->kode_akun}] {$item->uraian}"
+            $labels = $itemsBelumNominatif->map(fn ($item) => "[{$item->kode_akun}] {$item->uraian}"
             )->implode(', ');
 
             return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -440,9 +459,9 @@ class PermohonanDanaController extends Controller
             if ($item->jumlah_permintaan > $sisaAnggaran) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                     ->with('error',
-                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
-                        "memerlukan Rp " . number_format($item->jumlah_permintaan, 0, ',', '.') . ' ' .
-                        "tetapi sisa pagu hanya Rp " . number_format($sisaAnggaran, 0, ',', '.') . '.'
+                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                        'memerlukan Rp '.number_format($item->jumlah_permintaan, 0, ',', '.').' '.
+                        'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
                     )
                     ->with('wizard_step', 4);
             }
@@ -450,8 +469,8 @@ class PermohonanDanaController extends Controller
         // ───────────────────────────────────────────────────────────────────────
 
         $pd->update([
-            'status'       => 'submitted',
-            'wizard_step'  => 4,
+            'status' => 'submitted',
+            'wizard_step' => 4,
             'submitted_at' => now(),
         ]);
 
@@ -481,7 +500,7 @@ class PermohonanDanaController extends Controller
     public function destroy(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(!$pd->isEditable(), 403);
+        abort_if(! $pd->isEditable(), 403);
 
         // Hapus file dokumen
         foreach ($pd->dokumens as $dok) {
@@ -500,6 +519,7 @@ class PermohonanDanaController extends Controller
         $list = DjaSasaran::where('program_id', $request->program_id)
             ->where('is_aktif', true)->orderBy('kode')
             ->get(['id', 'kode', 'nama', 'pagu']);
+
         return response()->json($list);
     }
 
@@ -508,6 +528,7 @@ class PermohonanDanaController extends Controller
         $list = DjaKro::where('sasaran_id', $request->sasaran_id)
             ->where('is_aktif', true)->orderBy('kode')
             ->get(['id', 'kode', 'nama', 'pagu']);
+
         return response()->json($list);
     }
 
@@ -516,6 +537,7 @@ class PermohonanDanaController extends Controller
         $list = DjaRo::where('kro_id', $request->kro_id)
             ->where('is_aktif', true)->orderBy('kode')
             ->get(['id', 'kode', 'nama', 'pagu']);
+
         return response()->json($list);
     }
 
@@ -524,6 +546,7 @@ class PermohonanDanaController extends Controller
         $list = DjaKomponen::where('ro_id', $request->ro_id)
             ->where('is_aktif', true)->orderBy('kode')
             ->get(['id', 'kode', 'nama', 'pagu']);
+
         return response()->json($list);
     }
 
@@ -532,6 +555,7 @@ class PermohonanDanaController extends Controller
         $list = DjaKegiatan::where('komponen_id', $request->komponen_id)
             ->where('is_aktif', true)->orderBy('kode')
             ->get(['id', 'kode', 'nama', 'pagu']);
+
         return response()->json($list);
     }
 }

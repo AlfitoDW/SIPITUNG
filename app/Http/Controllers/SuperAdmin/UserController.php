@@ -16,11 +16,11 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:255',
-            'nip'          => 'nullable|string|max:20',
-            'username'     => 'required|string|max:255|unique:users,username',
-            'email'        => 'nullable|email',
-            'password'     => 'required|string|min:8',
-            'role'         => ['required', Rule::in(self::ROLES)],
+            'nip' => 'nullable|string|max:20',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'nullable|email',
+            'password' => 'required|string|min:8',
+            'role' => ['required', Rule::in(self::ROLES)],
             'pimpinan_type' => [
                 'nullable',
                 Rule::requiredIf($request->role === 'pimpinan'),
@@ -35,14 +35,14 @@ class UserController extends Controller
 
         User::create([
             'nama_lengkap' => $validated['nama_lengkap'],
-            'nip'          => $validated['nip'] ?? null,
-            'username'     => $validated['username'],
-            'email'        => $validated['email'] ?? null,
-            'password'     => Hash::make($validated['password']),
-            'role'         => $validated['role'],
+            'nip' => $validated['nip'] ?? null,
+            'username' => $validated['username'],
+            'email' => $validated['email'] ?? null,
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
             'pimpinan_type' => $validated['pimpinan_type'] ?? null,
             'tim_kerja_id' => $validated['tim_kerja_id'] ?? null,
-            'is_active'    => true,
+            'is_active' => true,
         ]);
 
         return redirect()->back()->with('success', 'Akun berhasil ditambahkan.');
@@ -52,10 +52,10 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:255',
-            'nip'          => 'nullable|string|max:20',
-            'username'     => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
-            'email'        => ['nullable', 'email'],
-            'role'         => ['required', Rule::in(self::ROLES)],
+            'nip' => 'nullable|string|max:20',
+            'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
+            'email' => ['nullable', 'email'],
+            'role' => ['required', Rule::in(self::ROLES)],
             'pimpinan_type' => [
                 'nullable',
                 Rule::requiredIf($request->role === 'pimpinan'),
@@ -70,10 +70,10 @@ class UserController extends Controller
 
         $user->update([
             'nama_lengkap' => $validated['nama_lengkap'],
-            'nip'          => $validated['nip'] ?? null,
-            'username'     => $validated['username'],
-            'email'        => $validated['email'] ?? null,
-            'role'         => $validated['role'],
+            'nip' => $validated['nip'] ?? null,
+            'username' => $validated['username'],
+            'email' => $validated['email'] ?? null,
+            'role' => $validated['role'],
             'pimpinan_type' => $validated['pimpinan_type'] ?? null,
             'tim_kerja_id' => $validated['tim_kerja_id'] ?? null,
         ]);

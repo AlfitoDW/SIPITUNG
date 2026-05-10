@@ -12,8 +12,12 @@ Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->gr
 
     // ─── Permohonan Dana — Pencairan (step 5) ────────────────────────────────────
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {
-        Route::get('/',                         [PermohonanDanaController::class, 'index'])->name('index');
-        Route::post('/{pd}/cairkan',            [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
-        Route::get('/{pd}/nominatif',           [PermohonanDanaController::class, 'nominatif'])->name('nominatif');
+        Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
+        Route::get('/{pd}', [PermohonanDanaController::class, 'show'])->name('show');
+        Route::get('/{pd}/print', [PermohonanDanaController::class, 'print'])->name('print');
+        Route::post('/{pd}/cairkan', [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
+        Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::post('/{pd}/hapus-bukti-bayar', [PermohonanDanaController::class, 'hapusBuktiBayar'])->name('hapus-bukti-bayar');
+        Route::get('/{pd}/nominatif', [PermohonanDanaController::class, 'nominatif'])->name('nominatif');
     });
 });

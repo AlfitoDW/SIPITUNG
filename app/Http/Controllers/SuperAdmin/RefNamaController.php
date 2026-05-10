@@ -25,16 +25,16 @@ class RefNamaController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'nama'               => 'required|string|max:150',
-            'nip'                => ['nullable', 'string', 'max:30', Rule::unique('ref_nama', 'nip')->whereNotNull('nip')],
-            'nik'                => 'nullable|string|max:20',
-            'npwp'               => 'nullable|string|max:20',
-            'gol_ruang'          => 'nullable|string|max:10',
+            'nama' => 'required|string|max:150',
+            'nip' => ['nullable', 'string', 'max:30', Rule::unique('ref_nama', 'nip')->whereNotNull('nip')],
+            'nik' => 'nullable|string|max:20',
+            'npwp' => 'nullable|string|max:20',
+            'gol_ruang' => 'nullable|string|max:10',
             'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS'])],
-            'nama_rekening'      => 'nullable|string|max:150',
-            'no_rekening'        => 'nullable|string|max:30',
-            'nama_bank'          => 'nullable|string|max:100',
-            'email'              => 'nullable|email|max:150',
+            'nama_rekening' => 'nullable|string|max:150',
+            'no_rekening' => 'nullable|string|max:30',
+            'nama_bank' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:150',
         ]);
 
         $validated['pph21_persen'] = RefNama::hitungPph21(
@@ -51,16 +51,16 @@ class RefNamaController extends Controller
     public function update(Request $request, RefNama $refNama): RedirectResponse
     {
         $validated = $request->validate([
-            'nama'               => 'required|string|max:150',
-            'nip'                => ['nullable', 'string', 'max:30', Rule::unique('ref_nama', 'nip')->ignore($refNama->id)->whereNotNull('nip')],
-            'nik'                => 'nullable|string|max:20',
-            'npwp'               => 'nullable|string|max:20',
-            'gol_ruang'          => 'nullable|string|max:10',
+            'nama' => 'required|string|max:150',
+            'nip' => ['nullable', 'string', 'max:30', Rule::unique('ref_nama', 'nip')->ignore($refNama->id)->whereNotNull('nip')],
+            'nik' => 'nullable|string|max:20',
+            'npwp' => 'nullable|string|max:20',
+            'gol_ruang' => 'nullable|string|max:10',
             'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS'])],
-            'nama_rekening'      => 'nullable|string|max:150',
-            'no_rekening'        => 'nullable|string|max:30',
-            'nama_bank'          => 'nullable|string|max:100',
-            'email'              => 'nullable|email|max:150',
+            'nama_rekening' => 'nullable|string|max:150',
+            'no_rekening' => 'nullable|string|max:30',
+            'nama_bank' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:150',
         ]);
 
         $validated['pph21_persen'] = RefNama::hitungPph21(
@@ -77,13 +77,15 @@ class RefNamaController extends Controller
     public function destroy(RefNama $refNama): RedirectResponse
     {
         $refNama->delete();
+
         return back()->with('success', 'Data pegawai dihapus.');
     }
 
     public function toggleStatus(RefNama $refNama): RedirectResponse
     {
-        $refNama->update(['is_aktif' => !$refNama->is_aktif]);
+        $refNama->update(['is_aktif' => ! $refNama->is_aktif]);
         $status = $refNama->is_aktif ? 'diaktifkan' : 'dinonaktifkan';
+
         return back()->with('success', "Pegawai {$refNama->nama} berhasil {$status}.");
     }
 
@@ -99,31 +101,35 @@ class RefNamaController extends Controller
         ]);
 
         $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
-        $rows        = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
 
         $imported = 0;
         foreach ($rows as $rowNum => $row) {
-            if ($rowNum <= 1) continue;                // skip header
-            if (empty($row['A'])) continue;            // skip baris kosong
+            if ($rowNum <= 1) {
+                continue;
+            }                // skip header
+            if (empty($row['A'])) {
+                continue;
+            }            // skip baris kosong
 
             $status = in_array($row['F'] ?? '', ['PNS', 'Non-PNS']) ? $row['F'] : 'PNS';
-            $pph    = RefNama::hitungPph21($status, $row['E'] ?? null, $row['D'] ?? null);
+            $pph = RefNama::hitungPph21($status, $row['E'] ?? null, $row['D'] ?? null);
 
             RefNama::updateOrCreate(
-                ['nip' => !empty($row['B']) ? trim($row['B']) : null, 'nama' => trim($row['A'])],
+                ['nip' => ! empty($row['B']) ? trim($row['B']) : null, 'nama' => trim($row['A'])],
                 [
-                    'nama'               => trim($row['A']),
-                    'nip'                => !empty($row['B']) ? trim($row['B']) : null,
-                    'nik'                => !empty($row['C']) ? trim($row['C']) : null,
-                    'npwp'               => !empty($row['D']) ? trim($row['D']) : null,
-                    'gol_ruang'          => !empty($row['E']) ? trim($row['E']) : null,
+                    'nama' => trim($row['A']),
+                    'nip' => ! empty($row['B']) ? trim($row['B']) : null,
+                    'nik' => ! empty($row['C']) ? trim($row['C']) : null,
+                    'npwp' => ! empty($row['D']) ? trim($row['D']) : null,
+                    'gol_ruang' => ! empty($row['E']) ? trim($row['E']) : null,
                     'status_kepegawaian' => $status,
-                    'nama_rekening'      => !empty($row['G']) ? trim($row['G']) : null,
-                    'no_rekening'        => !empty($row['H']) ? trim($row['H']) : null,
-                    'nama_bank'          => !empty($row['I']) ? trim($row['I']) : null,
-                    'email'              => !empty($row['J']) ? trim($row['J']) : null,
-                    'pph21_persen'       => $pph,
-                    'is_aktif'           => true,
+                    'nama_rekening' => ! empty($row['G']) ? trim($row['G']) : null,
+                    'no_rekening' => ! empty($row['H']) ? trim($row['H']) : null,
+                    'nama_bank' => ! empty($row['I']) ? trim($row['I']) : null,
+                    'email' => ! empty($row['J']) ? trim($row['J']) : null,
+                    'pph21_persen' => $pph,
+                    'is_aktif' => true,
                 ]
             );
             $imported++;

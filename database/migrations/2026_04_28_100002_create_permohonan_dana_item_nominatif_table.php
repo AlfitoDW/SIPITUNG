@@ -12,17 +12,17 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('permohonan_dana_item_id')
-                  ->constrained('permohonan_dana_item')
-                  ->cascadeOnDelete();
+                ->constrained('permohonan_dana_item')
+                ->cascadeOnDelete();
 
             $table->foreignId('permohonan_dana_id')
-                  ->constrained('permohonan_dana')
-                  ->cascadeOnDelete();
+                ->constrained('permohonan_dana')
+                ->cascadeOnDelete();
 
             $table->foreignId('ref_nama_id')
-                  ->nullable()
-                  ->constrained('ref_nama')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('ref_nama')
+                ->nullOnDelete();
 
             // Snapshot data pegawai (tidak berubah meski ref_nama diubah)
             $table->string('nama', 150);

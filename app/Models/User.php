@@ -109,13 +109,13 @@ class User extends Authenticatable
     public function getRoleNameAttribute(): string
     {
         return match ($this->role) {
-            'super_admin'   => 'Super Admin',
+            'super_admin' => 'Super Admin',
             'ketua_tim_kerja' => 'Ketua Tim Kerja',
-            'pimpinan'      => $this->pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK',
-            'bendahara'     => 'Bendahara',
-            'pumk'          => 'PUMK',
-            'pic_keuangan'  => 'PIC Keuangan',
-            default         => 'Unknown',
+            'pimpinan' => $this->pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK',
+            'bendahara' => 'Bendahara',
+            'pumk' => 'PUMK',
+            'pic_keuangan' => 'PIC Keuangan',
+            default => 'Unknown',
         };
     }
 

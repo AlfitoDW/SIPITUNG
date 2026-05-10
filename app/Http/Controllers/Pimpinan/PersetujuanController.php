@@ -44,7 +44,7 @@ class PersetujuanController extends Controller
         $allRas = RencanaAksi::with(['indikators.sasaran', 'indikators.kegiatans'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->get()
-            ->keyBy(fn ($r) => $r->tim_kerja_id . '|' . ($r->peer_tim_kerja_id ?? 'null'));
+            ->keyBy(fn ($r) => $r->tim_kerja_id.'|'.($r->peer_tim_kerja_id ?? 'null'));
 
         // Preload kode IKU yang valid dari PK Awal untuk memfilter RAI orphan
         // (RAI yang kodenya sudah tidak ada karena IKU di PK Awal dihapus/diganti).
@@ -58,7 +58,7 @@ class PersetujuanController extends Controller
         $submittedRaKeys = RencanaAksi::where('tahun_anggaran_id', $tahun->id)
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
             ->get(['tim_kerja_id', 'peer_tim_kerja_id'])
-            ->mapWithKeys(fn ($ra) => [$ra->tim_kerja_id . '|' . ($ra->peer_tim_kerja_id ?? 'null') => true]);
+            ->mapWithKeys(fn ($ra) => [$ra->tim_kerja_id.'|'.($ra->peer_tim_kerja_id ?? 'null') => true]);
 
         // Tampilkan semua RA yang sudah submit. Co-PIC RA yang benar-benar kosong (tidak punya
         // indikator valid sendiri) disembunyikan jika primary mirror RA-nya sudah ada di hub —
@@ -72,9 +72,11 @@ class PersetujuanController extends Controller
                 // Hitung indikator valid (kode masih ada di PK Awal) untuk deteksi co-PIC kosong.
                 $validInds = $ra->indikators->filter(fn ($i) => isset($validIkuKodes[$i->kode]));
                 if ($validInds->isEmpty() && $ra->peer_tim_kerja_id !== null) {
-                    $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
+                    $mirrorKey = $ra->peer_tim_kerja_id.'|'.$ra->tim_kerja_id;
+
                     return ! isset($submittedRaKeys[$mirrorKey]);
                 }
+
                 return true;
             })
             ->map(fn ($ra) => $this->mapRa($ra, $allRas, $validIkuKodes))
@@ -178,8 +180,8 @@ class PersetujuanController extends Controller
         // Mirror = RA milik peer yang peer_tim_kerja_id-nya menunjuk kembali ke tim ini.
         // Dengan ini, kolaborasi Penjamu↔KK tidak ikut membawa IKU dari Penjamu↔Belmawa.
         if ($indikators->isEmpty() && $ra->peer_tim_kerja_id !== null) {
-            $mirrorKey = $ra->peer_tim_kerja_id . '|' . $ra->tim_kerja_id;
-            $mirrorRa  = $allRas->get($mirrorKey);
+            $mirrorKey = $ra->peer_tim_kerja_id.'|'.$ra->tim_kerja_id;
+            $mirrorRa = $allRas->get($mirrorKey);
             if ($mirrorRa) {
                 $mirrorInds = empty($validIkuKodes)
                     ? $mirrorRa->indikators

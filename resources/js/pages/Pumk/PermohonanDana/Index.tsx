@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -56,6 +56,12 @@ type PD = {
     ppk_approved_by_name: string | null;
     pic_approved_by_name: string | null;
     dicairkan_by_name: string | null;
+    // bukti bayar
+    bukti_bayar_path: string | null;
+    bukti_bayar_uploaded_at: string | null;
+    // next approver
+    next_approver_role: string | null;
+    next_approver_name: string | null;
 };
 
 const NOMINATIF_AKUN = ['521115', '521213', '522151', '524111', '524119', '524113'];
@@ -85,7 +91,7 @@ const needsApproval = (status: string) =>
 
 const statusColor = (s: string) => {
     if (s === 'dicairkan') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (s === 'rejected')  return 'bg-red-100 text-red-700 border-red-200';
+    if (s === 'rejected')  return 'bg-amber-100 text-amber-700 border-amber-200';
     if (s === 'draft')     return 'bg-gray-100 text-gray-600 border-gray-200';
     return 'bg-blue-100 text-blue-700 border-blue-200';
 };
@@ -149,13 +155,46 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
         {
             key: 'katim', stepNo: 3,
             role: 'KA.TIM',
-            action: isRejected && rejStep === 'katim' ? 'Ditolak' : 'Disetujui',
+            action: isRejected && rejStep === 'katim' ? 'Revisi' : 'Disetujui',
             actorName: pd.katim_approved_by_name ?? null,
             ts: pd.katim_approved_at,
             catatan: pd.catatan_katim,
             state: isRejected && rejStep === 'katim' ? 'rejected'
                  : pd.katim_approved_at ? 'done'
+                 : pd.status === 'submitted' ? 'active' : 'pending',
+        },
+        {
+            key: 'kabag', stepNo: 4,
+            role: 'Kabag Umum',
+            action: isRejected && rejStep === 'kabag' ? 'Revisi' : 'Disetujui',
+            actorName: pd.kabag_approved_by_name ?? null,
+            ts: pd.kabag_approved_at,
+            catatan: pd.catatan_kabag,
+            state: isRejected && rejStep === 'kabag' ? 'rejected'
+                 : pd.kabag_approved_at ? 'done'
                  : pd.status === 'katim_approved' ? 'active' : 'pending',
+        },
+        {
+            key: 'ppk', stepNo: 5,
+            role: 'PPK',
+            action: isRejected && rejStep === 'ppk' ? 'Revisi' : 'Disetujui',
+            actorName: pd.ppk_approved_by_name ?? null,
+            ts: pd.ppk_approved_at,
+            catatan: pd.catatan_ppk,
+            state: isRejected && rejStep === 'ppk' ? 'rejected'
+                 : pd.ppk_approved_at ? 'done'
+                 : pd.status === 'kabag_approved' ? 'active' : 'pending',
+        },
+        {
+            key: 'pic', stepNo: 6,
+            role: 'PIC Keuangan',
+            action: isRejected && rejStep === 'pic' ? 'Revisi' : 'Diverifikasi',
+            actorName: pd.pic_approved_by_name ?? null,
+            ts: pd.pic_approved_at,
+            catatan: pd.catatan_pic,
+            state: isRejected && rejStep === 'pic' ? 'rejected'
+                 : pd.pic_approved_at ? 'done'
+                 : pd.status === 'ppk_approved' ? 'active' : 'pending',
         },
         {
             key: 'kabag', stepNo: 4,
@@ -472,8 +511,6 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                         paginated.map((pd, i) => {
                                             const canEdit  = pd.status === 'draft' || pd.status === 'rejected';
                                             const canPrint = !['draft', 'rejected'].includes(pd.status);
-                                            const approver = nextApprover(pd.status);
-                                            const perlu = needsApproval(pd.status);
                                             return (
                                                 <tr key={pd.id} className="hover:bg-gray-50/60 transition-colors">
                                                     <td className="px-3 py-3 text-center text-muted-foreground tabular-nums text-xs">
@@ -500,16 +537,16 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-3 text-center">
-                                                        {perlu ? (
+                                                        {pd.next_approver_role ? (
                                                             <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                                                                Perlu
+                                                                {pd.next_approver_role}
                                                             </Badge>
                                                         ) : (
                                                             <span className="text-xs text-muted-foreground">—</span>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
-                                                        {approver}
+                                                        {pd.next_approver_name ?? '—'}
                                                     </td>
                                                     <td className="px-3 py-3">
                                                         <div className="flex items-center justify-center gap-1">
@@ -560,6 +597,19 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                                         </Link>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>Cetak permohonan dana</TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                            {pd.bukti_bayar_path && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <a href={`/storage/${pd.bukti_bayar_path}`} target="_blank" rel="noopener noreferrer">
+                                                                            <Button variant="ghost" size="icon"
+                                                                                className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                                                                                <FileCheck className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </a>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>Lihat Bukti Bayar</TooltipContent>
                                                                 </Tooltip>
                                                             )}
                                                             {/* Riwayat Ajuan — selalu tampil */}

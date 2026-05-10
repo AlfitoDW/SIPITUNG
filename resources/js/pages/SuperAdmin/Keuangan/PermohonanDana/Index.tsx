@@ -33,14 +33,19 @@ type PD = {
     // approval timestamps
     katim_approved_by: number | null;
     katim_approved_at: string | null;
+    katim_approved_by_name: string | null;
     kabag_approved_by: number | null;
     kabag_approved_at: string | null;
+    kabag_approved_by_name: string | null;
     ppk_approved_by: number | null;
     ppk_approved_at: string | null;
+    ppk_approved_by_name: string | null;
     pic_approved_by: number | null;
     pic_approved_at: string | null;
+    pic_approved_by_name: string | null;
     dicairkan_by: number | null;
     dicairkan_at: string | null;
+    dicairkan_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
     catatan_katim: string | null;
@@ -48,13 +53,9 @@ type PD = {
     catatan_ppk: string | null;
     catatan_pic: string | null;
     catatan_pencairan: string | null;
-    // actor names
     created_by_name: string | null;
-    katim_approved_by_name: string | null;
-    kabag_approved_by_name: string | null;
-    ppk_approved_by_name: string | null;
-    pic_approved_by_name: string | null;
-    dicairkan_by_name: string | null;
+    next_approver_role: string | null;
+    next_approver_name: string | null;
 };
 
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -81,7 +82,7 @@ const needsApproval = (status: string) =>
 
 const statusColor = (s: string) => {
     if (s === 'dicairkan') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (s === 'rejected')  return 'bg-red-100 text-red-700 border-red-200';
+    if (s === 'rejected')  return 'bg-amber-100 text-amber-700 border-amber-200';
     if (s === 'draft')     return 'bg-gray-100 text-gray-600 border-gray-200';
     return 'bg-blue-100 text-blue-700 border-blue-200';
 };
@@ -145,7 +146,7 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
         {
             key: 'katim', stepNo: 3,
             role: 'KA.TIM',
-            action: isRejected && rejStep === 'katim' ? 'Ditolak' : 'Disetujui',
+            action: isRejected && rejStep === 'katim' ? 'Revisi' : 'Disetujui',
             actorName: pd.katim_approved_by_name ?? null,
             ts: pd.katim_approved_at,
             catatan: pd.catatan_katim,
@@ -156,7 +157,7 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
         {
             key: 'kabag', stepNo: 4,
             role: 'Kabag Umum',
-            action: isRejected && rejStep === 'kabag' ? 'Ditolak' : 'Disetujui',
+            action: isRejected && rejStep === 'kabag' ? 'Revisi' : 'Disetujui',
             actorName: pd.kabag_approved_by_name ?? null,
             ts: pd.kabag_approved_at,
             catatan: pd.catatan_kabag,
@@ -167,7 +168,7 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
         {
             key: 'ppk', stepNo: 5,
             role: 'PPK',
-            action: isRejected && rejStep === 'ppk' ? 'Ditolak' : 'Disetujui',
+            action: isRejected && rejStep === 'ppk' ? 'Revisi' : 'Disetujui',
             actorName: pd.ppk_approved_by_name ?? null,
             ts: pd.ppk_approved_at,
             catatan: pd.catatan_ppk,
@@ -178,7 +179,7 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
         {
             key: 'pic', stepNo: 6,
             role: 'PIC Keuangan',
-            action: isRejected && rejStep === 'pic' ? 'Ditolak' : 'Diverifikasi',
+            action: isRejected && rejStep === 'pic' ? 'Revisi' : 'Diverifikasi',
             actorName: pd.pic_approved_by_name ?? null,
             ts: pd.pic_approved_at,
             catatan: pd.catatan_pic,
@@ -477,8 +478,6 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                                         </tr>
                                     ) : (
                                         paginated.map((pd, i) => {
-                                            const perlu = needsApproval(pd.status);
-                                            const approver = nextApprover(pd.status);
                                             return (
                                                 <tr key={pd.id} className="hover:bg-gray-50/60 transition-colors">
                                                     <td className="px-3 py-3 text-center text-muted-foreground tabular-nums text-xs">
@@ -512,16 +511,16 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-3 text-center">
-                                                        {perlu ? (
+                                                        {pd.next_approver_role ? (
                                                             <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                                                                {approver}
+                                                                {pd.next_approver_role}
                                                             </Badge>
                                                         ) : (
                                                             <span className="text-xs text-muted-foreground">—</span>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
-                                                        {pd.created_by_name ?? '-'}
+                                                        {pd.next_approver_name ?? '—'}
                                                     </td>
                                                     <td className="px-3 py-3">
                                                         <div className="flex items-center justify-center gap-1">

@@ -34,10 +34,10 @@ return new class extends Migration
         // ─── Tambah dja_rincian_biaya_id ke permohonan_dana_item ─────────────────
         Schema::table('permohonan_dana_item', function (Blueprint $table) {
             $table->foreignId('dja_rincian_biaya_id')
-                  ->nullable()
-                  ->constrained('dja_rincian_biaya')
-                  ->nullOnDelete()
-                  ->after('permohonan_dana_id');
+                ->nullable()
+                ->constrained('dja_rincian_biaya')
+                ->nullOnDelete()
+                ->after('permohonan_dana_id');
             $table->unsignedBigInteger('jumlah_permintaan')->default(0)->after('total');
         });
 
@@ -45,8 +45,8 @@ return new class extends Migration
         Schema::create('permohonan_dana_dokumen', function (Blueprint $table) {
             $table->id();
             $table->foreignId('permohonan_dana_id')
-                  ->constrained('permohonan_dana')
-                  ->cascadeOnDelete();
+                ->constrained('permohonan_dana')
+                ->cascadeOnDelete();
             $table->tinyInteger('jenis_dokumen_id');       // 1-8
             $table->string('nama_jenis', 150);
             $table->string('nama_file', 255);
