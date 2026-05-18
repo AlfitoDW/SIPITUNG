@@ -363,7 +363,7 @@ export default function Detail({ pd }: Props) {
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
-        const url = `/storage/${dok.path_file}`;
+        const url = `/files/dokumen/${dok.id}`;
         const type = getFileType(dok.path_file);
         if (type === 'other') window.open(url, '_blank', 'noopener,noreferrer');
         else setPreviewDok({ url, nama: dok.nama_file });

@@ -64,7 +64,7 @@ type PD = {
     next_approver_name: string | null;
 };
 
-const NOMINATIF_AKUN = ['521115', '521213', '522151', '524111', '524119', '524113'];
+const NOMINATIF_AKUN = ['521115', '521213', '522151', '524111', '524119', '524113', '524114'];
 const hasNominatifItems = (pd: PD) =>
     pd.items.some(i => i.kode_akun && NOMINATIF_AKUN.includes(i.kode_akun));
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -602,7 +602,7 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                             {pd.bukti_bayar_path && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <a href={`/storage/${pd.bukti_bayar_path}`} target="_blank" rel="noopener noreferrer">
+                                                                        <a href={`/files/bukti-bayar/${pd.id}`} target="_blank" rel="noopener noreferrer">
                                                                             <Button variant="ghost" size="icon"
                                                                                 className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
                                                                                 <FileCheck className="h-3.5 w-3.5" />

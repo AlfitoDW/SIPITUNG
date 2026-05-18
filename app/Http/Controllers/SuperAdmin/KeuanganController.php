@@ -83,11 +83,7 @@ class KeuanganController extends Controller
 
         return Inertia::render('SuperAdmin/Keuangan/PermohonanDana/Index', [
             'tahun' => $tahun,
-            'semuaAjuan' => $semuaAjuan,
-            'draft' => $draft,
-            'diajukan' => $diajukan,
-            'revisi' => $revisi,
-            'selesai' => $selesai,
+            'permohonan' => $semuaAjuan,
             'timKerjaList' => TimKerja::active()->orderBy('nama')->get(['id', 'nama']),
         ]);
     }

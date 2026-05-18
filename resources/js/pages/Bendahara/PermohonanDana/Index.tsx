@@ -404,7 +404,7 @@ export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, 
                                                             {hasBukti && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <a href={`/storage/${pd.bukti_bayar_path}`} target="_blank" rel="noopener noreferrer">
+                                                                        <a href={`/files/bukti-bayar/${pd.id}`} target="_blank" rel="noopener noreferrer">
                                                                             <Button variant="ghost" size="icon"
                                                                                 className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
                                                                                 <CheckCircle2 className="h-4 w-4" />

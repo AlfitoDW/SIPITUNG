@@ -422,7 +422,7 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
 
     const openPreview = (dok: Dokumen) => {
         const fileType = getFileType(dok.path_file);
-        const url = `/storage/${dok.path_file}`;
+        const url = `/files/dokumen/${dok.id}`;
         if (fileType === 'other') {
             window.open(url, '_blank', 'noopener,noreferrer');
         } else {

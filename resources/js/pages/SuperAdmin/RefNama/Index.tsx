@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Pencil, Trash2, Power, Plus, Upload, UserCog, Search } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { Pencil, Trash2, Power, Plus, Upload, UserCog, Search, Download, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -13,6 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import { usePaginatedTable } from '@/hooks/use-paginated-table';
+import { DataTableControls } from '@/components/data-table-controls';
+import { DataTablePagination } from '@/components/data-table-pagination';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,8 @@ interface Props {
     pegawai: Pegawai[];
 }
 
+const BANK_OPTIONS = ['BNI', 'BRI', 'Mandiri', 'BTN', 'BSI', 'BCA', 'Lainnya'];
+
 const INIT = {
     nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
     status_kepegawaian: 'PNS' as 'PNS' | 'Non-PNS',
@@ -56,10 +61,51 @@ function PegawaiForm({
     submitLabel?: string;
 }) {
     const GOL_OPTIONS = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'];
-    const BANK_OPTIONS = ['BNI', 'BRI', 'Mandiri', 'BTN', 'BSI', 'BCA', 'Lainnya'];
+
+    // Bank select + custom state
+    const isCustomBank = !BANK_OPTIONS.includes(data.nama_bank) && data.nama_bank !== '';
+    const [bankSelect, setBankSelect] = useState(isCustomBank ? 'Lainnya' : data.nama_bank || '');
+    const [bankCustom, setBankCustom] = useState(isCustomBank ? data.nama_bank : '');
+    const [bankError, setBankError] = useState('');
+
+    // Sync when external data changes (edit mode)
+    useEffect(() => {
+        const isCustom = data.nama_bank !== '' && !BANK_OPTIONS.includes(data.nama_bank);
+        setBankSelect(isCustom ? 'Lainnya' : (data.nama_bank || ''));
+        setBankCustom(isCustom ? data.nama_bank : '');
+        setBankError('');
+    }, [data.nama_bank]);
+
+    const handleBankSelect = (v: string) => {
+        setBankSelect(v);
+        setBankError('');
+        if (v !== 'Lainnya') {
+            setData('nama_bank', v);
+            setBankCustom('');
+        } else {
+            setData('nama_bank', bankCustom);
+        }
+    };
+
+    const handleBankCustom = (v: string) => {
+        setBankCustom(v);
+        setBankError('');
+        if (bankSelect === 'Lainnya') {
+            setData('nama_bank', v);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (bankSelect === 'Lainnya' && !bankCustom.trim()) {
+            setBankError('Nama bank wajib diisi');
+            return;
+        }
+        onSubmit(e);
+    };
 
     return (
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
             {/* Row 1 */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -69,7 +115,7 @@ function PegawaiForm({
                 </div>
                 <div>
                     <Label className="text-sm">NIP</Label>
-                    <Input className="mt-1 font-mono" value={data.nip} onChange={e => setData('nip', e.target.value)} placeholder="197XXXXXXXXXXXXX" />
+                    <Input className="mt-1" value={data.nip} onChange={e => setData('nip', e.target.value)} placeholder="Kosongkan jika tidak ada" />
                     {errors.nip && <p className="text-xs text-red-500 mt-1">{errors.nip}</p>}
                 </div>
             </div>
@@ -78,11 +124,11 @@ function PegawaiForm({
             <div className="grid grid-cols-3 gap-4">
                 <div>
                     <Label className="text-sm">NIK (KTP)</Label>
-                    <Input className="mt-1 font-mono" value={data.nik} onChange={e => setData('nik', e.target.value)} placeholder="16 digit" />
+                    <Input className="mt-1" value={data.nik} onChange={e => setData('nik', e.target.value)} placeholder="Kosongkan jika tidak ada" />
                 </div>
                 <div>
                     <Label className="text-sm">NPWP</Label>
-                    <Input className="mt-1 font-mono" value={data.npwp} onChange={e => setData('npwp', e.target.value)} placeholder="XX.XXX.XXX.X-XXX.XXX" />
+                    <Input className="mt-1" value={data.npwp} onChange={e => setData('npwp', e.target.value)} placeholder="Kosongkan jika tidak ada" />
                 </div>
                 <div>
                     <Label className="text-sm">Email</Label>
@@ -120,10 +166,23 @@ function PegawaiForm({
                 <div className="grid grid-cols-3 gap-3">
                     <div>
                         <Label className="text-xs">Nama Bank</Label>
-                        <Select value={data.nama_bank} onValueChange={v => setData('nama_bank', v)}>
-                            <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Pilih bank..." /></SelectTrigger>
-                            <SelectContent>{BANK_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                        <Select value={bankSelect} onValueChange={handleBankSelect}>
+                            <SelectTrigger className={cn("mt-1 h-8 text-sm", bankError && "border-red-400")}>
+                                <SelectValue placeholder="Pilih bank..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {BANK_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                            </SelectContent>
                         </Select>
+                        {bankError && <p className="text-[10px] text-red-500 mt-0.5">{bankError}</p>}
+                        {bankSelect === 'Lainnya' && (
+                            <Input
+                                className="mt-1.5 h-8 text-sm"
+                                placeholder="Masukkan nama bank..."
+                                value={bankCustom}
+                                onChange={e => handleBankCustom(e.target.value)}
+                            />
+                        )}
                     </div>
                     <div>
                         <Label className="text-xs">No. Rekening</Label>
@@ -150,7 +209,6 @@ function PegawaiForm({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function RefNamaIndex({ pegawai }: Props) {
-    const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<Pegawai | null>(null);
     const [deleting, setDeleting] = useState<number | null>(null);
     const [showForm, setShowForm] = useState(false);
@@ -160,12 +218,14 @@ export default function RefNamaIndex({ pegawai }: Props) {
     const addForm = useForm(INIT);
     const editForm = useForm(INIT);
 
-    const filtered = pegawai.filter(p =>
-        !search ||
-        p.nama.toLowerCase().includes(search.toLowerCase()) ||
-        (p.nip ?? '').includes(search) ||
-        (p.nik ?? '').includes(search)
-    );
+    const [jenisFilter, setJenisFilter] = useState<'all' | 'PNS' | 'Non-PNS'>('all');
+
+    const filteredPegawai = useMemo(() => {
+        if (jenisFilter === 'all') return pegawai;
+        return pegawai.filter(p => p.status_kepegawaian === jenisFilter);
+    }, [pegawai, jenisFilter]);
+
+    const table = usePaginatedTable(filteredPegawai, ['nama', 'nip', 'nik', 'npwp', 'email', 'nama_bank'], { pageSize: 10 });
 
     const store = (e: React.FormEvent) => {
         e.preventDefault();
@@ -188,13 +248,34 @@ export default function RefNamaIndex({ pegawai }: Props) {
         editForm.put(`/super-admin/ref-nama/${editing.id}`, { onSuccess: () => setEditing(null) });
     };
 
+    const [importError, setImportError] = useState<string>('');
+
     const doImport = () => {
-        if (!fileRef.current?.files?.[0]) return;
+        const file = fileRef.current?.files?.[0];
+        if (!file) return;
+
+        // Validasi ekstensi
+        const allowed = ['.xlsx', '.xls'];
+        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        if (!allowed.includes(ext)) {
+            setImportError('File harus berekstensi .xlsx atau .xls');
+            return;
+        }
+        // Validasi size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setImportError('Ukuran file maksimal 5 MB');
+            return;
+        }
+
+        setImportError('');
         setImporting(true);
         const form = new FormData();
-        form.append('file', fileRef.current.files[0]);
+        form.append('file', file);
         router.post('/super-admin/ref-nama/import', form, {
             onFinish: () => { setImporting(false); if (fileRef.current) fileRef.current.value = ''; },
+            onError: (errors) => {
+                setImportError(errors.file || 'Gagal mengimport file. Pastikan format sesuai template.');
+            },
         });
     };
 
@@ -217,12 +298,21 @@ export default function RefNamaIndex({ pegawai }: Props) {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* Import */}
-                        <div className="flex items-center gap-2">
-                            <Input ref={fileRef} type="file" accept=".xlsx,.xls" className="h-8 text-xs w-44" />
-                            <Button variant="outline" size="sm" className="gap-1" onClick={doImport} disabled={importing}>
-                                <Upload className="w-3.5 h-3.5" /> {importing ? 'Proses...' : 'Import Excel'}
-                            </Button>
+                        <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
+                                <Input ref={fileRef} type="file" accept=".xlsx,.xls" className="h-8 text-xs w-44" onChange={() => setImportError('')} />
+                                <Button variant="outline" size="sm" className="gap-1" onClick={doImport} disabled={importing}>
+                                    <Upload className="w-3.5 h-3.5" /> {importing ? 'Proses...' : 'Import Excel'}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="gap-1 text-blue-600 hover:text-blue-700" onClick={() => window.location.href = '/super-admin/ref-nama/template'}>
+                                    <Download className="w-3.5 h-3.5" /> Template
+                                </Button>
+                            </div>
+                            {importError && (
+                                <div className="flex items-center gap-1 text-[11px] text-red-500">
+                                    <AlertCircle className="w-3 h-3" /> {importError}
+                                </div>
+                            )}
                         </div>
                         <Button size="sm" className="gap-1 bg-violet-600 hover:bg-violet-700" onClick={() => setShowForm(!showForm)}>
                             <Plus className="w-4 h-4" /> Tambah Pegawai
@@ -231,11 +321,12 @@ export default function RefNamaIndex({ pegawai }: Props) {
                 </div>
 
                 {/* Stat */}
-                <div className="grid grid-cols-3 gap-3 max-w-sm">
+                <div className="grid grid-cols-4 gap-3 max-w-sm">
                     {[
                         ['Total', pegawai.length],
                         ['Aktif', pegawai.filter(p => p.is_aktif).length],
                         ['PNS', pegawai.filter(p => p.status_kepegawaian === 'PNS').length],
+                        ['Non-PNS', pegawai.filter(p => p.status_kepegawaian === 'Non-PNS').length],
                     ].map(([l, v]) => (
                         <div key={l} className="bg-white border rounded-lg px-3 py-2 text-center">
                             <p className="text-lg font-bold text-gray-800">{v}</p>
@@ -262,19 +353,22 @@ export default function RefNamaIndex({ pegawai }: Props) {
                     </Card>
                 )}
 
-                {/* Search */}
-                <div className="flex items-center gap-2">
-                    <div className="relative flex-1 max-w-xs">
-                        <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
-                        <Input
-                            className="pl-8 h-9"
-                            placeholder="Cari nama, NIP, NIK..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                        />
-                    </div>
-                    <span className="text-sm text-gray-500">{filtered.length} pegawai</span>
+                {/* Filter Jenis Kepegawaian */}
+                <div className="flex items-center gap-3">
+                    <Select value={jenisFilter} onValueChange={v => setJenisFilter(v as any)}>
+                        <SelectTrigger className="h-8 text-xs w-[140px]">
+                            <SelectValue placeholder="Jenis Kepegawaian" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Jenis</SelectItem>
+                            <SelectItem value="PNS">PNS</SelectItem>
+                            <SelectItem value="Non-PNS">Non-PNS</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
+
+                {/* Table Controls + Pagination */}
+                <DataTableControls {...table} />
 
                 {/* Table */}
                 <div className="overflow-x-auto rounded-lg border">
@@ -294,14 +388,14 @@ export default function RefNamaIndex({ pegawai }: Props) {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map(p => (
+                            {table.paginated.map(p => (
                                 <tr key={p.id} className={cn('border-b last:border-0', !p.is_aktif && 'opacity-50')}>
                                     <td className="px-3 py-2 font-medium text-gray-800">{p.nama}</td>
                                     <td className="px-3 py-2 font-mono text-gray-600">
                                         <div>{p.nip ?? '-'}</div>
                                         {p.nik && <div className="text-[10px] text-gray-400">{p.nik}</div>}
                                     </td>
-                                    <td className="px-3 py-2 font-mono text-gray-500">{p.npwp ?? '-'}</td>
+                                    <td className="px-3 py-2 text-gray-500">{p.npwp ?? '-'}</td>
                                     <td className="px-2 py-2 text-center">{p.gol_ruang ?? '-'}</td>
                                     <td className="px-2 py-2 text-center">
                                         <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', statusColor(p.status_kepegawaian))}>
@@ -329,14 +423,16 @@ export default function RefNamaIndex({ pegawai }: Props) {
                                     </td>
                                 </tr>
                             ))}
-                            {filtered.length === 0 && (
+                            {table.paginated.length === 0 && (
                                 <tr><td colSpan={10} className="text-center py-8 text-gray-400">
-                                    {search ? 'Tidak ada hasil pencarian' : 'Belum ada data pegawai. Tambah atau import dari Excel.'}
+                                    {table.search ? 'Tidak ada hasil pencarian' : 'Belum ada data pegawai. Tambah atau import dari Excel.'}
                                 </td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+
+                <DataTablePagination page={table.page} totalPages={table.totalPages} goPage={table.goPage} />
             </div>
 
             {/* Edit Dialog */}

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FileController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,12 @@ Route::get('/', fn () => redirect()->route('login'))->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'redirect'])->name('dashboard');
     Route::post('/tahun-anggaran/switch', [TahunAnggaranController::class, 'switchSession'])->name('tahun-anggaran.switch');
+
+    // ── Auth-protected file downloads ────────────────────────────────────────
+    Route::get('/files/bukti-bayar/{pd}', [FileController::class, 'downloadBuktiBayar'])
+        ->name('files.bukti-bayar');
+    Route::get('/files/dokumen/{dokumen}', [FileController::class, 'downloadDokumen'])
+        ->name('files.dokumen');
 
     require __DIR__.'/roles/super-admin.php';
     require __DIR__.'/roles/ketua-tim.php';

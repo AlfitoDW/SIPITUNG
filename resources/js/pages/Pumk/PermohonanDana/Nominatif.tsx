@@ -176,6 +176,11 @@ function TambahPegawaiDialog({
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    // Bank select + custom
+    const BANK_OPTIONS = ['BNI', 'BRI', 'Mandiri', 'BTN', 'BSI', 'BCA', 'Lainnya'];
+    const [bankSelect, setBankSelect] = useState('');
+    const [bankCustom, setBankCustom] = useState('');
+
     const set = (k: keyof NewPegawaiForm, v: string) => {
         setForm(f => {
             const next = { ...f, [k]: v };
@@ -188,9 +193,30 @@ function TambahPegawaiDialog({
         setErrors(e => { const n = { ...e }; delete n[k]; return n; });
     };
 
+    const handleBankSelect = (v: string) => {
+        setBankSelect(v);
+        if (v !== 'Lainnya') {
+            set('nama_bank', v);
+            setBankCustom('');
+        } else {
+            set('nama_bank', bankCustom);
+        }
+    };
+
+    const handleBankCustom = (v: string) => {
+        setBankCustom(v);
+        if (bankSelect === 'Lainnya') {
+            set('nama_bank', v);
+        }
+    };
+
     const handleSubmit = async () => {
-        setSaving(true);
         setErrors({});
+        if (bankSelect === 'Lainnya' && !bankCustom.trim()) {
+            setErrors({ nama_bank: 'Nama bank wajib diisi' });
+            return;
+        }
+        setSaving(true);
         try {
             const res = await fetch('/pumk/ref-pegawai', {
                 method: 'POST',
@@ -210,6 +236,8 @@ function TambahPegawaiDialog({
                 onSuccess(data);
                 onClose();
                 setForm({ nama: '', nip: '', nik: '', npwp: '', status_kepegawaian: 'PNS', gol_ruang: 'III/a', nama_rekening: '', no_rekening: '', nama_bank: '', email: '' });
+                setBankSelect('');
+                setBankCustom('');
             } else {
                 const err = await res.json();
                 if (err.errors) setErrors(err.errors);
@@ -281,7 +309,27 @@ function TambahPegawaiDialog({
                     </div>
                     {field('Nama di Rekening', 'nama_rekening', 'Sesuai nama di rekening bank')}
                     {field('Nomor Rekening', 'no_rekening', '')}
-                    {field('Nama Bank', 'nama_bank', 'BNI, BRI, Mandiri, BCA, ...')}
+                    {/* Nama Bank — Select + Custom */}
+                    <div className="space-y-1 col-span-2">
+                        <Label className="text-xs">Nama Bank</Label>
+                        <Select value={bankSelect} onValueChange={handleBankSelect}>
+                            <SelectTrigger className={cn('h-8 text-sm', errors.nama_bank && 'border-red-400')}>
+                                <SelectValue placeholder="Pilih bank..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {BANK_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {bankSelect === 'Lainnya' && (
+                            <Input
+                                className="h-8 text-sm mt-1.5"
+                                placeholder="Masukkan nama bank..."
+                                value={bankCustom}
+                                onChange={e => handleBankCustom(e.target.value)}
+                            />
+                        )}
+                        {errors.nama_bank && <p className="text-xs text-red-500">{errors.nama_bank}</p>}
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose} disabled={saving}>Batal</Button>

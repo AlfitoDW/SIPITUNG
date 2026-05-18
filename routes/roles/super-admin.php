@@ -78,6 +78,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::put('/{refNama}', [RefNamaController::class, 'update'])->name('update');
         Route::delete('/{refNama}', [RefNamaController::class, 'destroy'])->name('destroy');
         Route::patch('/{refNama}/toggle', [RefNamaController::class, 'toggleStatus'])->name('toggle');
+        Route::get('/template', [RefNamaController::class, 'downloadTemplate'])->name('template');
         Route::post('/import', [RefNamaController::class, 'importExcel'])->name('import');
     });
     Route::get('/perencanaan', fn () => Inertia::render('SuperAdmin/Perencanaan'))->name('perencanaan');

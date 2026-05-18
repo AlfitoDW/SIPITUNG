@@ -50,7 +50,7 @@ class PermohonanDana extends Model
         'submitted_at',
         'created_by',
         // Bukti bayar
-        'bukti_bayar_path', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by',
+        'bukti_bayar_path', 'bukti_bayar_nama_file', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by',
     ];
 
     protected $casts = [

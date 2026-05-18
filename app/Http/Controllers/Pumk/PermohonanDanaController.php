@@ -267,7 +267,7 @@ class PermohonanDanaController extends Controller
 
         $jenis = (int) $request->jenis_dokumen_id;
         $file = $request->file('file');
-        $path = $file->store("permohonan_dana/{$pd->id}/dokumen", 'public');
+        $path = $file->store("permohonan_dana/{$pd->id}/dokumen", 'local');
 
         PermohonanDanaDokumen::create([
             'permohonan_dana_id' => $pd->id,
@@ -289,7 +289,7 @@ class PermohonanDanaController extends Controller
         abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
         abort_if($dokumen->permohonan_dana_id !== $pd->id, 403);
 
-        Storage::disk('public')->delete($dokumen->path_file);
+        Storage::disk('local')->delete($dokumen->path_file);
         $dokumen->delete();
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -504,7 +504,7 @@ class PermohonanDanaController extends Controller
 
         // Hapus file dokumen
         foreach ($pd->dokumens as $dok) {
-            Storage::disk('public')->delete($dok->path_file);
+            Storage::disk('local')->delete($dok->path_file);
         }
         $pd->delete();
 

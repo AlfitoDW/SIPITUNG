@@ -330,6 +330,7 @@ export default function Detail({ pd }: Props) {
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
     const [action, setAction] = useState<ActionType>(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [showDeleteBukti, setShowDeleteBukti] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
     const canAct = pd.status === 'pic_approved';
@@ -342,7 +343,7 @@ export default function Detail({ pd }: Props) {
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
-        const url = `/storage/${dok.path_file}`;
+        const url = `/files/dokumen/${dok.id}`;
         const type = getFileType(dok.path_file);
         if (type === 'other') window.open(url, '_blank', 'noopener,noreferrer');
         else setPreviewDok({ url, nama: dok.nama_file });
@@ -416,7 +417,7 @@ export default function Detail({ pd }: Props) {
                         {pd.bukti_bayar_path && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <a href={`/storage/${pd.bukti_bayar_path}`} target="_blank" rel="noopener noreferrer">
+                                    <a href={`/files/bukti-bayar/${pd.id}`} target="_blank" rel="noopener noreferrer">
                                         <Button size="sm" variant="outline" className="gap-1.5 h-8 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
                                             <CheckCircle2 className="h-4 w-4" /> Bukti Bayar
                                         </Button>
@@ -432,11 +433,7 @@ export default function Detail({ pd }: Props) {
                                         size="sm"
                                         variant="outline"
                                         className="gap-1.5 h-8 text-red-600 border-red-200 hover:bg-red-50"
-                                        onClick={() => {
-                                            if (confirm('Hapus bukti bayar dan kembalikan status ke Menunggu Pencairan?')) {
-                                                post(`/bendahara/permohonan-dana/${pd.id}/hapus-bukti-bayar`);
-                                            }
-                                        }}
+                                        onClick={() => setShowDeleteBukti(true)}
                                     >
                                         <Trash2 className="h-4 w-4" /> Hapus Bukti Bayar
                                     </Button>
@@ -752,6 +749,31 @@ export default function Detail({ pd }: Props) {
                             className={action === 'reject' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
                         >
                             {processing ? 'Memproses...' : action === 'cairkan' ? 'Cairkan' : 'Tolak'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Dialog Hapus Bukti Bayar */}
+            <AlertDialog open={showDeleteBukti} onOpenChange={setShowDeleteBukti}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Bukti Bayar</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Hapus bukti bayar dan kembalikan status ke Menunggu Pencairan?
+                            Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowDeleteBukti(false)}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                post(`/bendahara/permohonan-dana/${pd.id}/hapus-bukti-bayar`);
+                                setShowDeleteBukti(false);
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            Hapus
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

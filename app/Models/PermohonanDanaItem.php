@@ -36,7 +36,7 @@ class PermohonanDanaItem extends Model
 
     const HONOR_AKUN = ['521115', '521213', '522151'];
 
-    const PERJADIN_AKUN = ['524111', '524119', '524113'];
+    const PERJADIN_AKUN = ['524111', '524119', '524113', '524114'];
 
     public function isHonor(): bool
     {

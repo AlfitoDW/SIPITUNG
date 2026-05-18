@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             PerencanaanSeeder::class,
             KeuanganSeeder::class,
             RefNamaSeeder::class,
+            NominatifSeeder::class,
         ]);
     }
 }

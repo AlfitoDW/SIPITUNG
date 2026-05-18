@@ -202,10 +202,11 @@ class PermohonanDanaController extends Controller
         if ($request->hasFile('bukti_bayar')) {
             /** @var UploadedFile $file */
             $file = $request->file('bukti_bayar');
-            $path = $file->store('bukti-bayar/'.date('Y/m'), 'public');
+            $path = $file->store('bukti-bayar/'.date('Y/m'), 'local');
 
             $pd->update([
                 'bukti_bayar_path' => $path,
+                'bukti_bayar_nama_file' => $file->getClientOriginalName(),
                 'bukti_bayar_uploaded_at' => now(),
                 'bukti_bayar_uploaded_by' => $request->user()->id,
             ]);
@@ -248,14 +249,15 @@ class PermohonanDanaController extends Controller
         abort_if(! $pd->bukti_bayar_path, 422, 'Tidak ada bukti bayar untuk dihapus.');
 
         // Hapus file dari storage
-        if (Storage::disk('public')->exists($pd->bukti_bayar_path)) {
-            Storage::disk('public')->delete($pd->bukti_bayar_path);
+        if (Storage::disk('local')->exists($pd->bukti_bayar_path)) {
+            Storage::disk('local')->delete($pd->bukti_bayar_path);
         }
 
         // Revert ke status sebelum dicairkan
         $pd->update([
             'status' => 'pic_approved',
             'bukti_bayar_path' => null,
+            'bukti_bayar_nama_file' => null,
             'bukti_bayar_uploaded_at' => null,
             'bukti_bayar_uploaded_by' => null,
             'dicairkan_by' => null,
@@ -286,45 +288,34 @@ class PermohonanDanaController extends Controller
             ? $pd->tgl_nominatif->locale('id')->isoFormat('D MMMM YYYY')
             : now()->locale('id')->isoFormat('D MMMM YYYY');
 
-        $tahun = $pd->tanggal_mulai ? substr($pd->tanggal_mulai, 0, 4) : now()->year;
-
-        // Kelompokkan items berdasarkan kode_akun (hanya yang honor atau perjadin)
         $honorAkun = ['521115', '521213', '522151'];
-        $perjadinAkun = ['524111', '524119', '524113'];
-        $allNominatifAkun = array_merge($honorAkun, $perjadinAkun);
+        $perjadinLuarAkun = ['524111', '524119'];
+        $perjadinDalamAkun = ['524113', '524114'];
+        $allNominatifAkun = array_merge($honorAkun, $perjadinLuarAkun, $perjadinDalamAkun);
 
         $grouped = $pd->items
             ->filter(fn ($item) => in_array($item->kode_akun, $allNominatifAkun))
             ->groupBy('kode_akun');
 
         $spreadsheet = new Spreadsheet;
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(11);
         $spreadsheet->removeSheetByIndex(0);
 
         $sheetIdx = 0;
         foreach ($grouped as $kodeAkun => $items) {
+            $kodeAkun = (string) $kodeAkun;
             $isHonor = in_array($kodeAkun, $honorAkun);
-            $isPerjadin = in_array($kodeAkun, $perjadinAkun);
+            $isPerjadinLuar = in_array($kodeAkun, $perjadinLuarAkun);
+            $isPerjadinDalam = in_array($kodeAkun, $perjadinDalamAkun);
 
             $sheet = $spreadsheet->createSheet($sheetIdx++);
             $sheet->setTitle(substr($kodeAkun, 0, 31));
 
-            // Tab color
             if ($isHonor) {
                 $sheet->getTabColor()->setRGB('F4B084');
             } else {
                 $sheet->getTabColor()->setRGB('00B0F0');
             }
-
-            // ── Judul sheet ──────────────────────────────────────────────────
-            $judul = match ($kodeAkun) {
-                '521213' => 'DAFTAR PEMBAYARAN HONORARIUM PANITIA',
-                '522151' => 'DAFTAR PEMBAYARAN HONORARIUM NARASUMBER DAN MODERATOR',
-                '521115' => 'DAFTAR PEMBAYARAN HONORARIUM OPERASIONAL SATUAN KERJA',
-                '524111' => 'DAFTAR PERJALANAN DINAS BIASA (LUAR KOTA)',
-                '524119' => 'DAFTAR PERJALANAN DINAS PAKET MEETING (LUAR KOTA)',
-                '524113' => 'DAFTAR PERJALANAN DINAS DALAM KOTA',
-                default => strtoupper($kodeAkun),
-            };
 
             $firstItem = $items->first();
             $namaItem = $firstItem->djaRincianBiaya?->nama_item ?? $firstItem->uraian ?? '-';
@@ -332,29 +323,26 @@ class PermohonanDanaController extends Controller
             $tglSk = $pd->tgl_sk ? $this->formatTanggalIndo($pd->tgl_sk) : '-';
             $noSt = $pd->no_st ?? '-';
             $tglSt = $pd->tgl_st ? $this->formatTanggalIndo($pd->tgl_st) : '-';
-            $nomorSurat = $isHonor ? "Nomor : {$noSk} Tanggal {$tglSk}" : "Nomor : {$noSt} Tanggal {$tglSt}";
 
-            $tglPelaksanaan = '';
-            if ($pd->tanggal_mulai && $pd->tanggal_selesai) {
-                $tglMulai = $this->formatTanggalIndo($pd->tanggal_mulai);
-                $tglSelesai = $this->formatTanggalIndo($pd->tanggal_selesai);
-                $tglPelaksanaan = $tglMulai === $tglSelesai ? strtoupper($tglMulai) : strtoupper("{$tglMulai} S.D. {$tglSelesai}");
-            }
+            $judul = match ($kodeAkun) {
+                '521213' => 'HONORARIUM PANITIA',
+                '522151' => 'HONORARIUM NARASUMBER DAN MODERATOR',
+                '521115' => 'HONORARIUM OPERASIONAL SATUAN KERJA',
+                default => 'TRANSPORT DAN UANG HARIAN PERJALANAN DINAS',
+            };
 
-            // ── Header baris 1–9 ─────────────────────────────────────────────
+            $suratLabel = $isHonor
+                ? 'Surat Keputusan Kepala LLDIKTI Wilayah III selaku KPA'
+                : 'Surat Tugas Kepala LLDIKTI Wilayah III selaku KPA';
+            $nomorSurat = $isHonor
+                ? "Nomor : {$noSk} Tanggal {$tglSk}"
+                : "Nomor : {$noSt} Tanggal {$tglSt}";
+
             $sheet->setCellValue('A1', 'Lampiran :');
-            $sheet->setCellValue('A2', 'Surat Keputusan Kepala LLDIKTI Wilayah III selaku KPA');
+            $sheet->setCellValue('A2', $suratLabel);
             $sheet->setCellValue('A3', $nomorSurat);
-            $sheet->setCellValue('A5', "DAFTAR PEMBAYARAN {$judul}");
-            $sheet->setCellValue('A6', 'KEGIATAN '.strtoupper($pd->keperluan));
-            $sheet->setCellValue('A7', "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
-            $sheet->setCellValue('A8', 'DI '.strtoupper($pd->tempat ?? 'JAKARTA')." TANGGAL {$tglPelaksanaan}");
-            $sheet->setCellValue('A9', "{$kodeAkun} {$namaItem}");
+            $sheet->getStyle('A1:A3')->getFont()->setItalic(true);
 
-            $sheet->getStyle('A5')->getFont()->setBold(true);
-            $sheet->getStyle('A6')->getFont()->setBold(true);
-
-            // ── Kumpulkan semua baris nominatif untuk kode akun ini ──────────
             $allNominatif = collect();
             foreach ($items as $item) {
                 foreach ($item->nominatif as $nom) {
@@ -362,23 +350,22 @@ class PermohonanDanaController extends Controller
                 }
             }
 
-            // ── Render per format ─────────────────────────────────────────────
             if ($kodeAkun === '521115') {
-                $this->renderHonorFormatA($sheet, $allNominatif, $judul, $ppk, $bendahara, $tglNominatif);
+                $this->renderHonorFormatA($sheet, $allNominatif, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif);
             } elseif (in_array($kodeAkun, ['521213', '522151'])) {
-                $this->renderHonorFormatB($sheet, $allNominatif, $judul, $ppk, $bendahara, $tglNominatif);
-            } else {
-                $this->renderPerjalananDinas($sheet, $allNominatif, $judul, $ppk, $bendahara, $tglNominatif);
+                $this->renderHonorFormatB($sheet, $allNominatif, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif);
+            } elseif ($isPerjadinLuar) {
+                $this->renderPerjadinLuarKota($sheet, $allNominatif, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif);
+            } elseif ($isPerjadinDalam) {
+                $this->renderPerjadinDalamKota($sheet, $allNominatif, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif);
             }
 
-            // Page setup
             $sheet->getPageSetup()
                 ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
                 ->setFitToWidth(1)
                 ->setFitToHeight(0);
         }
 
-        // Jika tidak ada nominatif akun, buat sheet fallback
         if ($sheetIdx === 0) {
             $sheet = $spreadsheet->createSheet(0);
             $sheet->setTitle('Nominatif');
@@ -402,57 +389,80 @@ class PermohonanDanaController extends Controller
 
     // ─── Format A — Honor 521115 (tanpa Jabatan) ─────────────────────────────
 
-    private function renderHonorFormatA($sheet, $nominatifRows, $judul, $ppk, $bendahara, $tglNominatif): void
+    private function renderHonorFormatA($sheet, $nominatifRows, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif): void
     {
-        // Header baris 9-11 (Format A, 16 kolom: A-P)
-        $headerStart = 11;
-        $headers = [
-            ['No', 'Nama', 'NIK', 'NPWP', 'Gol', 'Jml Keg', 'Rp/Keg', 'Jml Bruto',
-                'PNS/Non PNS', 'Tarif PPh21', 'Jml Pajak', 'Jml Diterima',
-                'Atas Nama Rekening', 'Nomor Rekening', 'Bank', 'Email'],
-        ];
+        $lastCol = 'P';
 
-        $this->writeHeaders($sheet, $headerStart, $headers, 'P');
+        $sheet->mergeCells("A5:{$lastCol}5");
+        $sheet->setCellValue('A5', "DAFTAR PEMBAYARAN {$judul}");
+        $sheet->getStyle('A5')->getFont()->setBold(true);
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // Merge header groups (baris 9-10)
-        $sheet->mergeCells('A9:A10');
-        $sheet->setCellValue('A9', 'No');
-        $sheet->mergeCells('B9:B10');
-        $sheet->setCellValue('B9', 'Nama');
-        $sheet->mergeCells('C9:C10');
-        $sheet->setCellValue('C9', 'NIK');
-        $sheet->mergeCells('D9:D10');
-        $sheet->setCellValue('D9', 'NPWP');
-        $sheet->mergeCells('E9:E10');
-        $sheet->setCellValue('E9', 'Gol');
-        $sheet->mergeCells('F9:H9');
-        $sheet->setCellValue('F9', 'Honorarium');
+        $bulan = $pd->tanggal_mulai ? $this->formatTanggalIndo($pd->tanggal_mulai) : '';
+        $sheet->mergeCells("A6:{$lastCol}6");
+        $sheet->setCellValue('A6', 'BULAN '.strtoupper($bulan));
+        $sheet->getStyle("A6:{$lastCol}6")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A7', "{$kodeAkun} {$namaItem}");
+
+        $sheet->mergeCells("A8:{$lastCol}8");
+        $sheet->setCellValue('A8', '');
+
+        $this->setColumnWidthsHonorA($sheet);
+
+        // Header baris 9-10
+        $sheet->mergeCells('A9:A10'); $sheet->setCellValue('A9', 'No');
+        $sheet->mergeCells('B9:B10'); $sheet->setCellValue('B9', 'Nama');
+        $sheet->mergeCells('C9:C10'); $sheet->setCellValue('C9', 'NIK');
+        $sheet->mergeCells('D9:D10'); $sheet->setCellValue('D9', 'NPWP');
+        $sheet->mergeCells('E9:E10'); $sheet->setCellValue('E9', 'Gol');
+        $sheet->mergeCells('F9:H9'); $sheet->setCellValue('F9', 'Honorarium');
         $sheet->setCellValue('F10', 'Jml Keg');
-        $sheet->setCellValue('G10', 'Rp/Keg');
+        $sheet->setCellValue('G10', 'Rp./Jam');
         $sheet->setCellValue('H10', 'Jml Bruto');
-        $sheet->mergeCells('I9:I10');
-        $sheet->setCellValue('I9', 'DPP PNS/Non PNS');
-        $sheet->mergeCells('J9:K9');
-        $sheet->setCellValue('J9', 'PPh21');
-        $sheet->setCellValue('J10', 'Tarif');
+        $sheet->mergeCells('I9:I10'); $sheet->setCellValue('I9', "Dasar Pengenaan Pajak (DPP)\nPNS / Non PNS");
+        $sheet->getStyle('I9')->getAlignment()->setWrapText(true);
+        $sheet->mergeCells('J9:K9'); $sheet->setCellValue('J9', 'PPH 21');
+        $sheet->setCellValue('J10', 'Tarif **');
         $sheet->setCellValue('K10', 'Jml Pajak');
-        $sheet->mergeCells('L9:L10');
-        $sheet->setCellValue('L9', 'Jml Diterima');
-        $sheet->mergeCells('M9:M10');
-        $sheet->setCellValue('M9', 'Atas Nama Rekening');
-        $sheet->mergeCells('N9:N10');
-        $sheet->setCellValue('N9', 'Nomor Rekening');
-        $sheet->mergeCells('O9:O10');
-        $sheet->setCellValue('O9', 'Bank');
-        $sheet->mergeCells('P9:P10');
-        $sheet->setCellValue('P9', 'Email');
+        $sheet->mergeCells('L9:L10'); $sheet->setCellValue('L9', 'Jumlah Diterima');
+        $sheet->mergeCells('M9:M10'); $sheet->setCellValue('M9', 'Atas Nama Rekening');
+        $sheet->mergeCells('N9:N10'); $sheet->setCellValue('N9', 'Nomor Rekening');
+        $sheet->mergeCells('O9:O10'); $sheet->setCellValue('O9', 'Bank');
+        $sheet->mergeCells('P9:P10'); $sheet->setCellValue('P9', 'Email');
 
         $this->styleHeaderRange($sheet, 'A9:P10');
+        $sheet->getRowDimension(9)->setRowHeight(35);
+        $sheet->getRowDimension(10)->setRowHeight(20);
 
-        // Data rows
-        $row = 11;
+        // Formula row 11
+        $sheet->setCellValue('A11', 'A');
+        $sheet->setCellValue('B11', 'B');
+        $sheet->setCellValue('C11', 'C');
+        $sheet->setCellValue('D11', 'D');
+        $sheet->setCellValue('E11', 'E');
+        $sheet->setCellValue('F11', 'F');
+        $sheet->setCellValue('G11', 'G');
+        $sheet->setCellValue('H11', 'H = F x G');
+        $sheet->setCellValue('I11', 'I=H');
+        $sheet->setCellValue('J11', 'J');
+        $sheet->setCellValue('K11', 'K= ( J x I )');
+        $sheet->setCellValue('L11', 'L = ( H-K )');
+        $sheet->setCellValue('M11', 'M');
+        $sheet->setCellValue('N11', 'N');
+        $sheet->setCellValue('O11', 'O');
+        $sheet->setCellValue('P11', 'P');
+        $sheet->getStyle('A11:P11')->getFont()->setItalic(true)->setSize(9);
+        $sheet->getStyle('A11:P11')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $this->borderRow($sheet, 'A11:P11');
+
+        // Thick border between formula and data
+        $sheet->getStyle('A12:P12')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THICK);
+
+        // Data rows start at 12
+        $row = 12;
         $no = 1;
-        $totalBruto = $totalPajak = $totalDiterima = 0;
+        $totalVol = $totalHarga = $totalBruto = $totalDpp = $totalPajak = $totalDiterima = 0;
 
         foreach ($nominatifRows as $nom) {
             $sheet->setCellValue("A{$row}", $no++);
@@ -460,7 +470,7 @@ class PermohonanDanaController extends Controller
             $sheet->setCellValue("C{$row}", $nom->nik);
             $sheet->setCellValue("D{$row}", $nom->npwp);
             $sheet->setCellValue("E{$row}", $nom->gol_ruang);
-            $sheet->setCellValue("F{$row}", $nom->volume);
+            $sheet->setCellValue("F{$row}", (float) $nom->volume);
             $sheet->setCellValue("G{$row}", (float) $nom->harga_satuan);
             $sheet->setCellValue("H{$row}", (float) $nom->jumlah_bruto);
             $sheet->setCellValue("I{$row}", $nom->gol_ruang === 'Non PNS' ? 'Non PNS' : 'PNS');
@@ -474,78 +484,135 @@ class PermohonanDanaController extends Controller
 
             $sheet->getStyle("C{$row}:D{$row}")->getNumberFormat()->setFormatCode('@');
             $sheet->getStyle("N{$row}")->getNumberFormat()->setFormatCode('@');
+            $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("G{$row}:H{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("K{$row}:L{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("J{$row}")->getNumberFormat()->setFormatCode('0.00%');
             $this->borderRow($sheet, "A{$row}:P{$row}");
 
+            $totalVol += (float) $nom->volume;
+            $totalHarga += (float) $nom->harga_satuan;
             $totalBruto += (float) $nom->jumlah_bruto;
+            $totalDpp += (float) $nom->jumlah_bruto;
             $totalPajak += (float) $nom->jumlah_pajak;
             $totalDiterima += (float) $nom->jumlah_diterima;
             $row++;
         }
 
         // Baris jumlah
-        $sheet->setCellValue("G{$row}", 'Jumlah');
+        $sheet->setCellValue("B{$row}", 'Jumlah');
+        $sheet->setCellValue("F{$row}", $totalVol);
+        $sheet->setCellValue("G{$row}", $totalHarga);
         $sheet->setCellValue("H{$row}", $totalBruto);
+        $sheet->setCellValue("I{$row}", $totalDpp);
+        $sheet->setCellValue("J{$row}", '-');
         $sheet->setCellValue("K{$row}", $totalPajak);
         $sheet->setCellValue("L{$row}", $totalDiterima);
-        $sheet->getStyle("G{$row}:L{$row}")->getFont()->setBold(true);
-        $sheet->getStyle("H{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("B{$row}:L{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("G{$row}:H{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("I{$row}")->getNumberFormat()->setFormatCode('#,##0');
         $sheet->getStyle("K{$row}:L{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $this->styleTotalRow($sheet, "A{$row}:P{$row}");
 
-        $this->renderFooter($sheet, $row, 'P', $totalDiterima, $ppk, $bendahara, $tglNominatif);
+        $this->renderHonorFooter($sheet, $row, $totalDiterima, $ppk, $bendahara, $tglNominatif);
     }
 
     // ─── Format B — Honor 521213/522151 (dengan Jabatan) ─────────────────────
 
-    private function renderHonorFormatB($sheet, $nominatifRows, $judul, $ppk, $bendahara, $tglNominatif): void
+    private function renderHonorFormatB($sheet, $nominatifRows, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif): void
     {
-        // Header baris 11-13 (17 kolom: A-Q)
-        $sheet->mergeCells('A11:A13');
-        $sheet->setCellValue('A11', 'No');
-        $sheet->mergeCells('B11:B13');
-        $sheet->setCellValue('B11', 'Nama');
-        $sheet->mergeCells('C11:C13');
-        $sheet->setCellValue('C11', 'Jabatan Dalam Tugas');
-        $sheet->mergeCells('D11:D13');
-        $sheet->setCellValue('D11', 'NIK');
-        $sheet->mergeCells('E11:E13');
-        $sheet->setCellValue('E11', 'NPWP');
-        $sheet->mergeCells('F11:F13');
-        $sheet->setCellValue('F11', 'Gol');
-        $sheet->mergeCells('G11:I11');
-        $sheet->setCellValue('G11', 'Honorarium');
-        $sheet->mergeCells('G12:G13');
-        $sheet->setCellValue('G12', 'Jml Keg');
-        $sheet->mergeCells('H12:H13');
-        $sheet->setCellValue('H12', 'Rp/Keg');
-        $sheet->mergeCells('I12:I13');
-        $sheet->setCellValue('I12', 'Jml Bruto');
-        $sheet->mergeCells('J11:J13');
-        $sheet->setCellValue('J11', 'DPP PNS/Non PNS');
-        $sheet->mergeCells('K11:L11');
-        $sheet->setCellValue('K11', 'PPh21');
-        $sheet->mergeCells('K12:K13');
-        $sheet->setCellValue('K12', 'Tarif');
-        $sheet->mergeCells('L12:L13');
-        $sheet->setCellValue('L12', 'Jml Pajak');
-        $sheet->mergeCells('M11:M13');
-        $sheet->setCellValue('M11', 'Jml Diterima');
-        $sheet->mergeCells('N11:N13');
-        $sheet->setCellValue('N11', 'Atas Nama Rekening');
-        $sheet->mergeCells('O11:O13');
-        $sheet->setCellValue('O11', 'Nomor Rekening');
-        $sheet->mergeCells('P11:P13');
-        $sheet->setCellValue('P11', 'Bank');
-        $sheet->mergeCells('Q11:Q13');
-        $sheet->setCellValue('Q11', 'Email');
+        $lastCol = 'Q';
+
+        $sheet->mergeCells("A5:{$lastCol}5");
+        $sheet->setCellValue('A5', "DAFTAR PEMBAYARAN {$judul}");
+        $sheet->getStyle('A5')->getFont()->setBold(true);
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A6:{$lastCol}6");
+        $sheet->setCellValue('A6', 'KEGIATAN '.strtoupper($pd->keperluan));
+        $sheet->getStyle("A6:{$lastCol}6")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tahun = $pd->tanggal_mulai ? substr($pd->tanggal_mulai, 0, 4) : now()->year;
+        $sheet->mergeCells("A7:{$lastCol}7");
+        $sheet->setCellValue('A7', "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
+        $sheet->getStyle("A7:{$lastCol}7")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tglPelaksanaan = '';
+        if ($pd->tanggal_mulai && $pd->tanggal_selesai) {
+            $tglMulai = $this->formatTanggalIndo($pd->tanggal_mulai);
+            $tglSelesai = $this->formatTanggalIndo($pd->tanggal_selesai);
+            $tglPelaksanaan = $tglMulai === $tglSelesai ? strtoupper($tglMulai) : strtoupper("{$tglMulai} S.D. {$tglSelesai}");
+        }
+        $sheet->mergeCells("A8:{$lastCol}8");
+        $sheet->setCellValue('A8', 'DI '.strtoupper($pd->tempat ?? 'JAKARTA')." TANGGAL {$tglPelaksanaan}");
+        $sheet->getStyle("A8:{$lastCol}8")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A9:{$lastCol}9");
+        $sheet->setCellValue('A9', "{$kodeAkun} {$namaItem}");
+        $sheet->getStyle("A9:{$lastCol}9")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A10:{$lastCol}10");
+        $sheet->setCellValue('A10', '');
+
+        $this->setColumnWidthsHonorB($sheet);
+
+        // Header baris 11-12
+        $sheet->mergeCells('A11:A13'); $sheet->setCellValue('A11', 'No');
+        $sheet->mergeCells('B11:B13'); $sheet->setCellValue('B11', 'Nama');
+        $sheet->mergeCells('C11:C13'); $sheet->setCellValue('C11', 'Jabatan Dalam Tugas');
+        $sheet->mergeCells('D11:D13'); $sheet->setCellValue('D11', 'NIK');
+        $sheet->mergeCells('E11:E13'); $sheet->setCellValue('E11', 'NPWP');
+        $sheet->mergeCells('F11:F13'); $sheet->setCellValue('F11', 'Gol');
+        $sheet->mergeCells('G11:I11'); $sheet->setCellValue('G11', 'Honorarium');
+        $sheet->mergeCells('G12:G13'); $sheet->setCellValue('G12', 'Jml Keg');
+        $sheet->mergeCells('H12:H13'); $sheet->setCellValue('H12', 'Rp./Jam');
+        $sheet->mergeCells('I12:I13'); $sheet->setCellValue('I12', 'Jml Bruto');
+        $sheet->mergeCells('J11:J13'); $sheet->setCellValue('J11', "Dasar Pengenaan Pajak (DPP)\nPNS / Non PNS");
+        $sheet->getStyle('J11')->getAlignment()->setWrapText(true);
+        $sheet->mergeCells('K11:L11'); $sheet->setCellValue('K11', 'PPH 21');
+        $sheet->mergeCells('K12:K13'); $sheet->setCellValue('K12', 'Tarif **');
+        $sheet->mergeCells('L12:L13'); $sheet->setCellValue('L12', 'Jml Pajak');
+        $sheet->mergeCells('M11:M13'); $sheet->setCellValue('M11', 'Jumlah Diterima');
+        $sheet->mergeCells('N11:N13'); $sheet->setCellValue('N11', 'Atas Nama Rekening');
+        $sheet->mergeCells('O11:O13'); $sheet->setCellValue('O11', 'Nomor Rekening');
+        $sheet->mergeCells('P11:P13'); $sheet->setCellValue('P11', 'Bank');
+        $sheet->mergeCells('Q11:Q13'); $sheet->setCellValue('Q11', 'Email');
 
         $this->styleHeaderRange($sheet, 'A11:Q13');
+        $sheet->getRowDimension(11)->setRowHeight(35);
+        $sheet->getRowDimension(12)->setRowHeight(20);
+        $sheet->getRowDimension(13)->setRowHeight(20);
 
+        // Formula row 13
+        $sheet->setCellValue('A13', 'A');
+        $sheet->setCellValue('B13', 'B');
+        $sheet->setCellValue('C13', '');
+        $sheet->setCellValue('D13', 'C');
+        $sheet->setCellValue('E13', 'D');
+        $sheet->setCellValue('F13', 'E');
+        $sheet->setCellValue('G13', 'F');
+        $sheet->setCellValue('H13', 'G');
+        $sheet->setCellValue('I13', 'H = F x G');
+        $sheet->setCellValue('J13', 'I=H');
+        $sheet->setCellValue('K13', 'J');
+        $sheet->setCellValue('L13', 'K= ( J x I )');
+        $sheet->setCellValue('M13', 'L = ( H-K )');
+        $sheet->setCellValue('N13', 'M');
+        $sheet->setCellValue('O13', 'N');
+        $sheet->setCellValue('P13', 'O');
+        $sheet->setCellValue('Q13', 'P');
+        $sheet->getStyle('A13:Q13')->getFont()->setItalic(true)->setSize(9);
+        $sheet->getStyle('A13:Q13')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $this->borderRow($sheet, 'A13:Q13');
+
+        // Thick border between formula and data
+        $sheet->getStyle('A14:Q14')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THICK);
+
+        // Data rows start at 14
         $row = 14;
         $no = 1;
-        $totalBruto = $totalPajak = $totalDiterima = 0;
+        $totalVol = $totalHarga = $totalBruto = $totalDpp = $totalPajak = $totalDiterima = 0;
 
         foreach ($nominatifRows as $nom) {
             $sheet->setCellValue("A{$row}", $no++);
@@ -568,102 +635,157 @@ class PermohonanDanaController extends Controller
 
             $sheet->getStyle("D{$row}:E{$row}")->getNumberFormat()->setFormatCode('@');
             $sheet->getStyle("O{$row}")->getNumberFormat()->setFormatCode('@');
+            $sheet->getStyle("G{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("H{$row}:I{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("L{$row}:M{$row}")->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle("K{$row}")->getNumberFormat()->setFormatCode('0.00%');
             $this->borderRow($sheet, "A{$row}:Q{$row}");
 
+            $totalVol += (float) $nom->volume;
+            $totalHarga += (float) $nom->harga_satuan;
             $totalBruto += (float) $nom->jumlah_bruto;
+            $totalDpp += (float) $nom->jumlah_bruto;
             $totalPajak += (float) $nom->jumlah_pajak;
             $totalDiterima += (float) $nom->jumlah_diterima;
             $row++;
         }
 
-        $sheet->setCellValue("H{$row}", 'Jumlah');
+        // Baris jumlah
+        $sheet->setCellValue("B{$row}", 'Jumlah');
+        $sheet->setCellValue("G{$row}", $totalVol);
+        $sheet->setCellValue("H{$row}", $totalHarga);
         $sheet->setCellValue("I{$row}", $totalBruto);
+        $sheet->setCellValue("J{$row}", $totalDpp);
+        $sheet->setCellValue("K{$row}", '-');
         $sheet->setCellValue("L{$row}", $totalPajak);
         $sheet->setCellValue("M{$row}", $totalDiterima);
-        $sheet->getStyle("H{$row}:M{$row}")->getFont()->setBold(true);
-        $sheet->getStyle("I{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("B{$row}:M{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("G{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("H{$row}:I{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("J{$row}")->getNumberFormat()->setFormatCode('#,##0');
         $sheet->getStyle("L{$row}:M{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $this->styleTotalRow($sheet, "A{$row}:Q{$row}");
 
-        $this->renderFooter($sheet, $row, 'Q', $totalDiterima, $ppk, $bendahara, $tglNominatif);
+        $this->renderHonorFooter($sheet, $row, $totalDiterima, $ppk, $bendahara, $tglNominatif);
     }
 
-    // ─── Format C — Perjalanan Dinas ─────────────────────────────────────────
+    // ─── Format C1 — Perjadin Luar Kota (524111 / 524119) ────────────────────
 
-    private function renderPerjalananDinas($sheet, $nominatifRows, $judul, $ppk, $bendahara, $tglNominatif): void
+    private function renderPerjadinLuarKota($sheet, $nominatifRows, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif): void
     {
-        // Header 11-13, 21 kolom: A-U
-        $sheet->mergeCells('A11:A13');
-        $sheet->setCellValue('A11', 'No');
-        $sheet->mergeCells('B11:B13');
-        $sheet->setCellValue('B11', 'Nama');
-        $sheet->mergeCells('C11:C13');
-        $sheet->setCellValue('C11', 'Transport (Rp)');
-        $sheet->mergeCells('D11:F11');
-        $sheet->setCellValue('D11', 'Uang Harian Biasa');
-        $sheet->mergeCells('D12:D13');
-        $sheet->setCellValue('D12', 'Jml Hari');
-        $sheet->mergeCells('E12:E13');
-        $sheet->setCellValue('E12', 'Satuan');
-        $sheet->mergeCells('F12:F13');
-        $sheet->setCellValue('F12', 'Jumlah');
-        $sheet->mergeCells('G11:I11');
-        $sheet->setCellValue('G11', 'Uang Harian Fullboard');
-        $sheet->mergeCells('G12:G13');
-        $sheet->setCellValue('G12', 'Jml Hari');
-        $sheet->mergeCells('H12:H13');
-        $sheet->setCellValue('H12', 'Satuan');
-        $sheet->mergeCells('I12:I13');
-        $sheet->setCellValue('I12', 'Jumlah');
-        $sheet->mergeCells('J11:L11');
-        $sheet->setCellValue('J11', 'Uang Harian Fullday');
-        $sheet->mergeCells('J12:J13');
-        $sheet->setCellValue('J12', 'Jml Hari');
-        $sheet->mergeCells('K12:K13');
-        $sheet->setCellValue('K12', 'Satuan');
-        $sheet->mergeCells('L12:L13');
-        $sheet->setCellValue('L12', 'Jumlah');
-        $sheet->mergeCells('M11:M13');
-        $sheet->setCellValue('M11', 'Uang Representasi');
-        $sheet->mergeCells('N11:N13');
-        $sheet->setCellValue('N11', 'Taksi PP');
-        $sheet->mergeCells('O11:O13');
-        $sheet->setCellValue('O11', 'Tiket Pesawat');
-        $sheet->mergeCells('P11:P13');
-        $sheet->setCellValue('P11', 'Akomodasi Hotel');
-        $sheet->mergeCells('Q11:Q13');
-        $sheet->setCellValue('Q11', 'Jml Diterima (Rp)');
-        $sheet->mergeCells('R11:R13');
-        $sheet->setCellValue('R11', 'Atas Nama Rekening');
-        $sheet->mergeCells('S11:S13');
-        $sheet->setCellValue('S11', 'Nomor Rekening');
-        $sheet->mergeCells('T11:T13');
-        $sheet->setCellValue('T11', 'Bank');
-        $sheet->mergeCells('U11:U13');
-        $sheet->setCellValue('U11', 'Email');
+        $lastCol = 'U';
 
-        $this->styleHeaderRange($sheet, 'A11:U13');
+        $sheet->mergeCells("A5:{$lastCol}5");
+        $sheet->setCellValue('A5', 'DAFTAR PEMBAYARAN TRANSPORT DAN UANG HARIAN PERJALANAN DINAS');
+        $sheet->getStyle('A5')->getFont()->setBold(true);
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
+        $sheet->mergeCells("A6:{$lastCol}6");
+        $sheet->setCellValue('A6', 'KEGIATAN '.strtoupper($pd->keperluan));
+        $sheet->getStyle("A6:{$lastCol}6")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tahun = $pd->tanggal_mulai ? substr($pd->tanggal_mulai, 0, 4) : now()->year;
+        $sheet->mergeCells("A7:{$lastCol}7");
+        $sheet->setCellValue('A7', "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
+        $sheet->getStyle("A7:{$lastCol}7")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tglPelaksanaan = '';
+        if ($pd->tanggal_mulai && $pd->tanggal_selesai) {
+            $tglMulai = $this->formatTanggalIndo($pd->tanggal_mulai);
+            $tglSelesai = $this->formatTanggalIndo($pd->tanggal_selesai);
+            $tglPelaksanaan = $tglMulai === $tglSelesai ? strtoupper($tglMulai) : strtoupper("{$tglMulai} S.D. {$tglSelesai}");
+        }
+        $sheet->mergeCells("A8:{$lastCol}8");
+        $sheet->setCellValue('A8', 'DI '.strtoupper($pd->tempat ?? 'JAKARTA')." TANGGAL {$tglPelaksanaan}");
+        $sheet->getStyle("A8:{$lastCol}8")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A9:{$lastCol}9");
+        $sheet->setCellValue('A9', "{$kodeAkun} {$namaItem}");
+        $sheet->getStyle("A9:{$lastCol}9")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A10:{$lastCol}10");
+        $sheet->setCellValue('A10', '');
+
+        $this->setColumnWidthsPerjadinLuar($sheet);
+
+        // Header baris 11-12
+        $sheet->mergeCells('B11:B12'); $sheet->setCellValue('B11', 'No');
+        $sheet->mergeCells('C11:C12'); $sheet->setCellValue('C11', 'Nama');
+        $sheet->mergeCells('D11:D12'); $sheet->setCellValue('D11', 'Transport (Rp.)');
+        $sheet->mergeCells('E11:G11'); $sheet->setCellValue('E11', 'Uang Harian Biasa');
+        $sheet->setCellValue('E12', 'Jml Hari');
+        $sheet->setCellValue('F12', 'Satuan');
+        $sheet->setCellValue('G12', 'Jumlah');
+        $sheet->mergeCells('H11:J11'); $sheet->setCellValue('H11', 'Uang Harian Fullboard');
+        $sheet->setCellValue('H12', 'Jml Hari');
+        $sheet->setCellValue('I12', 'Satuan');
+        $sheet->setCellValue('J12', 'Jumlah');
+        $sheet->mergeCells('K11:M11'); $sheet->setCellValue('K11', 'Uang Harian Fullday');
+        $sheet->setCellValue('K12', 'Jml Hari');
+        $sheet->setCellValue('L12', 'Satuan');
+        $sheet->setCellValue('M12', 'Jumlah');
+        $sheet->mergeCells('N11:N12'); $sheet->setCellValue('N11', 'Taksi PP');
+        $sheet->mergeCells('O11:O12'); $sheet->setCellValue('O11', 'Tiket Pesawat');
+        $sheet->mergeCells('P11:P12'); $sheet->setCellValue('P11', 'Akomodasi Hotel');
+        $sheet->mergeCells('Q11:Q12'); $sheet->setCellValue('Q11', 'Jumlah Diterima (Rp.)');
+        $sheet->mergeCells('R11:R12'); $sheet->setCellValue('R11', 'Atas Nama Rekening');
+        $sheet->mergeCells('S11:S12'); $sheet->setCellValue('S11', 'Nomor Rekening');
+        $sheet->mergeCells('T11:T12'); $sheet->setCellValue('T11', 'Bank');
+        $sheet->mergeCells('U11:U12'); $sheet->setCellValue('U11', 'Email');
+
+        $this->styleHeaderRange($sheet, 'B11:U12');
+        $sheet->getRowDimension(11)->setRowHeight(35);
+        $sheet->getRowDimension(12)->setRowHeight(20);
+
+        // Formula row 13
+        $sheet->setCellValue('B13', 'A');
+        $sheet->setCellValue('C13', 'B');
+        $sheet->setCellValue('D13', 'C');
+        $sheet->setCellValue('E13', 'D');
+        $sheet->setCellValue('F13', 'E');
+        $sheet->setCellValue('G13', 'F = D x E');
+        $sheet->setCellValue('H13', 'G');
+        $sheet->setCellValue('I13', 'H ');
+        $sheet->setCellValue('J13', 'I = G x H');
+        $sheet->setCellValue('K13', 'J');
+        $sheet->setCellValue('L13', 'K');
+        $sheet->setCellValue('M13', 'L = J x K');
+        $sheet->setCellValue('N13', 'C');
+        $sheet->setCellValue('O13', 'C');
+        $sheet->setCellValue('P13', '');
+        $sheet->setCellValue('Q13', 'M = C + F + I + L');
+        $sheet->setCellValue('R13', 'N');
+        $sheet->setCellValue('S13', 'O');
+        $sheet->setCellValue('T13', 'P');
+        $sheet->setCellValue('U13', 'Q');
+        $sheet->getStyle('B13:U13')->getFont()->setItalic(true)->setSize(9);
+        $sheet->getStyle('B13:U13')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $this->borderRow($sheet, 'B13:U13');
+
+        // Thick border between formula and data
+        $sheet->getStyle('B14:U14')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THICK);
+
+        // Data rows start at 14
         $row = 14;
         $no = 1;
-        $total = 0;
+        $totals = [
+            'transport' => 0, 'biasa' => 0, 'fb' => 0, 'fd' => 0,
+            'taksi' => 0, 'tiket' => 0, 'hotel' => 0, 'diterima' => 0,
+        ];
 
         foreach ($nominatifRows as $nom) {
-            $sheet->setCellValue("A{$row}", $no++);
-            $sheet->setCellValue("B{$row}", $nom->nama);
-            $sheet->setCellValue("C{$row}", (float) $nom->transport);
-            $sheet->setCellValue("D{$row}", (float) $nom->uang_harian_vol);
-            $sheet->setCellValue("E{$row}", (float) $nom->uang_harian_satuan);
-            $sheet->setCellValue("F{$row}", (float) $nom->uang_harian_jumlah);
-            $sheet->setCellValue("G{$row}", (float) $nom->fullboard_vol);
-            $sheet->setCellValue("H{$row}", (float) $nom->fullboard_satuan);
-            $sheet->setCellValue("I{$row}", (float) $nom->fullboard_jumlah);
-            $sheet->setCellValue("J{$row}", (float) $nom->fullday_vol);
-            $sheet->setCellValue("K{$row}", (float) $nom->fullday_satuan);
-            $sheet->setCellValue("L{$row}", (float) $nom->fullday_jumlah);
-            $sheet->setCellValue("M{$row}", (float) $nom->representasi);
+            $sheet->setCellValue("B{$row}", $no++);
+            $sheet->setCellValue("C{$row}", $nom->nama);
+            $sheet->setCellValue("D{$row}", (float) $nom->transport);
+            $sheet->setCellValue("E{$row}", (float) $nom->uang_harian_vol);
+            $sheet->setCellValue("F{$row}", (float) $nom->uang_harian_satuan);
+            $sheet->setCellValue("G{$row}", (float) $nom->uang_harian_jumlah);
+            $sheet->setCellValue("H{$row}", (float) $nom->fullboard_vol);
+            $sheet->setCellValue("I{$row}", (float) $nom->fullboard_satuan);
+            $sheet->setCellValue("J{$row}", (float) $nom->fullboard_jumlah);
+            $sheet->setCellValue("K{$row}", (float) $nom->fullday_vol);
+            $sheet->setCellValue("L{$row}", (float) $nom->fullday_satuan);
+            $sheet->setCellValue("M{$row}", (float) $nom->fullday_jumlah);
             $sheet->setCellValue("N{$row}", (float) $nom->taksi_pp);
             $sheet->setCellValue("O{$row}", (float) $nom->tiket_pesawat);
             $sheet->setCellValue("P{$row}", (float) $nom->hotel);
@@ -674,72 +796,299 @@ class PermohonanDanaController extends Controller
             $sheet->setCellValue("U{$row}", $nom->email);
 
             $sheet->getStyle("S{$row}")->getNumberFormat()->setFormatCode('@');
-            $sheet->getStyle("C{$row}:Q{$row}")->getNumberFormat()->setFormatCode('#,##0');
-            $this->borderRow($sheet, "A{$row}:U{$row}");
+            $sheet->getStyle("D{$row}:Q{$row}")->getNumberFormat()->setFormatCode('#,##0');
+            $this->borderRow($sheet, "B{$row}:U{$row}");
 
-            $total += (float) $nom->jumlah_perjadin;
+            $totals['transport'] += (float) $nom->transport;
+            $totals['biasa'] += (float) $nom->uang_harian_jumlah;
+            $totals['fb'] += (float) $nom->fullboard_jumlah;
+            $totals['fd'] += (float) $nom->fullday_jumlah;
+            $totals['taksi'] += (float) $nom->taksi_pp;
+            $totals['tiket'] += (float) $nom->tiket_pesawat;
+            $totals['hotel'] += (float) $nom->hotel;
+            $totals['diterima'] += (float) $nom->jumlah_perjadin;
             $row++;
         }
 
-        $sheet->setCellValue("P{$row}", 'Jumlah');
-        $sheet->setCellValue("Q{$row}", $total);
-        $sheet->getStyle("P{$row}:Q{$row}")->getFont()->setBold(true);
-        $sheet->getStyle("Q{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        // Baris jumlah
+        $sheet->setCellValue("C{$row}", 'Jumlah');
+        $sheet->setCellValue("D{$row}", $totals['transport']);
+        $sheet->setCellValue("G{$row}", $totals['biasa']);
+        $sheet->setCellValue("J{$row}", $totals['fb']);
+        $sheet->setCellValue("M{$row}", $totals['fd']);
+        $sheet->setCellValue("N{$row}", $totals['taksi']);
+        $sheet->setCellValue("O{$row}", $totals['tiket']);
+        $sheet->setCellValue("P{$row}", $totals['hotel']);
+        $sheet->setCellValue("Q{$row}", $totals['diterima']);
+        $sheet->getStyle("C{$row}:Q{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("D{$row}:Q{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $this->styleTotalRow($sheet, "B{$row}:U{$row}");
 
-        $this->renderFooter($sheet, $row, 'U', $total, $ppk, $bendahara, $tglNominatif);
+        $this->renderPerjadinFooter($sheet, $row, $totals['diterima'], $ppk, $bendahara, $tglNominatif, true);
     }
 
-    // ─── Footer (tanda tangan) ───────────────────────────────────────────────
+    // ─── Format C2 — Perjadin Dalam Kota (524113 / 524114) ───────────────────
 
-    private function renderFooter($sheet, int $jumlahRow, string $lastCol, float $total, $ppk, $bendahara, string $tglNominatif): void
+    private function renderPerjadinDalamKota($sheet, $nominatifRows, $judul, $kodeAkun, $namaItem, $pd, $ppk, $bendahara, $tglNominatif): void
+    {
+        $lastCol = 'S';
+
+        $sheet->mergeCells("A5:{$lastCol}5");
+        $sheet->setCellValue('A5', 'DAFTAR PEMBAYARAN TRANSPORT DAN UANG HARIAN PERJALANAN DINAS');
+        $sheet->getStyle('A5')->getFont()->setBold(true);
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A6:{$lastCol}6");
+        $sheet->setCellValue('A6', 'KEGIATAN '.strtoupper($pd->keperluan));
+        $sheet->getStyle("A6:{$lastCol}6")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tahun = $pd->tanggal_mulai ? substr($pd->tanggal_mulai, 0, 4) : now()->year;
+        $sheet->mergeCells("A7:{$lastCol}7");
+        $sheet->setCellValue('A7', "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
+        $sheet->getStyle("A7:{$lastCol}7")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $tglPelaksanaan = '';
+        if ($pd->tanggal_mulai && $pd->tanggal_selesai) {
+            $tglMulai = $this->formatTanggalIndo($pd->tanggal_mulai);
+            $tglSelesai = $this->formatTanggalIndo($pd->tanggal_selesai);
+            $tglPelaksanaan = $tglMulai === $tglSelesai ? strtoupper($tglMulai) : strtoupper("{$tglMulai} S.D. {$tglSelesai}");
+        }
+        $sheet->mergeCells("A8:{$lastCol}8");
+        $sheet->setCellValue('A8', 'DI '.strtoupper($pd->tempat ?? 'JAKARTA')." TANGGAL {$tglPelaksanaan}");
+        $sheet->getStyle("A8:{$lastCol}8")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A9:{$lastCol}9");
+        $sheet->setCellValue('A9', "{$kodeAkun} {$namaItem}");
+        $sheet->getStyle("A9:{$lastCol}9")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->mergeCells("A10:{$lastCol}10");
+        $sheet->setCellValue('A10', '');
+
+        $this->setColumnWidthsPerjadinDalam($sheet);
+
+        // Header baris 11-12
+        $sheet->mergeCells('B11:B12'); $sheet->setCellValue('B11', 'No');
+        $sheet->mergeCells('C11:C12'); $sheet->setCellValue('C11', 'Nama');
+        $sheet->mergeCells('D11:D12'); $sheet->setCellValue('D11', 'Transport (Rp.)');
+        $sheet->mergeCells('E11:G11'); $sheet->setCellValue('E11', 'Uang Harian Biasa');
+        $sheet->setCellValue('E12', 'Jml Hari');
+        $sheet->setCellValue('F12', 'Satuan');
+        $sheet->setCellValue('G12', 'Jumlah');
+        $sheet->mergeCells('H11:J11'); $sheet->setCellValue('H11', 'Uang Harian Fullboard');
+        $sheet->setCellValue('H12', 'Jml Hari');
+        $sheet->setCellValue('I12', 'Satuan');
+        $sheet->setCellValue('J12', 'Jumlah');
+        $sheet->mergeCells('K11:M11'); $sheet->setCellValue('K11', 'Uang Harian Fullday');
+        $sheet->setCellValue('K12', 'Jml Hari');
+        $sheet->setCellValue('L12', 'Satuan');
+        $sheet->setCellValue('M12', 'Jumlah');
+        $sheet->mergeCells('N11:N12'); $sheet->setCellValue('N11', 'Akomodasi Hotel');
+        $sheet->mergeCells('O11:O12'); $sheet->setCellValue('O11', 'Jumlah Diterima (Rp.)');
+        $sheet->mergeCells('P11:P12'); $sheet->setCellValue('P11', 'Atas Nama Rekening');
+        $sheet->mergeCells('Q11:Q12'); $sheet->setCellValue('Q11', 'Nomor Rekening');
+        $sheet->mergeCells('R11:R12'); $sheet->setCellValue('R11', 'Bank');
+        $sheet->mergeCells('S11:S12'); $sheet->setCellValue('S11', 'Email');
+
+        $this->styleHeaderRange($sheet, 'B11:S12');
+        $sheet->getRowDimension(11)->setRowHeight(35);
+        $sheet->getRowDimension(12)->setRowHeight(20);
+
+        // Formula row 13
+        $sheet->setCellValue('B13', 'A');
+        $sheet->setCellValue('C13', 'B');
+        $sheet->setCellValue('D13', 'C');
+        $sheet->setCellValue('E13', 'D');
+        $sheet->setCellValue('F13', 'E');
+        $sheet->setCellValue('G13', 'F = D x E');
+        $sheet->setCellValue('H13', 'G');
+        $sheet->setCellValue('I13', 'H ');
+        $sheet->setCellValue('J13', 'I = G x H');
+        $sheet->setCellValue('K13', 'J');
+        $sheet->setCellValue('L13', 'K');
+        $sheet->setCellValue('M13', 'L = J x K');
+        $sheet->setCellValue('N13', '');
+        $sheet->setCellValue('O13', 'M = C + F + I + L');
+        $sheet->setCellValue('P13', 'N');
+        $sheet->setCellValue('Q13', 'O');
+        $sheet->setCellValue('R13', 'P');
+        $sheet->setCellValue('S13', 'Q');
+        $sheet->getStyle('B13:S13')->getFont()->setItalic(true)->setSize(9);
+        $sheet->getStyle('B13:S13')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $this->borderRow($sheet, 'B13:S13');
+
+        // Thick border between formula and data
+        $sheet->getStyle('B14:S14')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THICK);
+
+        // Data rows start at 14
+        $row = 14;
+        $no = 1;
+        $totals = [
+            'transport' => 0, 'biasa' => 0, 'fb' => 0, 'fd' => 0,
+            'hotel' => 0, 'diterima' => 0,
+        ];
+
+        foreach ($nominatifRows as $nom) {
+            $sheet->setCellValue("B{$row}", $no++);
+            $sheet->setCellValue("C{$row}", $nom->nama);
+            $sheet->setCellValue("D{$row}", (float) $nom->transport);
+            $sheet->setCellValue("E{$row}", (float) $nom->uang_harian_vol);
+            $sheet->setCellValue("F{$row}", (float) $nom->uang_harian_satuan);
+            $sheet->setCellValue("G{$row}", (float) $nom->uang_harian_jumlah);
+            $sheet->setCellValue("H{$row}", (float) $nom->fullboard_vol);
+            $sheet->setCellValue("I{$row}", (float) $nom->fullboard_satuan);
+            $sheet->setCellValue("J{$row}", (float) $nom->fullboard_jumlah);
+            $sheet->setCellValue("K{$row}", (float) $nom->fullday_vol);
+            $sheet->setCellValue("L{$row}", (float) $nom->fullday_satuan);
+            $sheet->setCellValue("M{$row}", (float) $nom->fullday_jumlah);
+            $sheet->setCellValue("N{$row}", (float) $nom->hotel);
+            $sheet->setCellValue("O{$row}", (float) $nom->jumlah_perjadin);
+            $sheet->setCellValue("P{$row}", $nom->nama_rekening);
+            $sheet->setCellValue("Q{$row}", $nom->no_rekening);
+            $sheet->setCellValue("R{$row}", $nom->nama_bank);
+            $sheet->setCellValue("S{$row}", $nom->email);
+
+            $sheet->getStyle("Q{$row}")->getNumberFormat()->setFormatCode('@');
+            $sheet->getStyle("D{$row}:O{$row}")->getNumberFormat()->setFormatCode('#,##0');
+            $this->borderRow($sheet, "B{$row}:S{$row}");
+
+            $totals['transport'] += (float) $nom->transport;
+            $totals['biasa'] += (float) $nom->uang_harian_jumlah;
+            $totals['fb'] += (float) $nom->fullboard_jumlah;
+            $totals['fd'] += (float) $nom->fullday_jumlah;
+            $totals['hotel'] += (float) $nom->hotel;
+            $totals['diterima'] += (float) $nom->jumlah_perjadin;
+            $row++;
+        }
+
+        // Baris jumlah
+        $sheet->setCellValue("C{$row}", 'Jumlah');
+        $sheet->setCellValue("D{$row}", $totals['transport']);
+        $sheet->setCellValue("G{$row}", $totals['biasa']);
+        $sheet->setCellValue("J{$row}", $totals['fb']);
+        $sheet->setCellValue("M{$row}", $totals['fd']);
+        $sheet->setCellValue("N{$row}", $totals['hotel']);
+        $sheet->setCellValue("O{$row}", $totals['diterima']);
+        $sheet->getStyle("C{$row}:O{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("D{$row}:O{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $this->styleTotalRow($sheet, "B{$row}:S{$row}");
+
+        $this->renderPerjadinFooter($sheet, $row, $totals['diterima'], $ppk, $bendahara, $tglNominatif, false);
+    }
+
+    // ─── Footer Honor ────────────────────────────────────────────────────────
+
+    private function renderHonorFooter($sheet, int $jumlahRow, float $total, $ppk, $bendahara, string $tglNominatif): void
     {
         $r = $jumlahRow + 1;
 
-        // Terbilang
-        $sheet->setCellValue("A{$r}", 'Terbilang : '.$this->terbilang((int) $total).' Rupiah');
-        $sheet->getStyle("A{$r}")->getFont()->setItalic(true);
-        $r += 3;
+        $sheet->mergeCells("B{$r}:P{$r}");
+        $sheet->setCellValue("B{$r}", 'Terbilang   : '.$this->terbilang((int) $total).' Rupiah');
+        $sheet->getStyle("B{$r}")->getFont()->setItalic(true);
+        $this->styleTotalRow($sheet, "A{$r}:P{$r}");
+        $r += 2;
 
-        $sheet->setCellValue("A{$r}", 'Keterangan: Tarif PPh21 sesuai golongan/status kepegawaian.');
+        $sheet->setCellValue("A{$r}", '* Sesuai Tarif PPh 21 UU No. 36 Pasal 17 (1)a Tahun 2008 Tentang Pajak Penghasilan');
+        $sheet->getStyle("A{$r}")->getFont()->setSize(9);
         $r++;
-        $sheet->setCellValue("A{$r}", 'PMK berlaku tentang pajak penghasilan bagi pejabat negara, PNS, dan TNI/Polri.');
+        $sheet->setCellValue("A{$r}", '** Sesuai PMK No. 252/PMK/03/2008 Pasal 20 Ayat 1 Tentang Petunjuk Pelaksanaan Pemotongan Pajak atas Penghasilan Sehubungan Pekerjaan, Jasa, dan Kegiatan Orang Pribadi');
+        $sheet->getStyle("A{$r}")->getFont()->setSize(9);
         $r += 2;
 
         $sheet->setCellValue("A{$r}", "Jakarta, {$tglNominatif}");
         $r++;
         $sheet->setCellValue("A{$r}", 'Mengetahui/Menyetujui');
-
-        // Tentukan kolom tanda tangan bendahara (kira-kira di tengah ke kanan)
-        $colBendahara = chr(ord('A') + intdiv(ord($lastCol) - ord('A'), 2) + 2);
-
-        $sheet->setCellValue("{$colBendahara}{$r}", 'Lunas dibayar tanggal:');
+        $sheet->setCellValue("M{$r}", 'Lunas dibayar tanggal:');
         $r++;
         $sheet->setCellValue("A{$r}", 'an. Kuasa Pengguna Anggaran');
-        $sheet->setCellValue("{$colBendahara}{$r}", 'Bendahara Pengeluaran,');
+        $sheet->setCellValue("M{$r}", 'Bendahara Pengeluaran,');
         $r++;
         $sheet->setCellValue("A{$r}", 'Pejabat Pembuat Komitmen');
         $r += 4;
         $sheet->setCellValue("A{$r}", $ppk?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$colBendahara}{$r}", $bendahara?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("M{$r}", $bendahara?->nama_lengkap ?? '___________________________');
         $sheet->getStyle("A{$r}")->getFont()->setBold(true);
-        $sheet->getStyle("{$colBendahara}{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("M{$r}")->getFont()->setBold(true);
         $r++;
         $sheet->setCellValue("A{$r}", 'NIP. '.($ppk?->nip ?? '-'));
+        $sheet->setCellValue("M{$r}", 'NIP. '.($bendahara?->nip ?? '-'));
+    }
+
+    // ─── Footer Perjadin ─────────────────────────────────────────────────────
+
+    private function renderPerjadinFooter($sheet, int $jumlahRow, float $total, $ppk, $bendahara, string $tglNominatif, bool $isLuarKota): void
+    {
+        $r = $jumlahRow + 1;
+
+        $lastCol = $isLuarKota ? 'U' : 'S';
+        $colBendahara = $isLuarKota ? 'S' : 'Q';
+
+        $sheet->mergeCells("C{$r}:{$lastCol}{$r}");
+        $sheet->setCellValue("C{$r}", 'Terbilang   : '.$this->terbilang((int) $total).' Rupiah');
+        $sheet->getStyle("C{$r}")->getFont()->setItalic(true);
+        $this->styleTotalRow($sheet, "B{$r}:{$lastCol}{$r}");
+        $r += 2;
+
+        $sheet->setCellValue("B{$r}", '* Sesuai Tarif PPh 21 UU No. 36 Pasal 17 (1)a Tahun 2008 Tentang Pajak Penghasilan');
+        $sheet->getStyle("B{$r}")->getFont()->setSize(9);
+        $r++;
+        $sheet->setCellValue("B{$r}", '** Sesuai PMK No. 252/PMK/03/2008 Pasal 20 Ayat 1 Tentang Petunjuk Pelaksanaan Pemotongan Pajak atas Penghasilan Sehubungan Pekerjaan, Jasa, dan Kegiatan Orang Pribadi');
+        $sheet->getStyle("B{$r}")->getFont()->setSize(9);
+        $r += 2;
+
+        $sheet->setCellValue("B{$r}", "Jakarta, {$tglNominatif}");
+        $r++;
+        $sheet->setCellValue("B{$r}", 'Mengetahui/Menyetujui');
+        $sheet->setCellValue("{$colBendahara}{$r}", 'Lunas dibayar tanggal:');
+        $r++;
+        $sheet->setCellValue("B{$r}", 'an. Kuasa Pengguna Anggaran');
+        $sheet->setCellValue("{$colBendahara}{$r}", 'Bendahara Pengeluaran,');
+        $r++;
+        $sheet->setCellValue("B{$r}", 'Pejabat Pembuat Komitmen');
+        $r += 4;
+        $sheet->setCellValue("B{$r}", $ppk?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$colBendahara}{$r}", $bendahara?->nama_lengkap ?? '___________________________');
+        $sheet->getStyle("B{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("{$colBendahara}{$r}")->getFont()->setBold(true);
+        $r++;
+        $sheet->setCellValue("B{$r}", 'NIP. '.($ppk?->nip ?? '-'));
         $sheet->setCellValue("{$colBendahara}{$r}", 'NIP. '.($bendahara?->nip ?? '-'));
     }
 
-    // ─── Style helpers ────────────────────────────────────────────────────────
+    // ─── Column widths ───────────────────────────────────────────────────────
 
-    private function writeHeaders($sheet, int $startRow, array $headerRows, string $lastCol): void
+    private function setColumnWidthsHonorA($sheet): void
     {
-        foreach ($headerRows as $i => $cols) {
-            $col = 'A';
-            foreach ($cols as $h) {
-                $sheet->setCellValue("{$col}".($startRow + $i), $h);
-                $col++;
-            }
+        $w = ['A' => 4, 'B' => 28, 'C' => 20, 'D' => 20, 'E' => 8, 'F' => 10, 'G' => 12, 'H' => 12, 'I' => 16, 'J' => 10, 'K' => 12, 'L' => 14, 'M' => 24, 'N' => 18, 'O' => 12, 'P' => 28];
+        foreach ($w as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
         }
     }
+
+    private function setColumnWidthsHonorB($sheet): void
+    {
+        $w = ['A' => 4, 'B' => 26, 'C' => 20, 'D' => 20, 'E' => 20, 'F' => 8, 'G' => 10, 'H' => 12, 'I' => 12, 'J' => 16, 'K' => 10, 'L' => 12, 'M' => 14, 'N' => 24, 'O' => 18, 'P' => 12, 'Q' => 28];
+        foreach ($w as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+    }
+
+    private function setColumnWidthsPerjadinLuar($sheet): void
+    {
+        $w = ['A' => 3, 'B' => 4, 'C' => 28, 'D' => 14, 'E' => 10, 'F' => 12, 'G' => 12, 'H' => 10, 'I' => 12, 'J' => 12, 'K' => 10, 'L' => 12, 'M' => 12, 'N' => 12, 'O' => 14, 'P' => 16, 'Q' => 18, 'R' => 24, 'S' => 18, 'T' => 12, 'U' => 28];
+        foreach ($w as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+    }
+
+    private function setColumnWidthsPerjadinDalam($sheet): void
+    {
+        $w = ['A' => 3, 'B' => 4, 'C' => 28, 'D' => 14, 'E' => 10, 'F' => 12, 'G' => 12, 'H' => 10, 'I' => 12, 'J' => 12, 'K' => 10, 'L' => 12, 'M' => 12, 'N' => 16, 'O' => 18, 'P' => 24, 'Q' => 18, 'R' => 12, 'S' => 28];
+        foreach ($w as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+    }
+
+    // ─── Style helpers ────────────────────────────────────────────────────────
 
     private function styleHeaderRange($sheet, string $range): void
     {
@@ -747,6 +1096,14 @@ class PermohonanDanaController extends Controller
             'font' => ['bold' => true, 'name' => 'Times New Roman', 'size' => 10],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'BDD7EE']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+        ]);
+    }
+
+    private function styleTotalRow($sheet, string $range): void
+    {
+        $sheet->getStyle($range)->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'BDD7EE']],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ]);
     }

@@ -1,6 +1,11 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Pencil, Trash2, Power, Plus, Upload, ChevronRight, Database } from 'lucide-react';
+import {
+    Pencil, Trash2, Power, Plus, Upload, Database,
+} from 'lucide-react';
 import { useState, useRef } from 'react';
+import { usePaginatedTable } from '@/hooks/use-paginated-table';
+import { DataTableControls } from '@/components/data-table-controls';
+import { DataTablePagination } from '@/components/data-table-pagination';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -18,13 +23,13 @@ import { cn } from '@/lib/utils';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface DjaBase { id: number; kode: string; nama: string; pagu: number; is_aktif: boolean; }
-interface Program  extends DjaBase { tahun_anggaran: string; }
-interface Sasaran  extends DjaBase { program_id: number; program?: { id: number; kode: string; nama: string }; }
-interface Kro      extends DjaBase { sasaran_id: number; sasaran?: { id: number; kode: string; nama: string }; }
-interface Ro       extends DjaBase { kro_id: number; kro?: { id: number; kode: string; nama: string }; }
+interface Program extends DjaBase { tahun_anggaran: string; }
+interface Sasaran extends DjaBase { program_id: number; program?: { id: number; kode: string; nama: string }; }
+interface Kro extends DjaBase { sasaran_id: number; sasaran?: { id: number; kode: string; nama: string }; }
+interface Ro extends DjaBase { kro_id: number; kro?: { id: number; kode: string; nama: string }; }
 interface Komponen extends DjaBase { ro_id: number; jenis: 'Utama' | 'Pendukung'; ro?: { id: number; kode: string; nama: string }; }
 interface Kegiatan extends DjaBase { komponen_id: number; komponen?: { id: number; kode: string; nama: string }; }
-interface Rincian  {
+interface Rincian {
     id: number; kegiatan_id: number; kode_akun: string; nama_akun: string; nama_item: string;
     satuan: string; harga_satuan: number; pagu_total: number; urutan: number; is_aktif: boolean;
     kegiatan?: { id: number; kode: string; nama: string };
@@ -33,13 +38,13 @@ interface Tahun { id: number; tahun: string; label: string; }
 
 interface Props {
     tahun: Tahun;
-    programs:  Program[];
-    sasarans:  Sasaran[];
-    kros:      Kro[];
-    ros:       Ro[];
+    programs: Program[];
+    sasarans: Sasaran[];
+    kros: Kro[];
+    ros: Ro[];
     komponens: Komponen[];
     kegiatans: Kegiatan[];
-    rincians:  Rincian[];
+    rincians: Rincian[];
 }
 
 const fmt = (n: number) => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
@@ -132,6 +137,8 @@ function ProgramTab({ programs }: { programs: Program[] }) {
     const [deleting, setDeleting] = useState<number | null>(null);
     const editForm = useForm({ kode: '', nama: '', pagu: '' });
 
+    const table = usePaginatedTable(programs, ['kode', 'nama'], { pageSize: 10 });
+
     const store = (e: React.FormEvent) => {
         e.preventDefault();
         post('/super-admin/keuangan/master-anggaran/program', { onSuccess: () => reset() });
@@ -152,7 +159,6 @@ function ProgramTab({ programs }: { programs: Program[] }) {
 
     return (
         <div className="space-y-4">
-            {/* Form Tambah */}
             <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Tambah Program</CardTitle></CardHeader>
                 <CardContent>
@@ -175,7 +181,8 @@ function ProgramTab({ programs }: { programs: Program[] }) {
                 </CardContent>
             </Card>
 
-            {/* Tabel */}
+            <DataTableControls {...table} />
+
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
@@ -188,7 +195,7 @@ function ProgramTab({ programs }: { programs: Program[] }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {programs.map(p => (
+                        {table.paginated.map(p => (
                             <tr key={p.id} className={cn('border-b last:border-0', !p.is_aktif && 'opacity-50')}>
                                 <td className="px-4 py-2 font-mono text-blue-700 text-xs">{p.kode}</td>
                                 <td className="px-4 py-2">{p.nama}</td>
@@ -204,14 +211,15 @@ function ProgramTab({ programs }: { programs: Program[] }) {
                                 </td>
                             </tr>
                         ))}
-                        {programs.length === 0 && (
-                            <tr><td colSpan={5} className="text-center py-6 text-gray-400 text-sm">Belum ada data program</td></tr>
+                        {table.paginated.length === 0 && (
+                            <tr><td colSpan={5} className="text-center py-6 text-gray-400 text-sm">Tidak ada data</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Edit Dialog */}
+            <DataTablePagination page={table.page} totalPages={table.totalPages} goPage={table.goPage} />
+
             <AlertDialog open={!!editing} onOpenChange={() => setEditing(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Edit Program</AlertDialogTitle></AlertDialogHeader>
@@ -265,6 +273,9 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
     const [editing, setEditing] = useState<LevelItem | null>(null);
     const [deleting, setDeleting] = useState<number | null>(null);
     const editForm = useForm({ kode: '', nama: '', pagu: '', jenis: 'Utama' });
+
+    const searchKeys = ['kode', 'nama', 'parent.kode', 'parent.nama'];
+    const table = usePaginatedTable(items, searchKeys, { pageSize: 10 });
 
     const store = (e: React.FormEvent) => {
         e.preventDefault();
@@ -332,6 +343,8 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
                 </CardContent>
             </Card>
 
+            <DataTableControls {...table} />
+
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
@@ -346,7 +359,7 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map(item => (
+                        {table.paginated.map(item => (
                             <tr key={item.id} className={cn('border-b last:border-0 text-xs', !item.is_aktif && 'opacity-50')}>
                                 <td className="px-3 py-2 text-gray-500 font-mono">
                                     {item.parent ? `${item.parent.kode}` : item.parent_id}
@@ -365,14 +378,15 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
                                 </td>
                             </tr>
                         ))}
-                        {items.length === 0 && (
-                            <tr><td colSpan={config.withJenis ? 7 : 6} className="text-center py-6 text-gray-400 text-sm">Belum ada data {config.label.toLowerCase()}</td></tr>
+                        {table.paginated.length === 0 && (
+                            <tr><td colSpan={config.withJenis ? 7 : 6} className="text-center py-6 text-gray-400 text-sm">Tidak ada data</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Edit Dialog */}
+            <DataTablePagination page={table.page} totalPages={table.totalPages} goPage={table.goPage} />
+
             <AlertDialog open={!!editing} onOpenChange={() => setEditing(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Edit {config.label}</AlertDialogTitle></AlertDialogHeader>
@@ -421,6 +435,8 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
     const [editing, setEditing] = useState<Rincian | null>(null);
     const [deleting, setDeleting] = useState<number | null>(null);
     const editForm = useForm({ kode_akun: '', nama_akun: '', nama_item: '', satuan: '', harga_satuan: '', pagu_total: '', urutan: '' });
+
+    const table = usePaginatedTable(rincians, ['kode_akun', 'nama_akun', 'nama_item', 'kegiatan.kode'], { pageSize: 25 });
 
     const store = (e: React.FormEvent) => {
         e.preventDefault();
@@ -503,6 +519,8 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
                 </CardContent>
             </Card>
 
+            <DataTableControls {...table} />
+
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-xs">
                     <thead className="bg-gray-50 border-b">
@@ -518,7 +536,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
                         </tr>
                     </thead>
                     <tbody>
-                        {rincians.map(r => (
+                        {table.paginated.map(r => (
                             <tr key={r.id} className={cn('border-b last:border-0', !r.is_aktif && 'opacity-50')}>
                                 <td className="px-3 py-2 text-gray-500 text-[10px]">{r.kegiatan?.kode ?? r.kegiatan_id}</td>
                                 <td className="px-3 py-2 font-mono text-blue-700 font-semibold">{r.kode_akun}</td>
@@ -536,14 +554,15 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
                                 </td>
                             </tr>
                         ))}
-                        {rincians.length === 0 && (
-                            <tr><td colSpan={8} className="text-center py-6 text-gray-400 text-sm">Belum ada data rincian biaya</td></tr>
+                        {table.paginated.length === 0 && (
+                            <tr><td colSpan={8} className="text-center py-6 text-gray-400 text-sm">Tidak ada data</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Edit Dialog */}
+            <DataTablePagination page={table.page} totalPages={table.totalPages} goPage={table.goPage} />
+
             <AlertDialog open={!!editing} onOpenChange={() => setEditing(null)}>
                 <AlertDialogContent className="max-w-lg">
                     <AlertDialogHeader><AlertDialogTitle>Edit Rincian Biaya</AlertDialogTitle></AlertDialogHeader>
@@ -586,7 +605,6 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
             <Head title="Master Anggaran DJA" />
             <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
 
-                {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-blue-50 border border-blue-100">
@@ -600,7 +618,6 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
                     <ImportDialog />
                 </div>
 
-                {/* Stat Cards */}
                 <div className="grid grid-cols-7 gap-3">
                     {[
                         ['Program', programs.length],
@@ -618,7 +635,6 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
                     ))}
                 </div>
 
-                {/* Tabs */}
                 <Tabs defaultValue="program">
                     <TabsList className="flex-wrap h-auto gap-1">
                         <TabsTrigger value="program">Program</TabsTrigger>

@@ -6,10 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\RefNama;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Response as ResponseFacade;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class RefNamaController extends Controller
 {
@@ -90,9 +95,77 @@ class RefNamaController extends Controller
     }
 
     /**
-     * Import pegawai dari Excel.
-     * Format: A=Nama, B=NIP, C=NIK, D=NPWP, E=GolRuang, F=Status(PNS/Non-PNS),
-     *         G=NamaRekening, H=NoRekening, I=NamaBank, J=Email
+     * Download template Excel kosong untuk import pegawai.
+     */
+    public function downloadTemplate()
+    {
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header row
+        $headers = ['nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian', 'nama_rekening', 'no_rekening', 'nama_bank', 'email'];
+        foreach ($headers as $idx => $header) {
+            $col = chr(65 + $idx); // A, B, C, ...
+            $sheet->setCellValue($col.'1', $header);
+            $sheet->getStyle($col.'1')->getFont()->setBold(true);
+            $sheet->getStyle($col.'1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2E8F0');
+        }
+
+        // Sample data rows (contoh, user bisa hapus)
+        $samples = [
+            ['Budi Santoso', '198501012010011001', '3273010101850001', '123456789012345', 'III/a', 'PNS', 'Budi Santoso', '0012345678', 'BNI', 'budi@contoh.com'],
+            ['Ani Wijaya', '-', '3273010202860002', '', '', 'Non-PNS', 'Ani Wijaya', '0087654321', 'BRI', 'ani@contoh.com'],
+            ['Citra Lestari', '197803152003122002', '3273011503780003', '987654321098765', 'IV/b', 'PNS', 'Citra Lestari', '0022334455', 'Mandiri', 'citra@contoh.com'],
+        ];
+        foreach ($samples as $r => $row) {
+            foreach ($row as $c => $val) {
+                $sheet->setCellValue(chr(65 + $c).($r + 2), $val);
+            }
+        }
+
+        // Dropdown validation for status_kepegawaian (column F)
+        $statusValidation = new DataValidation;
+        $statusValidation->setType(DataValidation::TYPE_LIST);
+        $statusValidation->setErrorStyle(DataValidation::STYLE_STOP);
+        $statusValidation->setAllowBlank(true);
+        $statusValidation->setShowDropDown(true);
+        $statusValidation->setFormula1('"PNS,Non-PNS"');
+        for ($row = 2; $row <= 1000; $row++) {
+            $sheet->getCell('F'.$row)->setDataValidation($statusValidation);
+        }
+
+        // Dropdown validation for gol_ruang (column E)
+        $golOptions = ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'];
+        $golValidation = new DataValidation;
+        $golValidation->setType(DataValidation::TYPE_LIST);
+        $golValidation->setErrorStyle(DataValidation::STYLE_STOP);
+        $golValidation->setAllowBlank(true);
+        $golValidation->setShowDropDown(true);
+        $golValidation->setFormula1('"'.implode(',', $golOptions).'"');
+        for ($row = 2; $row <= 1000; $row++) {
+            $sheet->getCell('E'.$row)->setDataValidation($golValidation);
+        }
+
+        // Column widths
+        foreach (range('A', 'J') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'template-import-pegawai.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        ob_start();
+        $writer->save('php://output');
+        $content = ob_get_clean();
+
+        return ResponseFacade::make($content, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    /**
+     * Import pegawai dari Excel template.
+     * Wajib pakai header: nama, nip, nik, npwp, gol_ruang, status_kepegawaian, nama_rekening, no_rekening, nama_bank, email
      */
     public function importExcel(Request $request): RedirectResponse
     {
@@ -101,40 +174,104 @@ class RefNamaController extends Controller
         ]);
 
         $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
-        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+
+        if (count($rows) < 1) {
+            return back()->with('error', 'File Excel kosong.');
+        }
+
+        // Validasi header
+        $expected = ['nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian', 'nama_rekening', 'no_rekening', 'nama_bank', 'email'];
+        $actual = array_values(array_map(fn ($v) => strtolower(trim((string) $v)), array_slice($rows[1], 0, 10)));
+        if ($actual !== $expected) {
+            return back()->with('error', 'Format file tidak sesuai template. Pastikan baris pertama berisi header: '.implode(', ', $expected).'. Silakan download template dan isi ulang.');
+        }
 
         $imported = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errorDetails = [];
+
         foreach ($rows as $rowNum => $row) {
             if ($rowNum <= 1) {
                 continue;
-            }                // skip header
-            if (empty($row['A'])) {
+            } // skip header
+            if (empty($row['A']) || trim((string) $row['A']) === '') {
                 continue;
-            }            // skip baris kosong
+            } // skip baris kosong
 
-            $status = in_array($row['F'] ?? '', ['PNS', 'Non-PNS']) ? $row['F'] : 'PNS';
-            $pph = RefNama::hitungPph21($status, $row['E'] ?? null, $row['D'] ?? null);
+            $nama = trim((string) $row['A']);
+            $nip = $this->nullableString($row['B']);
+            $nik = $this->nullableString($row['C']);
+            $npwp = $this->nullableString($row['D']);
+            $golRuang = $this->nullableString($row['E']);
+            $statusRaw = trim((string) ($row['F'] ?? ''));
+            $status = in_array($statusRaw, ['PNS', 'Non-PNS']) ? $statusRaw : 'PNS';
+            $namaRekening = $this->nullableString($row['G']);
+            $noRekening = $this->nullableString($row['H']);
+            $namaBank = $this->nullableString($row['I']);
+            $email = $this->nullableString($row['J']);
 
-            RefNama::updateOrCreate(
-                ['nip' => ! empty($row['B']) ? trim($row['B']) : null, 'nama' => trim($row['A'])],
-                [
-                    'nama' => trim($row['A']),
-                    'nip' => ! empty($row['B']) ? trim($row['B']) : null,
-                    'nik' => ! empty($row['C']) ? trim($row['C']) : null,
-                    'npwp' => ! empty($row['D']) ? trim($row['D']) : null,
-                    'gol_ruang' => ! empty($row['E']) ? trim($row['E']) : null,
+            $pph = RefNama::hitungPph21($status, $golRuang, $npwp);
+
+            try {
+                // Cari existing berdasarkan NIP (unik). Kalau NIP kosong, pakai nama.
+                $existing = null;
+                if (! empty($nip)) {
+                    $existing = RefNama::where('nip', $nip)->first();
+                } else {
+                    $existing = RefNama::whereNull('nip')->where('nama', $nama)->first();
+                }
+
+                $data = [
+                    'nama' => $nama,
+                    'nip' => $nip,
+                    'nik' => $nik,
+                    'npwp' => $npwp,
+                    'gol_ruang' => $golRuang,
                     'status_kepegawaian' => $status,
-                    'nama_rekening' => ! empty($row['G']) ? trim($row['G']) : null,
-                    'no_rekening' => ! empty($row['H']) ? trim($row['H']) : null,
-                    'nama_bank' => ! empty($row['I']) ? trim($row['I']) : null,
-                    'email' => ! empty($row['J']) ? trim($row['J']) : null,
+                    'nama_rekening' => $namaRekening,
+                    'no_rekening' => $noRekening,
+                    'nama_bank' => $namaBank,
+                    'email' => $email,
                     'pph21_persen' => $pph,
                     'is_aktif' => true,
-                ]
-            );
-            $imported++;
+                ];
+
+                if ($existing) {
+                    $existing->update($data);
+                    $updated++;
+                } else {
+                    RefNama::create($data);
+                    $imported++;
+                }
+            } catch (\Exception $e) {
+                $skipped++;
+                $errorDetails[] = "Baris {$rowNum} ({$nama}): ".$e->getMessage();
+            }
         }
 
-        return back()->with('success', "Import selesai. {$imported} pegawai diproses.");
+        $msg = "Import selesai. {$imported} ditambah, {$updated} diperbarui.";
+        if ($skipped > 0) {
+            $msg .= " {$skipped} baris dilewati karena error.";
+        }
+
+        $flash = back()->with('success', $msg);
+        if (! empty($errorDetails)) {
+            $flash->with('importErrors', array_slice($errorDetails, 0, 10));
+        }
+
+        return $flash;
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null || $value === '' || $value === '-') {
+            return null;
+        }
+        $str = trim((string) $value);
+
+        return $str === '' || $str === '-' ? null : $str;
     }
 }
