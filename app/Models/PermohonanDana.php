@@ -51,6 +51,8 @@ class PermohonanDana extends Model
         'created_by',
         // Bukti bayar
         'bukti_bayar_path', 'bukti_bayar_nama_file', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by',
+        // Pembukaan kunci
+        'dibuka_kunci_by', 'dibuka_kunci_at', 'alasan_pembukaan_kunci',
     ];
 
     protected $casts = [
@@ -70,6 +72,7 @@ class PermohonanDana extends Model
         'dicairkan_at' => 'datetime',
         'rejected_at' => 'datetime',
         'bukti_bayar_uploaded_at' => 'datetime',
+        'dibuka_kunci_at' => 'datetime',
         'wizard_step' => 'integer',
     ];
 
@@ -182,6 +185,11 @@ class PermohonanDana extends Model
     public function buktiBayarUploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'bukti_bayar_uploaded_by');
+    }
+
+    public function dibukaKunciOleh(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dibuka_kunci_by');
     }
 
     public function items(): HasMany

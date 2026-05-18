@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -140,6 +142,10 @@ class KeuanganController extends Controller
                 'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'rejected_at_step' => $pd->rejected_at_step,
+                'dibuka_kunci_by' => $pd->dibuka_kunci_by,
+                'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
+                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
+                'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
                 // DJA
                 'dja_program' => $pd->djaProgram ? ['nama' => $pd->djaProgram->nama] : null,
                 'dja_sasaran' => $pd->djaSasaran ? ['nama' => $pd->djaSasaran->nama] : null,
@@ -169,5 +175,25 @@ class KeuanganController extends Controller
         return Inertia::render('Pumk/PermohonanDana/PrintPreview', [
             'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
         ]);
+    }
+
+    public function bukaKunci(Request $request, PermohonanDana $pd): RedirectResponse
+    {
+        abort_if(in_array($pd->status, ['draft', 'rejected']), 403, 'Permohonan belum terkunci.');
+        abort_if($pd->status === 'dicairkan' && $pd->bukti_bayar_path, 403, 'Permohonan sudah ditransfer. Tidak dapat dibuka kunci.');
+
+        $request->validate(['alasan' => 'nullable|string|max:1000']);
+
+        $pd->update([
+            'status' => 'rejected',
+            'rejected_at_step' => 'dibuka_kunci',
+            'rejected_at' => now(),
+            'catatan_penolakan' => $request->alasan,
+            'dibuka_kunci_by' => $request->user()->id,
+            'dibuka_kunci_at' => now(),
+            'alasan_pembukaan_kunci' => $request->alasan,
+        ]);
+
+        return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.");
     }
 }

@@ -1,14 +1,20 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft, FileText, Calendar, User, MapPin, ClipboardList,
     Banknote, Eye, Printer, History, XCircle, CheckCircle2,
-    Clock, CircleDot,
+    Clock, CircleDot, Unlock,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -56,6 +62,10 @@ interface Pd {
     dicairkan_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
+    dibuka_kunci_by: number | null;
+    dibuka_kunci_at: string | null;
+    dibuka_kunci_by_name: string | null;
+    alasan_pembukaan_kunci: string | null;
     // DJA
     dja_program?: { nama: string } | null;
     dja_sasaran?: { nama: string } | null;
@@ -72,6 +82,7 @@ interface Pd {
     dokumens: {
         id: number; nama_jenis: string; nama_file: string; path_file: string;
     }[];
+    bukti_bayar_path?: string | null;
 }
 
 interface Props { pd: Pd; }
@@ -222,13 +233,15 @@ const fmtDateTime = (s: string | null) => {
     };
 };
 
-type TLState = 'done' | 'rejected' | 'active' | 'pending';
+type TLState = 'done' | 'rejected' | 'active' | 'pending' | 'buka_kunci';
 type TLStep = { key: string; stepNo: number; role: string; action: string; actorName: string | null; ts: string | null; catatan: string | null; state: TLState; };
 
 function buildTimeline(pd: Pd): TLStep[] {
     const isRej = pd.status === 'rejected';
     const rejStep = pd.rejected_at_step ?? '';
-    return [
+    const isBukaKunci = rejStep === 'dibuka_kunci';
+
+    const steps: TLStep[] = [
         { key: 'dibuat',    stepNo: 1, role: 'PUMK',         action: 'Permohonan Dibuat',    actorName: pd.created_by_name, ts: pd.created_at,       catatan: null,              state: 'done' },
         { key: 'submitted', stepNo: 2, role: 'PUMK',         action: 'Diajukan ke KA.TIM',   actorName: pd.created_by_name, ts: pd.submitted_at,     catatan: null,              state: pd.submitted_at ? 'done' : 'pending' },
         { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Ditolak' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : pd.status === 'submitted' ? 'active' : 'pending' },
@@ -237,6 +250,21 @@ function buildTimeline(pd: Pd): TLStep[] {
         { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Ditolak' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : pd.status === 'ppk_approved'  ? 'active' : 'pending' },
         { key: 'cair',      stepNo: 7, role: 'Bendahara',    action: 'Dana Dicairkan',           actorName: pd.dicairkan_by_name,      ts: pd.dicairkan_at,     catatan: pd.catatan_pencairan, state: pd.dicairkan_at ? 'done' : pd.status === 'pic_approved' ? 'active' : 'pending' },
     ];
+
+    if (isBukaKunci) {
+        steps.push({
+            key: 'buka_kunci',
+            stepNo: 8,
+            role: 'Admin',
+            action: 'Dibuka Kunci',
+            actorName: pd.dibuka_kunci_by_name,
+            ts: pd.dibuka_kunci_at,
+            catatan: pd.alasan_pembukaan_kunci,
+            state: 'buka_kunci',
+        });
+    }
+
+    return steps;
 }
 
 function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClose: () => void }) {
@@ -245,10 +273,11 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
     const pct = Math.round((doneCount / steps.length) * 100);
 
     const stateStyles = {
-        done:     { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
-        rejected: { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
-        active:   { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
-        pending:  { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
+        done:       { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
+        rejected:   { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
+        active:     { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
+        pending:    { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
+        buka_kunci: { border: 'border-l-orange-500',   icon: Unlock,       iconColor: 'text-orange-600' },
     } as const;
 
     return (
@@ -315,7 +344,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
 
                                         {/* Center dot */}
                                         <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
-                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : '#e5e7eb' }}
+                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : step.state === 'buka_kunci' ? '#f97316' : '#e5e7eb' }}
                                         />
 
                                         {/* Right side */}
@@ -358,9 +387,17 @@ export default function Detail({ pd }: Props) {
     const [step, setStep]             = useState(1);
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [showBukaKunci, setShowBukaKunci] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
+
+    const user = (usePage().props as unknown as { auth: { user: { role: string } } }).auth.user;
+    const canBukaKunci = user.role === 'super_admin'
+        && !['draft', 'rejected'].includes(pd.status)
+        && !(pd.status === 'dicairkan' && pd.bukti_bayar_path);
+
+    const { data, setData, post, processing, reset } = useForm({ alasan: '' });
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
         const url = `/files/dokumen/${dok.id}`;
@@ -420,11 +457,22 @@ export default function Detail({ pd }: Props) {
                                 <TooltipContent>Cetak permohonan dana</TooltipContent>
                             </Tooltip>
                         )}
+                        {canBukaKunci && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button size="sm" variant="outline" onClick={() => { reset(); setShowBukaKunci(true); }}
+                                        className="gap-1.5 h-8 text-orange-600 border-orange-200 hover:bg-orange-50">
+                                        <Unlock className="h-4 w-4" /> Buka Kunci
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Buka kunci permohonan — kembalikan ke Revisi</TooltipContent>
+                            </Tooltip>
+                        )}
                     </div>
                 </div>
 
                 {/* Catatan */}
-                {pd.catatan_penolakan && (
+                {pd.status === 'rejected' && pd.catatan_penolakan && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         <span className="font-semibold">Catatan Penolakan: </span>{pd.catatan_penolakan}
                     </div>
@@ -610,6 +658,48 @@ export default function Detail({ pd }: Props) {
 
             {/* Riwayat Timeline */}
             {showHistory && <VerticalTimeline pd={pd} open={showHistory} onClose={() => setShowHistory(false)} />}
+
+            {/* Dialog Buka Kunci */}
+            <AlertDialog open={showBukaKunci} onOpenChange={setShowBukaKunci}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Buka Kunci Permohonan</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Anda akan membuka kunci permohonan {pd.nomor_permohonan} dan mengembalikan status ke <strong>Revisi</strong>.
+                            PUMK dapat mengedit dan mengajukan ulang.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2 space-y-1.5">
+                        <Label className="text-sm">
+                            Alasan Pembukaan Kunci <span className="text-red-500">*</span>
+                        </Label>
+                        <Textarea
+                            rows={3}
+                            value={data.alasan}
+                            onChange={e => setData('alasan', e.target.value)}
+                            placeholder="Jelaskan alasan pembukaan kunci (minimal 10 karakter)"
+                            className="mt-1.5"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowBukaKunci(false)}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                post(`/super-admin/keuangan/permohonan-dana/${pd.id}/buka-kunci`, {
+                                    onSuccess: () => {
+                                        setShowBukaKunci(false);
+                                        reset();
+                                    },
+                                });
+                            }}
+                            disabled={processing}
+                            className="bg-orange-600 hover:bg-orange-700"
+                        >
+                            {processing ? 'Memproses...' : 'Buka Kunci'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AppLayout>
     );
 }

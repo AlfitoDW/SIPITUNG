@@ -2,7 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft, CheckCircle2, XCircle, FileText, Calendar,
     User, MapPin, ClipboardList, Banknote, Eye,
-    Printer, History, CircleDot, Clock, Upload, Download, Trash2,
+    Printer, History, CircleDot, Clock, Upload, Download, Trash2, Unlock,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import {
@@ -55,6 +55,10 @@ interface Pd {
     dicairkan_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
+    dibuka_kunci_by: number | null;
+    dibuka_kunci_at: string | null;
+    dibuka_kunci_by_name: string | null;
+    alasan_pembukaan_kunci: string | null;
     catatan_kabag: string | null;
     catatan_ppk: string | null;
     catatan_pic: string | null;
@@ -217,13 +221,15 @@ const fmtDateTime = (s: string | null) => {
     };
 };
 
-type TLState = 'done' | 'rejected' | 'active' | 'pending';
+type TLState = 'done' | 'rejected' | 'active' | 'pending' | 'buka_kunci';
 type TLStep = { key: string; stepNo: number; role: string; action: string; actorName: string | null; ts: string | null; catatan: string | null; state: TLState; };
 
 function buildTimeline(pd: Pd): TLStep[] {
     const isRej = pd.status === 'rejected';
     const rejStep = pd.rejected_at_step ?? '';
-    return [
+    const isBukaKunci = rejStep === 'dibuka_kunci';
+
+    const steps: TLStep[] = [
         { key: 'dibuat',    stepNo: 1, role: 'PUMK',         action: 'Permohonan Dibuat',    actorName: pd.created_by_name, ts: pd.created_at,       catatan: null,              state: 'done' },
         { key: 'submitted', stepNo: 2, role: 'PUMK',         action: 'Diajukan ke KA.TIM',   actorName: pd.created_by_name, ts: pd.submitted_at,     catatan: null,              state: pd.submitted_at ? 'done' : 'pending' },
         { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Revisi' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : pd.status === 'submitted' ? 'active' : 'pending' },
@@ -232,6 +238,21 @@ function buildTimeline(pd: Pd): TLStep[] {
         { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Revisi' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : pd.status === 'ppk_approved'  ? 'active' : 'pending' },
         { key: 'bendahara', stepNo: 7, role: 'Bendahara',    action: isRej && rejStep === 'bendahara' ? 'Revisi' : 'Dana Dicairkan', actorName: pd.dicairkan_by_name, ts: pd.dicairkan_at,     catatan: pd.catatan_pencairan, state: isRej && rejStep === 'bendahara' ? 'rejected' : pd.dicairkan_at ? 'done' : pd.status === 'pic_approved' ? 'active' : 'pending' },
     ];
+
+    if (isBukaKunci) {
+        steps.push({
+            key: 'buka_kunci',
+            stepNo: 8,
+            role: 'Admin',
+            action: 'Dibuka Kunci',
+            actorName: pd.dibuka_kunci_by_name,
+            ts: pd.dibuka_kunci_at,
+            catatan: pd.alasan_pembukaan_kunci,
+            state: 'buka_kunci',
+        });
+    }
+
+    return steps;
 }
 
 function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClose: () => void }) {
@@ -240,10 +261,11 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
     const pct = Math.round((doneCount / steps.length) * 100);
 
     const stateStyles = {
-        done:     { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
-        rejected: { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
-        active:   { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
-        pending:  { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
+        done:       { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
+        rejected:   { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
+        active:     { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
+        pending:    { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
+        buka_kunci: { border: 'border-l-orange-500',   icon: Unlock,       iconColor: 'text-orange-600' },
     } as const;
 
     return (
@@ -296,7 +318,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
                                             )}
                                         </div>
                                         <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
-                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : '#e5e7eb' }}
+                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : step.state === 'buka_kunci' ? '#f97316' : '#e5e7eb' }}
                                         />
                                         <div className={cn('flex-1 pl-6', !isLeft ? 'text-left' : 'opacity-0 pointer-events-none')}>
                                             {!isLeft && (
@@ -323,7 +345,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClos
     );
 }
 
-type ActionType = 'cairkan' | 'reject' | null;
+type ActionType = 'setujui' | 'reject' | 'upload_bukti_bayar' | null;
 
 export default function Detail({ pd }: Props) {
     const [step, setStep] = useState(1);
@@ -331,9 +353,16 @@ export default function Detail({ pd }: Props) {
     const [action, setAction] = useState<ActionType>(null);
     const [showHistory, setShowHistory] = useState(false);
     const [showDeleteBukti, setShowDeleteBukti] = useState(false);
+    const [showBukaKunci, setShowBukaKunci] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
     const canAct = pd.status === 'pic_approved';
+    const canUploadBuktiBayar = pd.status === 'dicairkan' && !pd.bukti_bayar_path;
+
+    const user = (usePage().props as unknown as { auth: { user: { role: string } } }).auth.user;
+    const canBukaKunci = user.role === 'bendahara'
+        && !['draft', 'rejected'].includes(pd.status)
+        && !(pd.status === 'dicairkan' && pd.bukti_bayar_path);
 
     const { data, setData, post, processing, reset } = useForm({ 
         catatan: '',
@@ -349,19 +378,28 @@ export default function Detail({ pd }: Props) {
         else setPreviewDok({ url, nama: dok.nama_file });
     };
 
+    const bukaKunciForm = useForm({ alasan: '' });
+
     const handleConfirm = () => {
         if (!action) return;
-        if (action === 'cairkan') {
+        if (action === 'setujui') {
+            post(`/bendahara/permohonan-dana/${pd.id}/setujui`, {
+                catatan: data.catatan,
+            } as any);
+            reset();
+            setAction(null);
+        } else if (action === 'upload_bukti_bayar') {
             const formData = new FormData();
-            formData.append('catatan', data.catatan);
             if (data.bukti_bayar) {
                 formData.append('bukti_bayar', data.bukti_bayar);
             }
-            post(`/bendahara/permohonan-dana/${pd.id}/cairkan`, formData as any);
+            post(`/bendahara/permohonan-dana/${pd.id}/upload-bukti-bayar`, formData as any);
             reset();
             setAction(null);
         } else {
-            post(`/bendahara/permohonan-dana/${pd.id}/reject`);
+            post(`/bendahara/permohonan-dana/${pd.id}/reject`, {
+                catatan: data.catatan,
+            } as any);
             reset();
             setAction(null);
         }
@@ -457,12 +495,12 @@ export default function Detail({ pd }: Props) {
                             <>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button size="sm" onClick={() => { reset(); setAction('cairkan'); }}
+                                        <Button size="sm" onClick={() => { reset(); setAction('setujui'); }}
                                             className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-8">
-                                            <Banknote className="h-4 w-4" /> Cairkan
+                                            <CheckCircle2 className="h-4 w-4" /> Setujui
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Upload bukti bayar + cairkan dana</TooltipContent>
+                                    <TooltipContent>Setujui pencairan dana</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -475,15 +513,37 @@ export default function Detail({ pd }: Props) {
                                 </Tooltip>
                             </>
                         )}
-                        {!canAct && pd.status !== 'rejected' && pd.status !== 'dicairkan' && (
+                        {canUploadBuktiBayar && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button size="sm" variant="outline" onClick={() => { reset(); setAction('upload_bukti_bayar'); }}
+                                        className="gap-1.5 h-8 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+                                        <Upload className="h-4 w-4" /> Upload Bukti Bayar
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Upload bukti bayar untuk permohonan yang telah disetujui</TooltipContent>
+                            </Tooltip>
+                        )}
+                        {!canAct && pd.status !== 'rejected' && pd.status !== 'dicairkan' && !canUploadBuktiBayar && (
                             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
                                 Menunggu verifikasi
                             </span>
                         )}
+                        {canBukaKunci && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button size="sm" variant="outline" onClick={() => { bukaKunciForm.reset(); setShowBukaKunci(true); }}
+                                        className="gap-1.5 h-8 text-orange-600 border-orange-200 hover:bg-orange-50">
+                                        <Unlock className="h-4 w-4" /> Buka Kunci
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Buka kunci permohonan — kembalikan ke Revisi</TooltipContent>
+                            </Tooltip>
+                        )}
                     </div>
                 </div>
 
-                {pd.catatan_penolakan && (
+                {pd.status === 'rejected' && pd.catatan_penolakan && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         <span className="font-semibold">Catatan Penolakan: </span>{pd.catatan_penolakan}
                     </div>
@@ -682,39 +742,23 @@ export default function Detail({ pd }: Props) {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {action === 'cairkan' ? 'Cairkan Dana' : 'Tolak Permohonan'}
+                            {action === 'setujui' ? 'Setujui Pencairan Dana'
+                                : action === 'upload_bukti_bayar' ? 'Upload Bukti Bayar'
+                                : 'Tolak Permohonan'}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            {action === 'cairkan'
-                                ? `Cairkan dana untuk ${pd.nomor_permohonan}?`
+                            {action === 'setujui'
+                                ? `Setujui pencairan dana untuk ${pd.nomor_permohonan}?`
+                                : action === 'upload_bukti_bayar'
+                                ? `Upload bukti bayar untuk ${pd.nomor_permohonan}.`
                                 : `Tolak ${pd.nomor_permohonan}? PUMK perlu merevisi dan mengajukan ulang.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     
-                    {action === 'cairkan' && (
+                    {action === 'setujui' && (
                         <div className="px-6 pb-2 space-y-3">
-                            {!pd.bukti_bayar_path && (
-                                <div>
-                                    <Label className="text-sm">
-                                        Bukti Bayar <span className="text-red-500">*</span>
-                                    </Label>
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        onChange={(e) => setData('bukti_bayar', e.target.files?.[0] || null)}
-                                        className="mt-1.5 w-full text-sm"
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG - Max 5MB</p>
-                                </div>
-                            )}
-                            {pd.bukti_bayar_path && (
-                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 inline mr-2" />
-                                    Bukti bayar sudah diupload sebelumnya
-                                </div>
-                            )}
                             <div>
-                                <Label className="text-sm">Catatan Pencairan</Label>
+                                <Label className="text-sm">Catatan Pencairan (opsional)</Label>
                                 <Textarea
                                     rows={3}
                                     value={data.catatan}
@@ -722,6 +766,23 @@ export default function Detail({ pd }: Props) {
                                     placeholder="Catatan pencairan (opsional)"
                                     className="mt-1.5"
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {action === 'upload_bukti_bayar' && (
+                        <div className="px-6 pb-2 space-y-3">
+                            <div>
+                                <Label className="text-sm">
+                                    Bukti Bayar <span className="text-red-500">*</span>
+                                </Label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => setData('bukti_bayar', e.target.files?.[0] || null)}
+                                    className="mt-1.5 w-full text-sm"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG - Max 5MB</p>
                             </div>
                         </div>
                     )}
@@ -745,10 +806,10 @@ export default function Detail({ pd }: Props) {
                         <AlertDialogCancel>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleConfirm}
-                            disabled={processing || (action === 'reject' && !data.catatan.trim()) || (action === 'cairkan' && !pd.bukti_bayar_path && !data.bukti_bayar)}
+                            disabled={processing || (action === 'reject' && !data.catatan.trim()) || (action === 'upload_bukti_bayar' && !data.bukti_bayar)}
                             className={action === 'reject' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
                         >
-                            {processing ? 'Memproses...' : action === 'cairkan' ? 'Cairkan' : 'Tolak'}
+                            {processing ? 'Memproses...' : action === 'setujui' ? 'Setujui' : action === 'upload_bukti_bayar' ? 'Upload' : 'Tolak'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -774,6 +835,48 @@ export default function Detail({ pd }: Props) {
                             className="bg-red-600 hover:bg-red-700"
                         >
                             Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Dialog Buka Kunci */}
+            <AlertDialog open={showBukaKunci} onOpenChange={setShowBukaKunci}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Buka Kunci Permohonan</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Anda akan membuka kunci permohonan {pd.nomor_permohonan} dan mengembalikan status ke <strong>Revisi</strong>.
+                            PUMK dapat mengedit dan mengajukan ulang.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="px-6 pb-2 space-y-1.5">
+                        <Label className="text-sm">
+                            Alasan Pembukaan Kunci <span className="text-red-500">*</span>
+                        </Label>
+                        <Textarea
+                            rows={3}
+                            value={bukaKunciForm.data.alasan}
+                            onChange={e => bukaKunciForm.setData('alasan', e.target.value)}
+                            placeholder="Jelaskan alasan pembukaan kunci (minimal 10 karakter)"
+                            className="mt-1.5"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowBukaKunci(false)}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                bukaKunciForm.post(`/bendahara/permohonan-dana/${pd.id}/buka-kunci`, {
+                                    onSuccess: () => {
+                                        setShowBukaKunci(false);
+                                        bukaKunciForm.reset();
+                                    },
+                                });
+                            }}
+                            disabled={bukaKunciForm.processing}
+                            className="bg-orange-600 hover:bg-orange-700"
+                        >
+                            {bukaKunciForm.processing ? 'Memproses...' : 'Buka Kunci'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -96,7 +96,7 @@ class PermohonanDanaController extends Controller
         $pd->load([
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
             'kapokja', 'picKeuangan', 'items', 'dokumens', 'createdBy',
-            'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy',
+            'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy', 'dibukaKunciOleh',
         ]);
 
         return Inertia::render('Bendahara/PermohonanDana/Detail', [
@@ -144,6 +144,10 @@ class PermohonanDanaController extends Controller
                 'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'rejected_at_step' => $pd->rejected_at_step,
+                'dibuka_kunci_by' => $pd->dibuka_kunci_by,
+                'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
+                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
+                'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
                 // DJA
                 'dja_program' => $pd->djaProgram ? ['nama' => $pd->djaProgram->nama] : null,
                 'dja_sasaran' => $pd->djaSasaran ? ['nama' => $pd->djaSasaran->nama] : null,
@@ -189,31 +193,13 @@ class PermohonanDanaController extends Controller
         ]);
     }
 
-    public function cairkan(Request $request, PermohonanDana $pd): RedirectResponse
+    public function setujui(Request $request, PermohonanDana $pd): RedirectResponse
     {
-        abort_if($pd->status !== 'pic_approved', 422, 'Hanya permohonan berstatus Diverifikasi PIC yang dapat dicairkan.');
+        abort_if($pd->status !== 'pic_approved', 422, 'Hanya permohonan berstatus Diverifikasi PIC yang dapat disetujui.');
 
         $request->validate([
-            'bukti_bayar' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ]);
-
-        // Upload bukti bayar jika ada
-        if ($request->hasFile('bukti_bayar')) {
-            /** @var UploadedFile $file */
-            $file = $request->file('bukti_bayar');
-            $path = $file->store('bukti-bayar/'.date('Y/m'), 'local');
-
-            $pd->update([
-                'bukti_bayar_path' => $path,
-                'bukti_bayar_nama_file' => $file->getClientOriginalName(),
-                'bukti_bayar_uploaded_at' => now(),
-                'bukti_bayar_uploaded_by' => $request->user()->id,
-            ]);
-        }
-
-        // Validasi: harus ada bukti bayar (upload sekarang atau sudah ada sebelumnya)
-        abort_if(! $pd->bukti_bayar_path, 422, 'Bukti bayar wajib diupload sebelum mencairkan dana.');
 
         $pd->update([
             'status' => 'dicairkan',
@@ -222,7 +208,29 @@ class PermohonanDanaController extends Controller
             'dicairkan_at' => now(),
         ]);
 
-        return back()->with('success', "Dana untuk permohonan {$pd->nomor_permohonan} berhasil dicairkan.");
+        return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil disetujui. Silakan upload bukti bayar jika diperlukan.");
+    }
+
+    public function uploadBuktiBayar(Request $request, PermohonanDana $pd): RedirectResponse
+    {
+        abort_if($pd->status !== 'dicairkan', 422, 'Hanya permohonan berstatus Dicairkan yang dapat diupload bukti bayarnya.');
+
+        $request->validate([
+            'bukti_bayar' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        /** @var UploadedFile $file */
+        $file = $request->file('bukti_bayar');
+        $path = $file->store('bukti-bayar/'.date('Y/m'), 'local');
+
+        $pd->update([
+            'bukti_bayar_path' => $path,
+            'bukti_bayar_nama_file' => $file->getClientOriginalName(),
+            'bukti_bayar_uploaded_at' => now(),
+            'bukti_bayar_uploaded_by' => $request->user()->id,
+        ]);
+
+        return back()->with('success', "Bukti bayar untuk permohonan {$pd->nomor_permohonan} berhasil diupload.");
     }
 
     public function reject(Request $request, PermohonanDana $pd): RedirectResponse
@@ -266,6 +274,26 @@ class PermohonanDanaController extends Controller
         ]);
 
         return back()->with('success', "Bukti bayar permohonan {$pd->nomor_permohonan} dihapus. Status dikembalikan ke Menunggu Pencairan.");
+    }
+
+    public function bukaKunci(Request $request, PermohonanDana $pd): RedirectResponse
+    {
+        abort_if(in_array($pd->status, ['draft', 'rejected']), 403, 'Permohonan belum terkunci.');
+        abort_if($pd->status === 'dicairkan' && $pd->bukti_bayar_path, 403, 'Permohonan sudah ditransfer. Tidak dapat dibuka kunci.');
+
+        $request->validate(['alasan' => 'nullable|string|max:1000']);
+
+        $pd->update([
+            'status' => 'rejected',
+            'rejected_at_step' => 'dibuka_kunci',
+            'rejected_at' => now(),
+            'catatan_penolakan' => $request->alasan,
+            'dibuka_kunci_by' => $request->user()->id,
+            'dibuka_kunci_at' => now(),
+            'alasan_pembukaan_kunci' => $request->alasan,
+        ]);
+
+        return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.");
     }
 
     // ─── Download Daftar Nominatif ────────────────────────────────────────────────

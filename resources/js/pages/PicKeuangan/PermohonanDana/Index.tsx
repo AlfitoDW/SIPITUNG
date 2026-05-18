@@ -209,7 +209,7 @@ function VerticalTimeline({ pd, open, onClose }: { pd: PD; open: boolean; onClos
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props) {
-    const allData = useMemo(() => [...menunggu, ...riwayat], [menunggu, riwayat]);
+    const allData = useMemo(() => riwayat, [riwayat]);
 
     const [activeTab, setActiveTab] = useState('all');
     const [search, setSearch] = useState('');

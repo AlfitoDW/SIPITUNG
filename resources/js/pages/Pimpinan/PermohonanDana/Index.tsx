@@ -212,7 +212,7 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat, role }: 
     const roleLabel = isKabag ? 'Kabag Umum' : 'PPK';
     const stepLabel = isKabag ? 'Step 2' : 'Step 3';
 
-    const allData = useMemo(() => [...menunggu, ...riwayat], [menunggu, riwayat]);
+    const allData = useMemo(() => riwayat, [riwayat]);
 
     const [activeTab, setActiveTab] = useState('all');
     const [search, setSearch] = useState('');

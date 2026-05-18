@@ -222,7 +222,7 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra,
 
                             <div className="mt-4 pt-4 border-t border-dashed flex items-center justify-between">
                                 <Link
-                                    href="/ketua-tim/permohonan-dana"
+                                    href="/ketua-tim/keuangan/permohonan-dana"
                                     className="flex items-center gap-0.5 text-xs text-muted-foreground/40 hover:text-emerald-600/60 transition-colors group/link"
                                 >
                                     Lihat semua <ChevronRight className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />

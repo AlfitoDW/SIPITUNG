@@ -74,11 +74,8 @@ class PermohonanDanaController extends Controller
 
         return Inertia::render('PicKeuangan/PermohonanDana/Index', [
             'tahun' => $tahun,
-            'perluDiproses' => $perluDiproses,
-            'semuaAjuan' => $semuaAjuan,
-            'diajukan' => $diajukan,
-            'revisi' => $revisi,
-            'selesai' => $selesai,
+            'menunggu' => $perluDiproses,
+            'riwayat' => $semuaAjuan,
         ]);
     }
 

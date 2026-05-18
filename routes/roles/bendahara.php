@@ -15,9 +15,11 @@ Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->gr
         Route::get('/', [PermohonanDanaController::class, 'index'])->name('index');
         Route::get('/{pd}', [PermohonanDanaController::class, 'show'])->name('show');
         Route::get('/{pd}/print', [PermohonanDanaController::class, 'print'])->name('print');
-        Route::post('/{pd}/cairkan', [PermohonanDanaController::class, 'cairkan'])->name('cairkan');
+        Route::post('/{pd}/setujui', [PermohonanDanaController::class, 'setujui'])->name('setujui');
         Route::post('/{pd}/reject', [PermohonanDanaController::class, 'reject'])->name('reject');
+        Route::post('/{pd}/upload-bukti-bayar', [PermohonanDanaController::class, 'uploadBuktiBayar'])->name('upload-bukti-bayar');
         Route::post('/{pd}/hapus-bukti-bayar', [PermohonanDanaController::class, 'hapusBuktiBayar'])->name('hapus-bukti-bayar');
+        Route::post('/{pd}/buka-kunci', [PermohonanDanaController::class, 'bukaKunci'])->name('buka-kunci');
         Route::get('/{pd}/nominatif', [PermohonanDanaController::class, 'nominatif'])->name('nominatif');
     });
 });
