@@ -22,6 +22,8 @@ interface Pd {
     dja_program?: {nama:string}; dja_sasaran?: {nama:string}; dja_kro?: {kode:string;nama:string};
     dja_ro?: {nama:string}; dja_komponen?: {nama:string}; dja_kegiatan?: {kode:string;nama:string};
     kapokja?: {id:number;nama_lengkap:string}; pic_keuangan?: {id:number;nama_lengkap:string};
+    no_sk?: string | null; tgl_sk?: string | null;
+    no_st?: string | null; tgl_st?: string | null;
     dokumens: Dokumen[];
 }
 interface KapokjaItem {
@@ -388,13 +390,29 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
     const fileRef = useRef<HTMLInputElement>(null);
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
 
+    // SK / ST fields
+    const [noSk, setNoSk] = useState(pd.no_sk ?? '');
+    const [tglSk, setTglSk] = useState(toDateInput(pd.tgl_sk));
+    const [noSt, setNoSt] = useState(pd.no_st ?? '');
+    const [tglSt, setTglSt] = useState(toDateInput(pd.tgl_st));
+
     const upload = () => {
         if (!jenis || !fileRef.current?.files?.[0]) return;
+        if (jenis === '2' && (!noSk || !tglSk)) return;
+        if (jenis === '3' && (!noSt || !tglSt)) return;
+
         setUploading(true);
-        // Gunakan router.post Inertia dengan FormData — otomatis refresh pd.dokumens setelah sukses
         const formData = new FormData();
         formData.append('jenis_dokumen_id', jenis);
         formData.append('file', fileRef.current.files[0]);
+        if (jenis === '2') {
+            formData.append('no_sk', noSk);
+            formData.append('tgl_sk', tglSk);
+        }
+        if (jenis === '3') {
+            formData.append('no_st', noSt);
+            formData.append('tgl_st', tglSt);
+        }
         router.post(
             `/pumk/permohonan-dana/${pd.id}/dokumen`,
             formData,
@@ -405,6 +423,10 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                 onSuccess: () => {
                     setUploading(false);
                     setJenis('');
+                    setNoSk('');
+                    setTglSk('');
+                    setNoSt('');
+                    setTglSt('');
                     if (fileRef.current) fileRef.current.value = '';
                 },
                 onError: () => setUploading(false),
@@ -465,8 +487,59 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />
                                 </div>
                             </div>
-                            <Button type="button" onClick={upload} disabled={uploading || !jenis}
-                                variant="outline" size="sm" className="gap-2">
+
+                            {/* Fields SK — muncul saat jenis 2 */}
+                            {jenis === '2' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-sm">Nomor Surat Keputusan <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            value={noSk}
+                                            onChange={(e) => setNoSk(e.target.value)}
+                                            placeholder="Contoh: 123/LL3/SK/2025"
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-sm">Tanggal SK <span className="text-red-500">*</span></Label>
+                                        <DateInput className="mt-1" value={tglSk} onChange={(v) => setTglSk(v)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Fields ST — muncul saat jenis 3 */}
+                            {jenis === '3' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-sm">Nomor Surat Tugas <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            value={noSt}
+                                            onChange={(e) => setNoSt(e.target.value)}
+                                            placeholder="Contoh: 456/LL3/ST/2025"
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-sm">Tanggal ST <span className="text-red-500">*</span></Label>
+                                        <DateInput className="mt-1" value={tglSt} onChange={(v) => setTglSt(v)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            <Button
+                                type="button"
+                                onClick={upload}
+                                disabled={
+                                    uploading ||
+                                    !jenis ||
+                                    !fileRef.current?.files?.[0] ||
+                                    (jenis === '2' && (!noSk || !tglSk)) ||
+                                    (jenis === '3' && (!noSt || !tglSt))
+                                }
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                            >
                                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                 Upload Dokumen
                             </Button>

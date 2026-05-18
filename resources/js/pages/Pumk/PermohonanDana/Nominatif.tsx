@@ -105,6 +105,8 @@ type Props = {
 
 const fmt = (n: string | number) => new Intl.NumberFormat('id-ID').format(Number(n));
 
+const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+
 const JABATAN_OPTIONS = ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Anggota', 'Penanggung Jawab', 'Narasumber', 'Moderator'];
 
 const GOL_PNS = ['II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'];
@@ -443,11 +445,14 @@ function PegawaiCombobox({
                         >
                             <span className="font-medium">{p.nama}</span>
                             {p.nip && <span className="text-muted-foreground ml-2 text-[10px]">{p.nip}</span>}
-                            {p.gol_ruang && (
-                                <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
-                                    {p.gol_ruang}
-                                </span>
-                            )}
+                            <span className={cn(
+                                'ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium',
+                                p.status_kepegawaian === 'PNS'
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-orange-600 bg-orange-50'
+                            )}>
+                                {p.gol_ruang || p.status_kepegawaian}
+                            </span>
                             {p.pph21_persen !== '0.00' && (
                                 <span className="ml-1 text-[10px] text-amber-600">PPh21: {p.pph21_persen}%</span>
                             )}
@@ -525,56 +530,59 @@ function HonorItemGroup({
         onChange(idx, 'pph21_persen', peg?.pph21_persen ?? '0');
     };
 
-    const colSpanAll = showJabatan ? 9 : 8;
-
     return (
-        <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
+        <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
                 <Badge variant="outline" className="font-mono text-xs bg-orange-50 border-orange-200 text-orange-700">
                     {item.kode_akun}
                 </Badge>
                 <span className="text-sm font-medium">{item.uraian}</span>
                 <span className="text-xs text-muted-foreground">· Rp {fmt(item.harga_satuan)} / keg</span>
             </div>
-            <div className="rounded-md border overflow-visible">
-                <table className="w-full text-xs">
-                    <thead>
-                        <tr className="bg-orange-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            <th className="px-2 py-2.5 w-8 text-center">#</th>
-                            <th className="px-2 py-2.5 text-left min-w-[200px]">Nama Peserta</th>
-                            {showJabatan && <th className="px-2 py-2.5 text-left min-w-[140px]">Jabatan</th>}
-                            <th className="px-2 py-2.5 text-right w-20">Vol</th>
-                            <th className="px-2 py-2.5 text-right w-32">Harga Sat.</th>
-                            <th className="px-2 py-2.5 text-right w-32">Jml Bruto</th>
-                            <th className="px-2 py-2.5 text-right w-24">PPh21 (%)</th>
-                            <th className="px-2 py-2.5 text-right w-32">Jml Diterima</th>
-                            <th className="px-2 py-2.5 w-10"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {rows.map((row, idx) => {
-                            const vol      = parseFloat(row.volume) || 0;
-                            const harga    = parseFloat(row.harga_satuan) || 0;
-                            const bruto    = vol * harga;
-                            const pph21    = parseFloat(row.pph21_persen) || 0;
-                            const pajak    = bruto * pph21 / 100;
-                            const diterima = bruto - pajak;
-                            return (
-                                <tr key={idx} className="hover:bg-orange-50/30 transition-colors">
-                                    <td className="px-2 py-2 text-center text-muted-foreground">{idx + 1}</td>
-                                    <td className="px-2 py-2">
+
+            <div className="flex flex-col gap-4">
+                {rows.map((row, idx) => {
+                    const vol      = parseFloat(row.volume) || 0;
+                    const harga    = parseFloat(row.harga_satuan) || 0;
+                    const bruto    = vol * harga;
+                    const pph21    = parseFloat(row.pph21_persen) || 0;
+                    const pajak    = bruto * pph21 / 100;
+                    const diterima = bruto - pajak;
+
+                    const matchedPegawai = row.ref_nama_id
+                        ? refNama.find(p => p.id === Number(row.ref_nama_id))
+                        : row.nama
+                            ? refNama.find(p => p.nama === row.nama)
+                            : null;
+
+                    return (
+                        <Card key={idx} className="relative border-orange-100 shadow-sm">
+                            <CardContent className="p-4">
+                                {/* Header: Nama + Jabatan + Status */}
+                                <div className="flex items-start gap-3 mb-4">
+                                    <div className="flex-1 min-w-0">
                                         <PegawaiCombobox
                                             value={row.nama}
                                             options={refNama}
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={onOpenAddDialog}
                                         />
-                                    </td>
+                                        {matchedPegawai && (
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                                <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', statusColor(matchedPegawai.status_kepegawaian))}>
+                                                    {matchedPegawai.status_kepegawaian}
+                                                </span>
+                                                {matchedPegawai.nip && (
+                                                    <span className="text-[10px] text-muted-foreground">{matchedPegawai.nip}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                     {showJabatan && (
-                                        <td className="px-2 py-2">
+                                        <div className="w-40 shrink-0">
                                             <Select value={row.jabatan} onValueChange={v => onChange(idx, 'jabatan', v)}>
                                                 <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Pilih jabatan" />
+                                                    <SelectValue placeholder="Jabatan" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {JABATAN_OPTIONS.map(j => (
@@ -582,75 +590,111 @@ function HonorItemGroup({
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                        </td>
+                                        </div>
                                     )}
-                                    <td className="px-2 py-2">
-                                        <Input value={row.volume} type="number" min="0" step="0.5"
+                                </div>
+
+                                {/* Body: Grid input */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-muted-foreground font-medium">Volume</Label>
+                                        <Input
+                                            value={row.volume}
+                                            type="number"
+                                            min="0"
+                                            step="0.5"
                                             onChange={e => onChange(idx, 'volume', e.target.value)}
-                                            className="h-8 text-xs text-right w-20" />
-                                    </td>
-                                    <td className="px-2 py-2">
-                                        <Input value={row.harga_satuan} type="number" min="0"
+                                            className="h-8 text-xs text-right"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-muted-foreground font-medium">Harga Satuan</Label>
+                                        <Input
+                                            value={row.harga_satuan}
+                                            type="number"
+                                            min="0"
                                             onChange={e => onChange(idx, 'harga_satuan', e.target.value)}
-                                            className="h-8 text-xs text-right w-32" />
-                                    </td>
-                                    <td className="px-2 py-2 text-right tabular-nums font-medium text-gray-700">
-                                        {fmt(bruto)}
-                                    </td>
-                                    <td className="px-2 py-2">
-                                        <Input value={row.pph21_persen} type="number" min="0" max="100" step="0.5"
+                                            className="h-8 text-xs text-right"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-muted-foreground font-medium">PPh21 (%)</Label>
+                                        <Input
+                                            value={row.pph21_persen}
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.5"
                                             onChange={e => onChange(idx, 'pph21_persen', e.target.value)}
-                                            className="h-8 text-xs text-right w-24" />
-                                    </td>
-                                    <td className="px-2 py-2 text-right tabular-nums font-semibold text-emerald-700">
-                                        {fmt(diterima)}
-                                    </td>
-                                    <td className="px-2 py-2 text-center">
-                                        <ActionBtn
-                                            title="Hapus baris"
-                                            onClick={() => onRemove(idx)}
-                                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </ActionBtn>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {rows.length === 0 && (
-                            <tr>
-                                <td colSpan={colSpanAll} className="px-3 py-6 text-center text-muted-foreground text-xs">
-                                    Belum ada peserta — klik "+ Tambah Peserta" di bawah.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                    <tfoot>
-                        <tr className="border-t bg-gray-50/50">
-                            <td colSpan={colSpanAll} className="px-2 py-1">
-                                <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 text-xs gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50">
-                                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
-                                </Button>
-                            </td>
-                        </tr>
-                        {rows.length > 0 && (
-                            <tr className="border-t bg-orange-50/30 text-xs font-semibold">
-                                <td colSpan={showJabatan ? 5 : 4} className="px-2 py-2 text-right text-muted-foreground">Total</td>
-                                <td className="px-2 py-2 text-right tabular-nums">
-                                    {fmt(rows.reduce((s, r) => s + (parseFloat(r.volume)||0)*(parseFloat(r.harga_satuan)||0), 0))}
-                                </td>
-                                <td />
-                                <td className="px-2 py-2 text-right tabular-nums text-emerald-700">
-                                    {fmt(rows.reduce((s, r) => {
-                                        const bruto = (parseFloat(r.volume)||0)*(parseFloat(r.harga_satuan)||0);
-                                        return s + bruto - bruto*(parseFloat(r.pph21_persen)||0)/100;
-                                    }, 0))}
-                                </td>
-                                <td />
-                            </tr>
-                        )}
-                    </tfoot>
-                </table>
+                                            className="h-8 text-xs text-right"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Footer: Ringkasan + Hapus */}
+                                <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                                    <div className="flex items-center gap-4 text-xs">
+                                        <div>
+                                            <span className="text-muted-foreground text-[10px] uppercase">Bruto</span>
+                                            <p className="font-medium tabular-nums text-gray-700">{fmt(bruto)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground text-[10px] uppercase">PPh21</span>
+                                            <p className="font-medium tabular-nums text-amber-600">{fmt(pajak)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground text-[10px] uppercase">Diterima</span>
+                                            <p className="font-semibold tabular-nums text-emerald-700">{fmt(diterima)}</p>
+                                        </div>
+                                    </div>
+                                    <ActionBtn
+                                        title="Hapus peserta"
+                                        onClick={() => onRemove(idx)}
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </ActionBtn>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+
+                {rows.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-xs border rounded-lg bg-gray-50/50">
+                        Belum ada peserta — klik "Tambah Peserta" di bawah.
+                    </div>
+                )}
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onAdd}
+                    className="h-8 text-xs gap-1 text-orange-600 border-orange-200 hover:text-orange-700 hover:bg-orange-50 w-fit"
+                >
+                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
+                </Button>
+
+                {rows.length > 0 && (
+                    <div className="flex items-center justify-end gap-4 text-xs pt-2 border-t mt-2">
+                        <span className="text-muted-foreground">Total Keseluruhan</span>
+                        <div className="text-right">
+                            <span className="text-muted-foreground text-[10px] uppercase block">Bruto</span>
+                            <span className="font-medium tabular-nums">
+                                {fmt(rows.reduce((s, r) => s + (parseFloat(r.volume)||0)*(parseFloat(r.harga_satuan)||0), 0))}
+                            </span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-muted-foreground text-[10px] uppercase block">Diterima</span>
+                            <span className="font-semibold tabular-nums text-emerald-700">
+                                {fmt(rows.reduce((s, r) => {
+                                    const bruto = (parseFloat(r.volume)||0)*(parseFloat(r.harga_satuan)||0);
+                                    return s + bruto - bruto*(parseFloat(r.pph21_persen)||0)/100;
+                                }, 0))}
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -688,135 +732,227 @@ function PerjadinItemGroup({
         onChange(idx, 'email', peg?.email ?? '');
     };
 
-    const n = (row: NominatifRow, idx: number, f: keyof NominatifRow) => (
-        <Input value={row[f] as string} type="number" min="0"
-            onChange={e => onChange(idx, f, e.target.value)}
-            className="h-7 text-xs text-right w-20" />
+    const numberInput = (row: NominatifRow, idx: number, f: keyof NominatifRow, label: string, className = '') => (
+        <div className={cn('space-y-1', className)}>
+            <Label className="text-[10px] uppercase text-muted-foreground font-medium">{label}</Label>
+            <Input
+                value={row[f] as string}
+                type="number"
+                min="0"
+                onChange={e => onChange(idx, f, e.target.value)}
+                className="h-8 text-xs text-right"
+            />
+        </div>
     );
 
+    const calcJumlah = (vol: string, sat: string) => (parseFloat(vol)||0) * (parseFloat(sat)||0);
+
     return (
-        <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
+        <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
                 <Badge variant="outline" className="font-mono text-xs bg-blue-50 border-blue-200 text-blue-700">
                     {item.kode_akun}
                 </Badge>
                 <span className="text-sm font-medium">{item.uraian}</span>
             </div>
-            <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-xs" style={{ minWidth: 1400 }}>
-                    <thead>
-                        <tr className="bg-blue-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            <th className="px-2 py-2.5 w-8 text-center">#</th>
-                            <th className="px-2 py-2.5 text-left min-w-[180px]">Nama Peserta</th>
-                            <th className="px-2 py-2.5 text-right">Transport</th>
-                            <th className="px-2 py-2.5 text-center" colSpan={3}>Uang Harian Biasa</th>
-                            <th className="px-2 py-2.5 text-center" colSpan={3}>Fullboard</th>
-                            <th className="px-2 py-2.5 text-center" colSpan={3}>Fullday</th>
-                            <th className="px-2 py-2.5 text-right">Representasi</th>
-                            <th className="px-2 py-2.5 text-right">Taksi PP</th>
-                            <th className="px-2 py-2.5 text-right">Tiket Pesawat</th>
-                            <th className="px-2 py-2.5 text-right">Hotel</th>
-                            <th className="px-2 py-2.5 text-right font-bold">Total</th>
-                            <th className="px-2 py-2.5 w-10"></th>
-                        </tr>
-                        <tr className="bg-blue-50/60 border-b text-xs font-medium text-gray-500">
-                            <th /><th />
-                            <th className="px-2 py-1 text-right">Rp</th>
-                            <th className="px-1 py-1 text-center">Hari</th>
-                            <th className="px-1 py-1 text-center">Satuan</th>
-                            <th className="px-1 py-1 text-center">Jml</th>
-                            <th className="px-1 py-1 text-center">Hari</th>
-                            <th className="px-1 py-1 text-center">Satuan</th>
-                            <th className="px-1 py-1 text-center">Jml</th>
-                            <th className="px-1 py-1 text-center">Hari</th>
-                            <th className="px-1 py-1 text-center">Satuan</th>
-                            <th className="px-1 py-1 text-center">Jml</th>
-                            <th /><th /><th /><th />
-                            <th className="px-2 py-1 text-right">Rp</th>
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {rows.map((row, idx) => {
-                            const uhJml = (parseFloat(row.uang_harian_vol)||0)*(parseFloat(row.uang_harian_satuan)||0);
-                            const fbJml = (parseFloat(row.fullboard_vol)||0)*(parseFloat(row.fullboard_satuan)||0);
-                            const fdJml = (parseFloat(row.fullday_vol)||0)*(parseFloat(row.fullday_satuan)||0);
-                            const total = (parseFloat(row.transport)||0) + uhJml + fbJml + fdJml
-                                        + (parseFloat(row.representasi)||0) + (parseFloat(row.taksi_pp)||0)
-                                        + (parseFloat(row.tiket_pesawat)||0) + (parseFloat(row.hotel)||0);
-                            return (
-                                <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
-                                    <td className="px-2 py-2 text-center text-muted-foreground">{idx + 1}</td>
-                                    <td className="px-2 py-2">
-                                        <PegawaiCombobox
-                                            value={row.nama}
-                                            options={refNama}
-                                            onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
-                                            onOpenAddDialog={onOpenAddDialog}
-                                        />
-                                    </td>
-                                    <td className="px-2 py-2">{n(row, idx, 'transport')}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'uang_harian_vol')}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'uang_harian_satuan')}</td>
-                                    <td className="px-1 py-2 text-right tabular-nums text-gray-700 font-medium">{fmt(uhJml)}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'fullboard_vol')}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'fullboard_satuan')}</td>
-                                    <td className="px-1 py-2 text-right tabular-nums text-gray-700 font-medium">{fmt(fbJml)}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'fullday_vol')}</td>
-                                    <td className="px-1 py-2">{n(row, idx, 'fullday_satuan')}</td>
-                                    <td className="px-1 py-2 text-right tabular-nums text-gray-700 font-medium">{fmt(fdJml)}</td>
-                                    <td className="px-2 py-2">{n(row, idx, 'representasi')}</td>
-                                    <td className="px-2 py-2">{n(row, idx, 'taksi_pp')}</td>
-                                    <td className="px-2 py-2">{n(row, idx, 'tiket_pesawat')}</td>
-                                    <td className="px-2 py-2">{n(row, idx, 'hotel')}</td>
-                                    <td className="px-2 py-2 text-right tabular-nums font-bold text-blue-700">{fmt(total)}</td>
-                                    <td className="px-2 py-2 text-center">
-                                        <ActionBtn
-                                            title="Hapus baris"
-                                            onClick={() => onRemove(idx)}
-                                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </ActionBtn>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {rows.length === 0 && (
-                            <tr>
-                                <td colSpan={19} className="px-3 py-6 text-center text-muted-foreground text-xs">
-                                    Belum ada peserta — klik "+ Tambah Peserta" di bawah.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                    <tfoot>
-                        <tr className="border-t bg-gray-50/50">
-                            <td colSpan={19} className="px-2 py-1">
-                                <Button variant="ghost" size="sm" onClick={onAdd}
-                                    className="h-7 text-xs gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
-                                </Button>
-                            </td>
-                        </tr>
-                        {rows.length > 0 && (
-                            <tr className="border-t bg-blue-50/30 text-xs font-semibold">
-                                <td colSpan={16} className="px-2 py-2 text-right text-muted-foreground">Total Keseluruhan</td>
-                                <td className="px-2 py-2 text-right tabular-nums text-blue-700">
-                                    {fmt(rows.reduce((s, row) => {
-                                        const uhJml = (parseFloat(row.uang_harian_vol)||0)*(parseFloat(row.uang_harian_satuan)||0);
-                                        const fbJml = (parseFloat(row.fullboard_vol)||0)*(parseFloat(row.fullboard_satuan)||0);
-                                        const fdJml = (parseFloat(row.fullday_vol)||0)*(parseFloat(row.fullday_satuan)||0);
-                                        return s + (parseFloat(row.transport)||0) + uhJml + fbJml + fdJml
-                                            + (parseFloat(row.representasi)||0) + (parseFloat(row.taksi_pp)||0)
-                                            + (parseFloat(row.tiket_pesawat)||0) + (parseFloat(row.hotel)||0);
-                                    }, 0))}
-                                </td>
-                                <td />
-                            </tr>
-                        )}
-                    </tfoot>
-                </table>
+
+            <div className="flex flex-col gap-4">
+                {rows.map((row, idx) => {
+                    const uhJml = calcJumlah(row.uang_harian_vol, row.uang_harian_satuan);
+                    const fbJml = calcJumlah(row.fullboard_vol, row.fullboard_satuan);
+                    const fdJml = calcJumlah(row.fullday_vol, row.fullday_satuan);
+                    const total = (parseFloat(row.transport)||0) + uhJml + fbJml + fdJml
+                                + (parseFloat(row.representasi)||0) + (parseFloat(row.taksi_pp)||0)
+                                + (parseFloat(row.tiket_pesawat)||0) + (parseFloat(row.hotel)||0);
+
+                    const matchedPegawai = row.ref_nama_id
+                        ? refNama.find(p => p.id === Number(row.ref_nama_id))
+                        : row.nama
+                            ? refNama.find(p => p.nama === row.nama)
+                            : null;
+
+                    return (
+                        <Card key={idx} className="relative border-blue-100 shadow-sm">
+                            <CardContent className="p-4">
+                                {/* Header: Nama Peserta + Status */}
+                                <div className="mb-4">
+                                    <PegawaiCombobox
+                                        value={row.nama}
+                                        options={refNama}
+                                        onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
+                                        onOpenAddDialog={onOpenAddDialog}
+                                    />
+                                    {matchedPegawai && (
+                                        <div className="mt-1.5 flex items-center gap-2">
+                                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', statusColor(matchedPegawai.status_kepegawaian))}>
+                                                {matchedPegawai.status_kepegawaian}
+                                            </span>
+                                            {matchedPegawai.nip && (
+                                                <span className="text-[10px] text-muted-foreground">{matchedPegawai.nip}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Grup 1: Biaya Perjalanan */}
+                                <div className="mb-4">
+                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-2 tracking-wide">Biaya Perjalanan</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {numberInput(row, idx, 'transport', 'Transport')}
+                                        {numberInput(row, idx, 'taksi_pp', 'Taksi PP')}
+                                        {numberInput(row, idx, 'tiket_pesawat', 'Tiket Pesawat')}
+                                        {numberInput(row, idx, 'hotel', 'Hotel')}
+                                    </div>
+                                </div>
+
+                                {/* Grup 2: Biaya Harian */}
+                                <div className="mb-4">
+                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-2 tracking-wide">Biaya Harian</p>
+                                    <div className="space-y-3">
+                                        {/* Uang Harian */}
+                                        <div className="grid grid-cols-[1fr_1fr_auto] md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Uang Harian · Hari</Label>
+                                                <Input
+                                                    value={row.uang_harian_vol}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'uang_harian_vol', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Satuan</Label>
+                                                <Input
+                                                    value={row.uang_harian_satuan}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'uang_harian_satuan', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="hidden md:block" />
+                                            <div className="text-right pb-2">
+                                                <span className="text-[10px] uppercase text-muted-foreground block">Jumlah</span>
+                                                <span className="text-xs font-medium tabular-nums text-gray-700">{fmt(uhJml)}</span>
+                                            </div>
+                                        </div>
+                                        {/* Fullboard */}
+                                        <div className="grid grid-cols-[1fr_1fr_auto] md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Fullboard · Hari</Label>
+                                                <Input
+                                                    value={row.fullboard_vol}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'fullboard_vol', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Satuan</Label>
+                                                <Input
+                                                    value={row.fullboard_satuan}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'fullboard_satuan', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="hidden md:block" />
+                                            <div className="text-right pb-2">
+                                                <span className="text-[10px] uppercase text-muted-foreground block">Jumlah</span>
+                                                <span className="text-xs font-medium tabular-nums text-gray-700">{fmt(fbJml)}</span>
+                                            </div>
+                                        </div>
+                                        {/* Fullday */}
+                                        <div className="grid grid-cols-[1fr_1fr_auto] md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Fullday · Hari</Label>
+                                                <Input
+                                                    value={row.fullday_vol}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'fullday_vol', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-muted-foreground font-medium">Satuan</Label>
+                                                <Input
+                                                    value={row.fullday_satuan}
+                                                    type="number"
+                                                    min="0"
+                                                    onChange={e => onChange(idx, 'fullday_satuan', e.target.value)}
+                                                    className="h-8 text-xs text-right"
+                                                />
+                                            </div>
+                                            <div className="hidden md:block" />
+                                            <div className="text-right pb-2">
+                                                <span className="text-[10px] uppercase text-muted-foreground block">Jumlah</span>
+                                                <span className="text-xs font-medium tabular-nums text-gray-700">{fmt(fdJml)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Grup 3: Representasi */}
+                                <div className="mb-4">
+                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-2 tracking-wide">Representasi</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {numberInput(row, idx, 'representasi', 'Representasi')}
+                                    </div>
+                                </div>
+
+                                {/* Footer: Total + Hapus */}
+                                <div className="pt-3 border-t flex items-center justify-between">
+                                    <div className="text-xs">
+                                        <span className="text-muted-foreground text-[10px] uppercase block">Total Peserta</span>
+                                        <span className="font-bold tabular-nums text-blue-700 text-base">{fmt(total)}</span>
+                                    </div>
+                                    <ActionBtn
+                                        title="Hapus peserta"
+                                        onClick={() => onRemove(idx)}
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </ActionBtn>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+
+                {rows.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-xs border rounded-lg bg-gray-50/50">
+                        Belum ada peserta — klik "Tambah Peserta" di bawah.
+                    </div>
+                )}
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onAdd}
+                    className="h-8 text-xs gap-1 text-blue-600 border-blue-200 hover:text-blue-700 hover:bg-blue-50 w-fit"
+                >
+                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
+                </Button>
+
+                {rows.length > 0 && (
+                    <div className="flex items-center justify-end gap-4 text-xs pt-2 border-t mt-2">
+                        <span className="text-muted-foreground">Total Keseluruhan</span>
+                        <span className="font-bold tabular-nums text-blue-700 text-base">
+                            {fmt(rows.reduce((s, row) => {
+                                const uhJml = calcJumlah(row.uang_harian_vol, row.uang_harian_satuan);
+                                const fbJml = calcJumlah(row.fullboard_vol, row.fullboard_satuan);
+                                const fdJml = calcJumlah(row.fullday_vol, row.fullday_satuan);
+                                return s + (parseFloat(row.transport)||0) + uhJml + fbJml + fdJml
+                                    + (parseFloat(row.representasi)||0) + (parseFloat(row.taksi_pp)||0)
+                                    + (parseFloat(row.tiket_pesawat)||0) + (parseFloat(row.hotel)||0);
+                            }, 0))}
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     );

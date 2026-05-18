@@ -226,6 +226,10 @@ class PermohonanDanaController extends Controller
             'picList' => $picList,
             'rincianBiaya' => array_values($rincianBiaya),
             'jenisDokumen' => PermohonanDanaDokumen::$JENIS,
+            'no_sk' => $pd->no_sk,
+            'tgl_sk' => $pd->tgl_sk?->format('Y-m-d'),
+            'no_st' => $pd->no_st,
+            'tgl_st' => $pd->tgl_st?->format('Y-m-d'),
         ]);
     }
 
@@ -266,6 +270,19 @@ class PermohonanDanaController extends Controller
         ]);
 
         $jenis = (int) $request->jenis_dokumen_id;
+
+        if ($jenis === 2) {
+            $request->validate([
+                'no_sk' => 'required|string|max:100',
+                'tgl_sk' => 'required|date',
+            ]);
+        } elseif ($jenis === 3) {
+            $request->validate([
+                'no_st' => 'required|string|max:100',
+                'tgl_st' => 'required|date',
+            ]);
+        }
+
         $file = $request->file('file');
         $path = $file->store("permohonan_dana/{$pd->id}/dokumen", 'local');
 
@@ -277,6 +294,18 @@ class PermohonanDanaController extends Controller
             'path_file' => $path,
             'ukuran_file' => $file->getSize(),
         ]);
+
+        if ($jenis === 2) {
+            $pd->update([
+                'no_sk' => $request->no_sk,
+                'tgl_sk' => $request->tgl_sk,
+            ]);
+        } elseif ($jenis === 3) {
+            $pd->update([
+                'no_st' => $request->no_st,
+                'tgl_st' => $request->tgl_st,
+            ]);
+        }
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Dokumen berhasil diupload.')
@@ -290,6 +319,13 @@ class PermohonanDanaController extends Controller
         abort_if($dokumen->permohonan_dana_id !== $pd->id, 403);
 
         Storage::disk('local')->delete($dokumen->path_file);
+
+        if ($dokumen->jenis_dokumen_id === 2) {
+            $pd->update(['no_sk' => null, 'tgl_sk' => null]);
+        } elseif ($dokumen->jenis_dokumen_id === 3) {
+            $pd->update(['no_st' => null, 'tgl_st' => null]);
+        }
+
         $dokumen->delete();
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
