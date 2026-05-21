@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { CheckCircle2, FileText, CalendarDays, Download, Eye, History } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import ApprovalTimeline from '@/components/ApprovalTimeline';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -56,6 +57,9 @@ type PD = {
     pic_approved_by_name: string | null;
     rejected_at: string | null;
     rejected_at_step: string | null;
+    dibuka_kunci_by_name: string | null;
+    dibuka_kunci_at: string | null;
+    alasan_pembukaan_kunci: string | null;
     // next approver
     next_approver_role: string | null;
     next_approver_name: string | null;
@@ -95,120 +99,7 @@ const TABS: Tab[] = [
     { key: 'selesai',        label: 'Selesai',        statuses: ['dicairkan'] },
 ];
 
-const fmtDateTime = (s: string | null) => {
-    if (!s) return null;
-    const d = new Date(s);
-    return {
-        date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
-        time: d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
-    };
-};
 
-type TLState = 'done' | 'rejected' | 'active' | 'pending';
-type TLStep = { key: string; stepNo: number; role: string; action: string; actorName: string | null; ts: string | null; catatan: string | null; state: TLState; };
-
-function buildTimeline(pd: PD): TLStep[] {
-    const isRej = pd.status === 'rejected';
-    const rejStep = pd.rejected_at_step ?? '';
-    return [
-        { key: 'dibuat',    stepNo: 1, role: 'PUMK',         action: 'Permohonan Dibuat',    actorName: pd.created_by_user?.nama_lengkap ?? null, ts: null, catatan: null, state: 'done' },
-        { key: 'submitted', stepNo: 2, role: 'PUMK',         action: 'Diajukan ke KA.TIM',   actorName: pd.created_by_user?.nama_lengkap ?? null, ts: pd.submitted_at, catatan: null, state: pd.submitted_at ? 'done' : 'pending' },
-        { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Revisi' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : 'pending' },
-        { key: 'kabag',     stepNo: 4, role: 'Kabag Umum',   action: isRej && rejStep === 'kabag' ? 'Revisi' : 'Disetujui', actorName: pd.kabag_approved_by_name, ts: pd.kabag_approved_at, catatan: pd.catatan_kabag, state: isRej && rejStep === 'kabag' ? 'rejected' : pd.kabag_approved_at ? 'done' : 'pending' },
-        { key: 'ppk',       stepNo: 5, role: 'PPK',          action: isRej && rejStep === 'ppk'   ? 'Revisi' : 'Disetujui', actorName: pd.ppk_approved_by_name,   ts: pd.ppk_approved_at,   catatan: pd.catatan_ppk,   state: isRej && rejStep === 'ppk'   ? 'rejected' : pd.ppk_approved_at   ? 'done' : 'pending' },
-        { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Revisi' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : 'pending' },
-        { key: 'cair',      stepNo: 7, role: 'Bendahara',    action: 'Dana Dicairkan',           actorName: pd.dicairkan_by_name,      ts: pd.dicairkan_at,     catatan: null,             state: pd.dicairkan_at ? 'done' : 'pending' },
-    ];
-}
-
-function VerticalTimeline({ pd, open, onClose }: { pd: PD; open: boolean; onClose: () => void }) {
-    const steps = buildTimeline(pd);
-    const doneCount = steps.filter(s => s.state === 'done').length;
-    const pct = Math.round((doneCount / steps.length) * 100);
-
-    const stateStyles = {
-        done:     { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
-        rejected: { border: 'border-l-red-500',     icon: CheckCircle2, iconColor: 'text-red-600' },
-        active:   { border: 'border-l-blue-500',    icon: CheckCircle2, iconColor: 'text-blue-600' },
-        pending:  { border: 'border-l-gray-200',    icon: CheckCircle2, iconColor: 'text-gray-400' },
-    } as const;
-
-    return (
-        <Dialog open={open} onOpenChange={o => !o && onClose()}>
-            <DialogContent className="max-w-2xl p-0 gap-0">
-                <DialogHeader className="p-6 pb-4 border-b">
-                    <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                            <DialogTitle className="text-base font-semibold">{pd.nomor_permohonan}</DialogTitle>
-                            <DialogDescription className="text-sm">{pd.judul_pekerjaan ?? pd.keperluan}</DialogDescription>
-                        </div>
-                        <Badge variant={pd.status === 'rejected' ? 'destructive' : pd.status === 'dicairkan' ? 'default' : 'secondary'}>
-                            {pd.status_label}
-                        </Badge>
-                    </div>
-                    <div className="pt-4">
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                            <span>Progress</span>
-                            <span>{doneCount} dari {steps.length} langkah</span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-                        </div>
-                    </div>
-                </DialogHeader>
-
-                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
-                    <div className="relative">
-                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border -translate-x-1/2" />
-                        <ol className="space-y-4">
-                            {steps.map((step, idx) => {
-                                const style = stateStyles[step.state];
-                                const Icon = style.icon;
-                                const dt = fmtDateTime(step.ts);
-                                const isLeft = idx % 2 === 0;
-                                return (
-                                    <li key={step.key} className="relative flex items-center">
-                                        <div className={cn('flex-1 pr-6', isLeft ? 'text-right' : 'opacity-0 pointer-events-none')}>
-                                            {isLeft && (
-                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
-                                                    <div className="flex items-center gap-2 mb-1 justify-end">
-                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
-                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
-                                                    </div>
-                                                    <p className="text-sm font-medium">{step.action}</p>
-                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
-                                                    {dt && <p className="text-xs text-muted-foreground mt-1">{dt.date} · {dt.time}</p>}
-                                                    {step.catatan && <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">{step.catatan}</p>}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
-                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : '#e5e7eb' }}
-                                        />
-                                        <div className={cn('flex-1 pl-6', !isLeft ? 'text-left' : 'opacity-0 pointer-events-none')}>
-                                            {!isLeft && (
-                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
-                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
-                                                    </div>
-                                                    <p className="text-sm font-medium">{step.action}</p>
-                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
-                                                    {dt && <p className="text-xs text-muted-foreground mt-1">{dt.date} · {dt.time}</p>}
-                                                    {step.catatan && <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">{step.catatan}</p>}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ol>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, diajukan, revisi, selesai }: Props) {
     const allData = useMemo(() => semuaAjuan, [semuaAjuan]);
@@ -492,9 +383,7 @@ export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, 
                 </Card>
             </div>
 
-            {historyTarget && (
-                <VerticalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />
-            )}
+            <ApprovalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />
         </AppLayout>
     );
 }

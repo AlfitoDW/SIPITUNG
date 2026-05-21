@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class PermohonanDana extends Model
 {
+    use HasFactory;
     protected $table = 'permohonan_dana';
 
     protected $fillable = [
@@ -202,6 +204,21 @@ class PermohonanDana extends Model
         return $this->hasMany(PermohonanDanaDokumen::class, 'permohonan_dana_id');
     }
 
+    public function rejections(): HasMany
+    {
+        return $this->hasMany(PermohonanDanaRejection::class, 'permohonan_dana_id')
+            ->orderByDesc('rejected_at');
+    }
+
+    /** Hapus cache terpakai untuk semua rincian biaya di permohonan ini */
+    public function invalidateTerpakaiCache(): void
+    {
+        $ids = $this->items()->pluck('dja_rincian_biaya_id')->unique();
+        foreach ($ids as $id) {
+            cache()->forget("dja_rincian_{$id}_terpakai");
+        }
+    }
+
     public function nominatifPeserta(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -260,27 +277,30 @@ class PermohonanDana extends Model
         $roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
         $bulan = $roman[(int) now()->format('n')];
 
-        // Ambil nomor urut tertinggi yang sudah dipakai untuk tahun anggaran ini,
-        // lalu increment — aman meski ada record yang dihapus.
-        $lastNomor = static::where('tahun_anggaran_id', $tahunAnggaranId)
-            ->whereNotNull('nomor_permohonan')
-            ->max('nomor_permohonan');
+        // Gunakan transaction + lockForUpdate untuk mencegah race condition
+        // saat dua PUMK membuat permohonan secara bersamaan.
+        return \DB::transaction(function () use ($tahunAnggaranId, $tahun, $bulan) {
+            $lastNomor = static::where('tahun_anggaran_id', $tahunAnggaranId)
+                ->whereNotNull('nomor_permohonan')
+                ->lockForUpdate()
+                ->max('nomor_permohonan');
 
-        $seq = 1;
-        if ($lastNomor) {
-            // Format: "005/LL3/PerD/IV/2026" — ambil 3 karakter pertama
-            $seq = (int) substr($lastNomor, 0, 3) + 1;
-        }
-
-        // Pastikan nomor belum dipakai (guard tambahan)
-        do {
-            $nomor = str_pad($seq, 3, '0', STR_PAD_LEFT).'/LL3/PerD/'.$bulan.'/'.$tahun;
-            $exists = static::where('nomor_permohonan', $nomor)->exists();
-            if ($exists) {
-                $seq++;
+            $seq = 1;
+            if ($lastNomor) {
+                // Format: "005/LL3/PerD/IV/2026" — ambil 3 karakter pertama
+                $seq = (int) substr($lastNomor, 0, 3) + 1;
             }
-        } while ($exists);
 
-        return $nomor;
+            // Guard tambahan: pastikan nomor benar-benar belum dipakai
+            do {
+                $nomor = str_pad($seq, 3, '0', STR_PAD_LEFT).'/LL3/PerD/'.$bulan.'/'.$tahun;
+                $exists = static::where('nomor_permohonan', $nomor)->exists();
+                if ($exists) {
+                    $seq++;
+                }
+            } while ($exists);
+
+            return $nomor;
+        });
     }
 }

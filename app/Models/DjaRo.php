@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DjaRo extends Model
 {
+    use HasFactory;
     protected $table = 'dja_ro';
 
     protected $fillable = ['kro_id', 'kode', 'nama', 'volume', 'satuan', 'pagu', 'is_aktif'];

@@ -197,39 +197,6 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
                  : pd.status === 'ppk_approved' ? 'active' : 'pending',
         },
         {
-            key: 'kabag', stepNo: 4,
-            role: 'Kabag Umum',
-            action: isRejected && rejStep === 'kabag' ? 'Ditolak' : 'Disetujui',
-            actorName: pd.kabag_approved_by_name ?? null,
-            ts: pd.kabag_approved_at,
-            catatan: pd.catatan_kabag,
-            state: isRejected && rejStep === 'kabag' ? 'rejected'
-                 : pd.kabag_approved_at ? 'done'
-                 : pd.status === 'kabag_approved' ? 'active' : 'pending',
-        },
-        {
-            key: 'ppk', stepNo: 5,
-            role: 'PPK',
-            action: isRejected && rejStep === 'ppk' ? 'Ditolak' : 'Disetujui',
-            actorName: pd.ppk_approved_by_name ?? null,
-            ts: pd.ppk_approved_at,
-            catatan: pd.catatan_ppk,
-            state: isRejected && rejStep === 'ppk' ? 'rejected'
-                 : pd.ppk_approved_at ? 'done'
-                 : pd.status === 'ppk_approved' ? 'active' : 'pending',
-        },
-        {
-            key: 'pic', stepNo: 6,
-            role: 'PIC Keuangan',
-            action: isRejected && rejStep === 'pic' ? 'Ditolak' : 'Diverifikasi',
-            actorName: pd.pic_approved_by_name ?? null,
-            ts: pd.pic_approved_at,
-            catatan: pd.catatan_pic,
-            state: isRejected && rejStep === 'pic' ? 'rejected'
-                 : pd.pic_approved_at ? 'done'
-                 : pd.status === 'pic_approved' ? 'active' : 'pending',
-        },
-        {
             key: 'dicairkan', stepNo: 7,
             role: 'Bendahara',
             action: 'Dana Dicairkan',

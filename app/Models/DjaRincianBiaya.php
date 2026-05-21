@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DjaRincianBiaya extends Model
 {
+    use HasFactory;
     protected $table = 'dja_rincian_biaya';
 
     protected $fillable = [
@@ -16,8 +18,8 @@ class DjaRincianBiaya extends Model
 
     protected $casts = [
         'is_aktif' => 'boolean',
-        'harga_satuan' => 'integer',
-        'pagu_total' => 'integer',
+        'harga_satuan' => 'decimal:2',
+        'pagu_total' => 'decimal:2',
     ];
 
     public function kegiatan(): BelongsTo
@@ -26,15 +28,19 @@ class DjaRincianBiaya extends Model
     }
 
     /** Hitung total sudah terpakai dari permohonan yang approved (katim ke atas) */
-    public function getTerpakaiAttribute(): int
+    public function getTerpakaiAttribute(): float
     {
-        return PermohonanDanaItem::where('dja_rincian_biaya_id', $this->id)
-            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
-            ->sum('jumlah_permintaan');
+        $cacheKey = "dja_rincian_{$this->id}_terpakai";
+
+        return cache()->remember($cacheKey, now()->addMinute(), function () {
+            return (float) PermohonanDanaItem::where('dja_rincian_biaya_id', $this->id)
+                ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+                ->sum('jumlah_permintaan');
+        });
     }
 
-    public function getSisaAnggaranAttribute(): int
+    public function getSisaAnggaranAttribute(): float
     {
-        return max(0, $this->pagu_total - $this->terpakai);
+        return max(0, (float) $this->pagu_total - $this->terpakai);
     }
 }

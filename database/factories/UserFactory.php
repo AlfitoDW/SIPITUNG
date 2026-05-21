@@ -30,9 +30,6 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'two_factor_secret' => null,
-            'two_factor_recovery_codes' => null,
-            'two_factor_confirmed_at' => null,
         ];
     }
 
@@ -55,6 +52,66 @@ class UserFactory extends Factory
             'two_factor_secret' => encrypt('secret'),
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),
+        ]);
+    }
+
+    // ─── Role States ─────────────────────────────────────────────────────────────
+
+    public function superAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'super_admin',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function pumk(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'pumk',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function ketuaTim(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'ketua_tim_kerja',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function kabag(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'pimpinan',
+            'pimpinan_type' => 'kabag_umum',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function ppk(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'pimpinan',
+            'pimpinan_type' => 'ppk',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function picKeuangan(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'pic_keuangan',
+            'username' => fake()->unique()->userName(),
+        ]);
+    }
+
+    public function bendahara(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'bendahara',
+            'username' => fake()->unique()->userName(),
         ]);
     }
 }

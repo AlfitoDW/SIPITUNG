@@ -29,7 +29,7 @@ class PermohonanDanaItem extends Model
         'volume' => 'decimal:2',
         'harga_satuan' => 'decimal:2',
         'total' => 'decimal:2',
-        'jumlah_permintaan' => 'integer',
+        'jumlah_permintaan' => 'decimal:2',
     ];
 
     // ─── Kode akun honor & perjadin ───────────────────────────────────────────

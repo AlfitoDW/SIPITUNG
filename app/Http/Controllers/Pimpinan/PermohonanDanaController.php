@@ -65,7 +65,7 @@ class PermohonanDanaController extends Controller
         $status = $this->statusForRole();
         $isKabag = auth()->user()->isPimpinanKabagUmum();
 
-        $baseQuery = PermohonanDana::with(['items', 'timKerja', 'createdBy', 'picKeuangan'])
+        $baseQuery = PermohonanDana::with(['items', 'timKerja', 'createdBy', 'picKeuangan', 'dibukaKunciOleh'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->orderByDesc('created_at');
 
@@ -88,6 +88,7 @@ class PermohonanDanaController extends Controller
                     'pic_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
+                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
             ]);
         };
 
@@ -177,6 +178,9 @@ class PermohonanDanaController extends Controller
                 'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'rejected_at_step' => $pd->rejected_at_step,
+                'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
+                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
+                'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
                 'dja_program' => $pd->djaProgram ? ['nama' => $pd->djaProgram->nama] : null,
                 'dja_sasaran' => $pd->djaSasaran ? ['nama' => $pd->djaSasaran->nama] : null,
                 'dja_kro' => $pd->djaKro ? ['kode' => $pd->djaKro->kode, 'nama' => $pd->djaKro->nama] : null,
@@ -210,12 +214,14 @@ class PermohonanDanaController extends Controller
 
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
-        $pd->update([
-            'status' => $this->nextStatus(),
-            $this->approvalField() => $request->user()->id,
-            $this->catatanField() => $request->catatan,
-            $this->approvalAtField() => now(),
-        ]);
+        \DB::transaction(function () use ($pd, $request) {
+            $pd->lockForUpdate()->update([
+                'status' => $this->nextStatus(),
+                $this->approvalField() => $request->user()->id,
+                $this->catatanField() => $request->catatan,
+                $this->approvalAtField() => now(),
+            ]);
+        });
 
         $next = $request->user()->isPimpinanKabagUmum() ? 'PPK' : 'PIC Keuangan';
 
@@ -228,15 +234,23 @@ class PermohonanDanaController extends Controller
 
         $request->validate(['catatan' => 'required|string|max:1000']);
 
-        $pd->update([
-            'status' => 'rejected',
-            $this->approvalField() => $request->user()->id,
-            $this->catatanField() => $request->catatan,
-            $this->approvalAtField() => now(),
-            'rejected_at_step' => $this->rejectedStep(),
-            'catatan_penolakan' => $request->catatan,
-            'rejected_at' => now(),
-        ]);
+        \DB::transaction(function () use ($pd, $request) {
+            $pd->lockForUpdate()->update([
+                'status' => 'rejected',
+                'rejected_at_step' => $this->rejectedStep(),
+                'catatan_penolakan' => $request->catatan,
+                'rejected_at' => now(),
+            ]);
+
+            $pd->rejections()->create([
+                'rejected_by' => $request->user()->id,
+                'rejected_at_step' => $this->rejectedStep(),
+                'catatan' => $request->catatan,
+                'rejected_at' => now(),
+            ]);
+        });
+
+        $pd->invalidateTerpakaiCache();
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} ditolak.");
     }

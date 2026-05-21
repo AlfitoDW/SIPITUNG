@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import DocPreviewModal from '@/components/DocPreviewModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,8 +185,12 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
         setErrors({});
+        if (form.tanggal_mulai && form.tanggal_selesai && form.tanggal_selesai < form.tanggal_mulai) {
+            setErrors({ tanggal_selesai: 'Tanggal selesai harus setelah atau sama dengan tanggal mulai.' });
+            return;
+        }
+        setProcessing(true);
         // Gunakan router.patch Inertia — data pasti tersimpan ke DB sebelum onSuccess
         router.patch(
             `/pumk/permohonan-dana/${pd.id}/step2`,
@@ -307,83 +313,6 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
 
 // ── Step 3: Dokumen Pendukung ─────────────────────────────────────────────────
 
-/** Tentukan apakah path_file adalah gambar atau PDF untuk preview inline */
-function getFileType(path: string): 'pdf' | 'image' | 'other' {
-    const ext = path.split('.').pop()?.toLowerCase() ?? '';
-    if (ext === 'pdf') return 'pdf';
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
-    return 'other';
-}
-
-function DocPreviewModal({ url, nama, onClose }: { url: string; nama: string; onClose: () => void }) {
-    const type = getFileType(url);
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={onClose}
-        >
-            <div
-                className="relative flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden"
-                style={{ width: '90vw', maxWidth: 960, height: '90vh' }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-gray-50">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 shrink-0 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700 truncate">{nama}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2"
-                        >
-                            Buka di tab baru
-                        </a>
-                        <button
-                            onClick={onClose}
-                            className="rounded-full p-1 hover:bg-gray-200 transition-colors"
-                        >
-                            <X className="w-5 h-5 text-gray-600" />
-                        </button>
-                    </div>
-                </div>
-                {/* Body */}
-                <div className="flex-1 overflow-hidden">
-                    {type === 'pdf' && (
-                        <iframe
-                            src={url}
-                            className="w-full h-full border-0"
-                            title={nama}
-                        />
-                    )}
-                    {type === 'image' && (
-                        <div className="flex items-center justify-center h-full bg-gray-100 overflow-auto p-4">
-                            <img src={url} alt={nama} className="max-w-full max-h-full object-contain rounded shadow" />
-                        </div>
-                    )}
-                    {type === 'other' && (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
-                            <FileText className="w-16 h-16 text-gray-300" />
-                            <p className="text-sm">Pratinjau tidak tersedia untuk tipe file ini.</p>
-                            <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800 underline"
-                            >
-                                Download / Buka file
-                            </a>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd; jenisDokumen: Record<string,string>; onPrev: () => void; onNext: () => void; readonly?: boolean; }) {
     const [jenis, setJenis] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -400,6 +329,12 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
         if (!jenis || !fileRef.current?.files?.[0]) return;
         if (jenis === '2' && (!noSk || !tglSk)) return;
         if (jenis === '3' && (!noSt || !tglSt)) return;
+
+        const file = fileRef.current.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Ukuran file maksimal 10 MB.');
+            return;
+        }
 
         setUploading(true);
         const formData = new FormData();
@@ -429,7 +364,10 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                     setTglSt('');
                     if (fileRef.current) fileRef.current.value = '';
                 },
-                onError: () => setUploading(false),
+                onError: (errs: Record<string, string>) => {
+                    setUploading(false);
+                    toast.error(Object.values(errs)[0] ?? 'Gagal upload dokumen.');
+                },
                 onFinish: () => setUploading(false),
             },
         );
@@ -443,13 +381,8 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
     };
 
     const openPreview = (dok: Dokumen) => {
-        const fileType = getFileType(dok.path_file);
         const url = `/files/dokumen/${dok.id}`;
-        if (fileType === 'other') {
-            window.open(url, '_blank', 'noopener,noreferrer');
-        } else {
-            setPreviewDok({ url, nama: dok.nama_file });
-        }
+        setPreviewDok({ url, nama: dok.nama_file });
     };
 
     return (
@@ -679,7 +612,10 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                         },
                     );
                 },
-                onError: () => setSubmitting(false),
+                onError: (errs: Record<string, string>) => {
+                    setSubmitting(false);
+                    toast.error(Object.values(errs)[0] ?? 'Gagal menyimpan rincian biaya.');
+                },
             },
         );
     };

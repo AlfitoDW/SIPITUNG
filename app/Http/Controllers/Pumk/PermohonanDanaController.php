@@ -363,7 +363,7 @@ class PermohonanDanaController extends Controller
                 ->sum('jumlah_permintaan');
 
             $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
-            $jumlah = (int) round($item['volume'] * $item['harga_satuan']);
+            $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
 
             if ($jumlah > $sisaAnggaran) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -389,16 +389,31 @@ class PermohonanDanaController extends Controller
             ->whereDoesntHave('nominatif')
             ->delete();
 
-        $total = 0;
+        // ── Validasi: item yang sudah punya nominatif tidak boleh dihapus dari form ──
+        $itemsWithNominatif = $pd->items()
+            ->whereNotIn('dja_rincian_biaya_id', $submittedRincianIds)
+            ->whereHas('nominatif')
+            ->get();
+
+        if ($itemsWithNominatif->isNotEmpty()) {
+            $item = $itemsWithNominatif->first();
+
+            return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                ->with('error',
+                    "Item [{$item->kode_akun}] {$item->uraian} sudah memiliki data nominatif. "
+                    .'Hapus nominatif terlebih dahulu di Step 5 sebelum menghapus item ini.'
+                )
+                ->with('wizard_step', 4);
+        }
+
         foreach ($request->items as $idx => $item) {
             if ($item['volume'] == 0) {
                 continue;
             }
 
             $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
-            $hargaAktual = (int) $item['harga_satuan'];
-            $jumlah = (int) round($item['volume'] * $hargaAktual);
-            $total += $jumlah;
+            $hargaAktual = (float) $item['harga_satuan'];
+            $jumlah = round($item['volume'] * $hargaAktual, 2);
 
             // Cek apakah item dengan rincian ini sudah ada
             $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
@@ -429,10 +444,14 @@ class PermohonanDanaController extends Controller
             }
         }
 
-        $pd->update([
-            'total_anggaran' => $total,
-            'wizard_step' => max($pd->wizard_step, 4),
-        ]);
+        \DB::transaction(function () use ($pd) {
+            $pd->lockForUpdate()->update([
+                'total_anggaran' => $pd->items()->sum('total'),
+                'wizard_step' => max($pd->wizard_step, 4),
+            ]);
+        });
+
+        $pd->invalidateTerpakaiCache();
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Rincian biaya disimpan.')
@@ -504,11 +523,15 @@ class PermohonanDanaController extends Controller
         }
         // ───────────────────────────────────────────────────────────────────────
 
-        $pd->update([
-            'status' => 'submitted',
-            'wizard_step' => 4,
-            'submitted_at' => now(),
-        ]);
+        \DB::transaction(function () use ($pd) {
+            $pd->lockForUpdate()->update([
+                'status' => 'submitted',
+                'wizard_step' => 4,
+                'submitted_at' => now(),
+            ]);
+        });
+
+        $pd->invalidateTerpakaiCache();
 
         return redirect()->route('pumk.permohonan-dana.index')
             ->with('success', "Permohonan {$pd->nomor_permohonan} berhasil diajukan ke KA.TIM.");
@@ -542,6 +565,8 @@ class PermohonanDanaController extends Controller
         foreach ($pd->dokumens as $dok) {
             Storage::disk('local')->delete($dok->path_file);
         }
+
+        $pd->invalidateTerpakaiCache();
         $pd->delete();
 
         return redirect()->route('pumk.permohonan-dana.index')

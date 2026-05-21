@@ -115,12 +115,12 @@ class NominatifController extends Controller
             }
         }
 
-        // Hapus nominatif lama untuk permohonan ini
-        PermohonanDanaItemNominatif::where('permohonan_dana_id', $pd->id)->delete();
+        // ── Atomic replace: hapus lama + insert baru dalam satu transaction ──
+        \DB::transaction(function () use ($pd, $rows) {
+            // Hapus nominatif lama untuk permohonan ini
+            PermohonanDanaItemNominatif::where('permohonan_dana_id', $pd->id)->delete();
 
-        $rows = $request->input('nominatif', []);
-
-        foreach (array_values($rows) as $urutan => $row) {
+            foreach (array_values($rows) as $urutan => $row) {
             $itemId = $row['item_id'];
             $refNamaId = $row['ref_nama_id'] ?? null;
             $pph21 = (float) ($row['pph21_persen'] ?? 0);
@@ -194,7 +194,8 @@ class NominatifController extends Controller
                 'jumlah_perjadin' => $jumlahPerjadin,
                 'urutan' => $urutan,
             ]);
-        }
+            }
+        });
 
         return redirect()->route('pumk.permohonan-dana.nominatif', $pd->id)
             ->with('success', 'Daftar nominatif berhasil disimpan.');

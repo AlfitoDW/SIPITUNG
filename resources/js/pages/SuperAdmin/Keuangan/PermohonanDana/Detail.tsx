@@ -1,10 +1,11 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     ArrowLeft, FileText, Calendar, User, MapPin, ClipboardList,
-    Banknote, Eye, Printer, History, XCircle, CheckCircle2,
-    Clock, CircleDot, Unlock,
+    Banknote, Eye, Printer, XCircle, CheckCircle2,
+    Unlock,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import DocPreviewModal from '@/components/DocPreviewModal';
+import InfoRow from '@/components/InfoRow';
+import StepBar from '@/components/StepBar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -108,285 +112,11 @@ const statusMeta = (s: string) => {
     return { cls: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' };
 };
 
-// ── Step Bar ──────────────────────────────────────────────────────────────────
-
-function StepBar({ active, onChange }: { active: number; onChange: (s: number) => void }) {
-    return (
-        <div className="flex items-center justify-center gap-0 mb-6">
-            {STEPS.map((label, i) => {
-                const step = i + 1;
-                const isActive = active === step;
-                const isDone = active > step;
-                return (
-                    <div key={step} className="flex items-center">
-                        <button
-                            type="button"
-                            onClick={() => onChange(step)}
-                            className={cn(
-                                'flex flex-col items-center gap-1 min-w-[80px] group cursor-pointer',
-                            )}
-                        >
-                            <div className={cn(
-                                'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all',
-                                isDone  && 'bg-emerald-500 border-emerald-500 text-white',
-                                isActive && 'bg-blue-600 border-blue-600 text-white scale-110 shadow-md',
-                                !isDone && !isActive && 'bg-white border-gray-300 text-gray-400 hover:border-blue-300 hover:scale-105',
-                            )}>
-                                {isDone ? <CheckCircle2 className="w-5 h-5" /> : step}
-                            </div>
-                            <span className={cn(
-                                'text-[10px] font-medium text-center leading-tight transition-colors',
-                                isActive ? 'text-blue-600' : isDone ? 'text-emerald-600' : 'text-gray-400',
-                            )}>{label}</span>
-                        </button>
-                        {i < STEPS.length - 1 && (
-                            <div className={cn(
-                                'h-0.5 w-12 mx-1 mb-4 transition-colors',
-                                active > i + 1 ? 'bg-emerald-400' : 'bg-gray-200',
-                            )} />
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
-
-// ── InfoRow ───────────────────────────────────────────────────────────────────
-
-function InfoRow({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
-    return (
-        <div className="grid grid-cols-5 gap-2 py-2.5 border-b border-gray-100 last:border-0">
-            <span className="col-span-2 text-sm text-gray-500 font-medium">{label}</span>
-            <span className={cn('col-span-3 text-sm text-gray-800', mono && 'font-mono')}>{value || '-'}</span>
-        </div>
-    );
-}
-
-// ── DocPreviewModal ───────────────────────────────────────────────────────────
-
-function getFileType(path: string): 'pdf' | 'image' | 'other' {
-    const ext = path.split('.').pop()?.toLowerCase() ?? '';
-    if (ext === 'pdf') return 'pdf';
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
-    return 'other';
-}
-
-function DocPreviewModal({ url, nama, onClose }: { url: string; nama: string; onClose: () => void }) {
-    const type = getFileType(url);
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={onClose}
-        >
-            <div
-                className="relative flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden"
-                style={{ width: '90vw', maxWidth: 960, height: '90vh' }}
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-gray-50">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 shrink-0 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700 truncate">{nama}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <a href={url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2">
-                            Buka di tab baru
-                        </a>
-                        <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-200 transition-colors">
-                            <XCircle className="w-5 h-5 text-gray-600" />
-                        </button>
-                    </div>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                    {type === 'pdf' && <iframe src={url} className="w-full h-full border-0" title={nama} />}
-                    {type === 'image' && (
-                        <div className="flex items-center justify-center h-full bg-gray-100 overflow-auto p-4">
-                            <img src={url} alt={nama} className="max-w-full max-h-full object-contain rounded shadow" />
-                        </div>
-                    )}
-                    {type === 'other' && (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
-                            <FileText className="w-16 h-16 text-gray-300" />
-                            <p className="text-sm">Pratinjau tidak tersedia.</p>
-                            <a href={url} target="_blank" rel="noopener noreferrer"
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800 underline">
-                                Download / Buka file
-                            </a>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ── VerticalTimeline ─────────────────────────────────────────────────────────
-
-const fmtDateTime = (s: string | null) => {
-    if (!s) return null;
-    const d = new Date(s);
-    return {
-        date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
-        time: d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
-    };
-};
-
-type TLState = 'done' | 'rejected' | 'active' | 'pending' | 'buka_kunci';
-type TLStep = { key: string; stepNo: number; role: string; action: string; actorName: string | null; ts: string | null; catatan: string | null; state: TLState; };
-
-function buildTimeline(pd: Pd): TLStep[] {
-    const isRej = pd.status === 'rejected';
-    const rejStep = pd.rejected_at_step ?? '';
-    const isBukaKunci = rejStep === 'dibuka_kunci';
-
-    const steps: TLStep[] = [
-        { key: 'dibuat',    stepNo: 1, role: 'PUMK',         action: 'Permohonan Dibuat',    actorName: pd.created_by_name, ts: pd.created_at,       catatan: null,              state: 'done' },
-        { key: 'submitted', stepNo: 2, role: 'PUMK',         action: 'Diajukan ke KA.TIM',   actorName: pd.created_by_name, ts: pd.submitted_at,     catatan: null,              state: pd.submitted_at ? 'done' : 'pending' },
-        { key: 'katim',     stepNo: 3, role: 'KA.TIM',       action: isRej && rejStep === 'katim' ? 'Ditolak' : 'Disetujui', actorName: pd.katim_approved_by_name, ts: pd.katim_approved_at, catatan: pd.catatan_katim,  state: isRej && rejStep === 'katim' ? 'rejected' : pd.katim_approved_at ? 'done' : pd.status === 'submitted' ? 'active' : 'pending' },
-        { key: 'kabag',     stepNo: 4, role: 'Kabag Umum',   action: isRej && rejStep === 'kabag' ? 'Ditolak' : 'Disetujui', actorName: pd.kabag_approved_by_name, ts: pd.kabag_approved_at, catatan: pd.catatan_kabag, state: isRej && rejStep === 'kabag' ? 'rejected' : pd.kabag_approved_at ? 'done' : pd.status === 'katim_approved' ? 'active' : 'pending' },
-        { key: 'ppk',       stepNo: 5, role: 'PPK',          action: isRej && rejStep === 'ppk'   ? 'Ditolak' : 'Disetujui', actorName: pd.ppk_approved_by_name,   ts: pd.ppk_approved_at,   catatan: pd.catatan_ppk,   state: isRej && rejStep === 'ppk'   ? 'rejected' : pd.ppk_approved_at   ? 'done' : pd.status === 'kabag_approved' ? 'active' : 'pending' },
-        { key: 'pic',       stepNo: 6, role: 'PIC Keuangan', action: isRej && rejStep === 'pic'   ? 'Ditolak' : 'Diverifikasi', actorName: pd.pic_approved_by_name, ts: pd.pic_approved_at,   catatan: pd.catatan_pic,   state: isRej && rejStep === 'pic'   ? 'rejected' : pd.pic_approved_at   ? 'done' : pd.status === 'ppk_approved'  ? 'active' : 'pending' },
-        { key: 'cair',      stepNo: 7, role: 'Bendahara',    action: 'Dana Dicairkan',           actorName: pd.dicairkan_by_name,      ts: pd.dicairkan_at,     catatan: pd.catatan_pencairan, state: pd.dicairkan_at ? 'done' : pd.status === 'pic_approved' ? 'active' : 'pending' },
-    ];
-
-    if (isBukaKunci) {
-        steps.push({
-            key: 'buka_kunci',
-            stepNo: 8,
-            role: 'Admin',
-            action: 'Dibuka Kunci',
-            actorName: pd.dibuka_kunci_by_name,
-            ts: pd.dibuka_kunci_at,
-            catatan: pd.alasan_pembukaan_kunci,
-            state: 'buka_kunci',
-        });
-    }
-
-    return steps;
-}
-
-function VerticalTimeline({ pd, open, onClose }: { pd: Pd; open: boolean; onClose: () => void }) {
-    const steps = buildTimeline(pd);
-    const doneCount = steps.filter(s => s.state === 'done').length;
-    const pct = Math.round((doneCount / steps.length) * 100);
-
-    const stateStyles = {
-        done:       { border: 'border-l-emerald-500', icon: CheckCircle2, iconColor: 'text-emerald-600' },
-        rejected:   { border: 'border-l-red-500',     icon: XCircle,      iconColor: 'text-red-600' },
-        active:     { border: 'border-l-blue-500',    icon: CircleDot,    iconColor: 'text-blue-600' },
-        pending:    { border: 'border-l-gray-200',    icon: Clock,        iconColor: 'text-gray-400' },
-        buka_kunci: { border: 'border-l-orange-500',   icon: Unlock,       iconColor: 'text-orange-600' },
-    } as const;
-
-    return (
-        <Dialog open={open} onOpenChange={o => !o && onClose()}>
-            <DialogContent className="max-w-2xl p-0 gap-0">
-                <DialogHeader className="p-6 pb-4 border-b">
-                    <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                            <DialogTitle className="text-base font-semibold">{pd.nomor_permohonan}</DialogTitle>
-                            <DialogDescription className="text-sm">{pd.judul_pekerjaan ?? pd.keperluan}</DialogDescription>
-                        </div>
-                        <Badge variant={pd.status === 'rejected' ? 'destructive' : pd.status === 'dicairkan' ? 'default' : 'secondary'}>
-                            {pd.status_label}
-                        </Badge>
-                    </div>
-                    <div className="pt-4">
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                            <span>Progress</span>
-                            <span>{doneCount} dari {steps.length} langkah</span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-                        </div>
-                    </div>
-                </DialogHeader>
-
-                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
-                    <div className="relative">
-                        {/* Center line */}
-                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border -translate-x-1/2" />
-                        
-                        <ol className="space-y-4">
-                            {steps.map((step, idx) => {
-                                const style = stateStyles[step.state];
-                                const Icon = style.icon;
-                                const dt = fmtDateTime(step.ts);
-                                const isLeft = idx % 2 === 0;
-                                
-                                return (
-                                    <li key={step.key} className="relative flex items-center">
-                                        {/* Left side */}
-                                        <div className={cn('flex-1 pr-6', isLeft ? 'text-right' : 'opacity-0 pointer-events-none')}>
-                                            {isLeft && (
-                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
-                                                    <div className="flex items-center gap-2 mb-1 justify-end">
-                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
-                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
-                                                    </div>
-                                                    <p className="text-sm font-medium">{step.action}</p>
-                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
-                                                    {dt && (
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            {dt.date} · {dt.time}
-                                                        </p>
-                                                    )}
-                                                    {step.catatan && (
-                                                        <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">
-                                                            {step.catatan}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Center dot */}
-                                        <div className="relative z-10 flex-shrink-0 w-2.5 h-2.5 rounded-full bg-background border-2 border-current"
-                                            style={{ color: step.state === 'done' ? '#10b981' : step.state === 'rejected' ? '#ef4444' : step.state === 'active' ? '#3b82f6' : step.state === 'buka_kunci' ? '#f97316' : '#e5e7eb' }}
-                                        />
-
-                                        {/* Right side */}
-                                        <div className={cn('flex-1 pl-6', !isLeft ? 'text-left' : 'opacity-0 pointer-events-none')}>
-                                            {!isLeft && (
-                                                <div className={cn('inline-block border rounded-lg p-3 bg-card text-left border-l-4', style.border)}>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <Icon className={cn('h-4 w-4', style.iconColor)} />
-                                                        <span className="text-xs font-medium text-muted-foreground uppercase">{step.role}</span>
-                                                    </div>
-                                                    <p className="text-sm font-medium">{step.action}</p>
-                                                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
-                                                    {dt && (
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            {dt.date} · {dt.time}
-                                                        </p>
-                                                    )}
-                                                    {step.catatan && (
-                                                        <p className="text-xs text-muted-foreground mt-1.5 pt-1.5 border-t">
-                                                            {step.catatan}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ol>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Detail({ pd }: Props) {
     const [step, setStep]             = useState(1);
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
-    const [showHistory, setShowHistory] = useState(false);
     const [showBukaKunci, setShowBukaKunci] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
@@ -401,9 +131,7 @@ export default function Detail({ pd }: Props) {
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
         const url = `/files/dokumen/${dok.id}`;
-        const type = getFileType(dok.path_file);
-        if (type === 'other') window.open(url, '_blank', 'noopener,noreferrer');
-        else setPreviewDok({ url, nama: dok.nama_file });
+        setPreviewDok({ url, nama: dok.nama_file });
     };
 
     return (
@@ -435,15 +163,6 @@ export default function Detail({ pd }: Props) {
                             <span className={cn('h-1.5 w-1.5 rounded-full', statusDot)} />
                             {pd.status_label}
                         </span>
-                        {/* Riwayat */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button size="sm" variant="outline" onClick={() => setShowHistory(true)} className="gap-1.5 h-8 text-violet-600 border-violet-200 hover:bg-violet-50">
-                                    <History className="h-4 w-4" /> Riwayat
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Riwayat proses ajuan</TooltipContent>
-                        </Tooltip>
                         {/* Cetak */}
                         {canPrint && (
                             <Tooltip>
@@ -499,7 +218,7 @@ export default function Detail({ pd }: Props) {
                 )}
 
                 {/* Step Bar */}
-                <StepBar active={step} onChange={setStep} />
+                <StepBar steps={STEPS} active={step} onChange={setStep} />
 
                 {/* Step 1: Informasi Kegiatan */}
                 {step === 1 && (
@@ -656,8 +375,6 @@ export default function Detail({ pd }: Props) {
                 </div>
             </div>
 
-            {/* Riwayat Timeline */}
-            {showHistory && <VerticalTimeline pd={pd} open={showHistory} onClose={() => setShowHistory(false)} />}
 
             {/* Dialog Buka Kunci */}
             <AlertDialog open={showBukaKunci} onOpenChange={setShowBukaKunci}>
@@ -677,7 +394,7 @@ export default function Detail({ pd }: Props) {
                             rows={3}
                             value={data.alasan}
                             onChange={e => setData('alasan', e.target.value)}
-                            placeholder="Jelaskan alasan pembukaan kunci (minimal 10 karakter)"
+                            placeholder="Opsional: Jelaskan alasan pembukaan kunci (maks 1000 karakter)"
                             className="mt-1.5"
                         />
                     </div>
@@ -689,6 +406,9 @@ export default function Detail({ pd }: Props) {
                                     onSuccess: () => {
                                         setShowBukaKunci(false);
                                         reset();
+                                    },
+                                    onError: (errors: Record<string, string>) => {
+                                        toast.error(Object.values(errors)[0] ?? 'Terjadi kesalahan. Silakan coba lagi.');
                                     },
                                 });
                             }}

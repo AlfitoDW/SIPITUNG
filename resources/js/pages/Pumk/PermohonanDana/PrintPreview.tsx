@@ -68,7 +68,7 @@ const fmtRp = (n: string | number) =>
     'Rp ' + new Intl.NumberFormat('id-ID').format(Number(n));
 
 const STATUS_CHAIN: { key: string; label: string; field: keyof Pd }[] = [
-    { key: 'submitted',      label: 'Diajukan PUMK',          field: 'created_at' },
+    { key: 'submitted',      label: 'Diajukan PUMK',          field: 'kapokja' },
     { key: 'katim_approved', label: 'Disetujui KA.TIM',        field: 'katim_approved_by' },
     { key: 'kabag_approved', label: 'Disetujui Kabag Umum',    field: 'kabag_approved_by' },
     { key: 'ppk_approved',   label: 'Disetujui PPK',           field: 'ppk_approved_by' },

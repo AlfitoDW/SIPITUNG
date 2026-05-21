@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -1027,11 +1028,28 @@ export default function Nominatif({ permohonan, items_honor, items_perjadin, ref
 
     const handleSubmit = () => {
         const allRows: NominatifRow[] = [];
-        for (const item of items_honor)   allRows.push(...(honorRows[item.id]??[]).filter(r => r.nama.trim()));
-        for (const item of items_perjadin) allRows.push(...(perjadinRows[item.id]??[]).filter(r => r.nama.trim()));
+        let discarded = 0;
+        for (const item of items_honor) {
+            const rows = honorRows[item.id] ?? [];
+            discarded += rows.filter(r => !r.nama.trim()).length;
+            allRows.push(...rows.filter(r => r.nama.trim()));
+        }
+        for (const item of items_perjadin) {
+            const rows = perjadinRows[item.id] ?? [];
+            discarded += rows.filter(r => !r.nama.trim()).length;
+            allRows.push(...rows.filter(r => r.nama.trim()));
+        }
+
+        if (discarded > 0) {
+            const ok = window.confirm(`Ada ${discarded} baris dengan nama kosong yang akan dihapus. Lanjutkan simpan?`);
+            if (!ok) return;
+        }
 
         setSaving(true);
         router.post(`/pumk/permohonan-dana/${permohonan.id}/nominatif/simpan`, { nominatif: allRows }, {
+            onError: (errs: Record<string, string>) => {
+                toast.error(Object.values(errs)[0] ?? 'Gagal menyimpan nominatif.');
+            },
             onFinish: () => setSaving(false),
         });
     };

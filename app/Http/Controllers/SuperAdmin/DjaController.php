@@ -337,8 +337,8 @@ class DjaController extends Controller
             'nama_akun' => 'required|string|max:150',
             'nama_item' => 'required|string|max:300',
             'satuan' => 'required|string|max:20',
-            'harga_satuan' => 'required|integer|min:0',
-            'pagu_total' => 'required|integer|min:0',
+            'harga_satuan' => 'required|numeric|min:0',
+            'pagu_total' => 'required|numeric|min:0',
             'urutan' => 'nullable|integer|min:0',
         ]);
         DjaRincianBiaya::create($request->only(
@@ -356,8 +356,8 @@ class DjaController extends Controller
             'nama_akun' => 'required|string|max:150',
             'nama_item' => 'required|string|max:300',
             'satuan' => 'required|string|max:20',
-            'harga_satuan' => 'required|integer|min:0',
-            'pagu_total' => 'required|integer|min:0',
+            'harga_satuan' => 'required|numeric|min:0',
+            'pagu_total' => 'required|numeric|min:0',
             'urutan' => 'nullable|integer|min:0',
         ]);
         $rincian->update($request->only(
@@ -424,6 +424,7 @@ class DjaController extends Controller
         $imported = 0;
 
         $paguInt = fn ($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
+        $parseDecimal = fn ($v) => (float) str_replace(',', '.', str_replace('.', '', (string) ($v ?? 0)));
 
         foreach ($rows as $rowNum => $row) {
             $a = trim((string) ($row['A'] ?? ''));
@@ -529,8 +530,8 @@ class DjaController extends Controller
                         'nama_akun' => $currentNamaAkun ?? '',
                         'volume_default' => is_numeric(str_replace(['.', ','], ['', '.'], $c)) ? (float) str_replace(['.', ','], ['', '.'], $c) : 0,
                         'satuan' => $d ?: 'OK',
-                        'harga_satuan' => $paguInt($e),
-                        'pagu_total' => $paguInt($f),
+                        'harga_satuan' => $parseDecimal($e),
+                        'pagu_total' => $parseDecimal($f),
                         'urutan' => $urutan,
                         'is_aktif' => true,
                     ]
