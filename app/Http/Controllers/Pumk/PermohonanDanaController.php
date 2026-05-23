@@ -348,13 +348,24 @@ class PermohonanDanaController extends Controller
             'items.*.jumlah_permintaan' => 'required|numeric|min:0',
         ]);
 
+        // ── Validasi: harga satuan tidak boleh melebihi SBM ─────────────────────
+        foreach ($request->items as $item) {
+            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+
+            if ($item['harga_satuan'] > $rincian->harga_satuan) {
+                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                    ->with('error',
+                        "Harga satuan [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                        'tidak boleh melebihi SBM (Rp '.number_format($rincian->harga_satuan, 0, ',', '.').').'
+                    )
+                    ->with('wizard_step', 4);
+            }
+        }
+
         // ── Validasi: tidak boleh melebihi sisa pagu ─────────────────────────────
         foreach ($request->items as $item) {
-            if ($item['volume'] == 0) {
-                continue;
-            }
-
             $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+            $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
 
             $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
                 ->whereHas('permohonanDana', fn ($q) => $q
@@ -363,7 +374,6 @@ class PermohonanDanaController extends Controller
                 ->sum('jumlah_permintaan');
 
             $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
-            $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
 
             if ($jumlah > $sisaAnggaran) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)

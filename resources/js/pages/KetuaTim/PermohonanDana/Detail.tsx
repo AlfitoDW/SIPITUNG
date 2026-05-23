@@ -79,6 +79,8 @@ interface Pd {
     items: {
         id: number; kode_akun: string | null; uraian: string;
         volume: string; satuan: string; harga_satuan: string; total: string;
+        pagu_total: string | number; sbm: string | number;
+        terpakai: string | number; sisa_anggaran: string | number;
     }[];
     dokumens: {
         id: number; nama_jenis: string; nama_file: string; path_file: string;
@@ -89,8 +91,10 @@ interface Props { pd: Pd; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmt = (n: string | number) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(n));
+const fmt = (n: string | number | null | undefined) => {
+    const num = Number(n);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number.isNaN(num) ? 0 : num);
+};
 
 const fmtDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
@@ -258,9 +262,9 @@ export default function Detail({ pd }: Props) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-0">
-                            <InfoRow label="Tanggal Mulai"    value={fmtDate(pd.tanggal_mulai)} />
-                            <InfoRow label="Tanggal Selesai"  value={fmtDate(pd.tanggal_selesai)} />
-                            <InfoRow label="Jam Pelaksanaan"  value={pd.jam_pelaksanaan} />
+                            <InfoRow label="Tanggal Pelaksanaan Awal"    value={fmtDate(pd.tanggal_mulai)} />
+                            <InfoRow label="Tanggal Pelaksanaan Akhir"  value={fmtDate(pd.tanggal_selesai)} />
+                            <InfoRow label="Waktu Pelaksanaan"  value={pd.jam_pelaksanaan} />
                             <InfoRow label="Tempat"
                                 value={pd.tempat && (
                                     <span className="flex items-center gap-1">
@@ -268,8 +272,8 @@ export default function Detail({ pd }: Props) {
                                     </span>
                                 )}
                             />
-                            <InfoRow label="Tgl. Pertanggungjawaban" value={fmtDate(pd.tgl_pertanggungjawaban)} />
-                            <InfoRow label="Kapokja Kegiatan"
+                            <InfoRow label="Waktu Penyelesaian Pertanggungjawaban (sesuai RPD)" value={fmtDate(pd.tgl_pertanggungjawaban)} />
+                            <InfoRow label="Ketua Tim Kerja"
                                 value={pd.kapokja && (
                                     <span className="flex items-center gap-1">
                                         <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.kapokja.nama_lengkap}
@@ -355,10 +359,13 @@ export default function Detail({ pd }: Props) {
                                             <tr className="bg-slate-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                                 <th className="px-3 py-2.5 text-left">Kode Akun</th>
                                                 <th className="px-3 py-2.5 text-left">Uraian</th>
+                                                <th className="px-3 py-2.5 text-right w-28">Pagu</th>
                                                 <th className="px-3 py-2.5 text-right w-16">Vol</th>
                                                 <th className="px-3 py-2.5 text-left w-14">Sat</th>
                                                 <th className="px-3 py-2.5 text-right w-32">Harga Satuan</th>
-                                                <th className="px-3 py-2.5 text-right w-32 text-blue-700">Total</th>
+                                                <th className="px-3 py-2.5 text-right w-28 text-orange-600">Terpakai</th>
+                                                <th className="px-3 py-2.5 text-right w-32 text-blue-700">Jml Permintaan</th>
+                                                <th className="px-3 py-2.5 text-right w-28 text-emerald-600">Sisa</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -366,17 +373,21 @@ export default function Detail({ pd }: Props) {
                                                 <tr key={item.id} className="hover:bg-gray-50/60">
                                                     <td className="px-3 py-2.5 font-mono text-muted-foreground">{item.kode_akun ?? '-'}</td>
                                                     <td className="px-3 py-2.5">{item.uraian}</td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums">{fmt(item.pagu_total ?? 0)}</td>
                                                     <td className="px-3 py-2.5 text-right tabular-nums">{Number(item.volume)}</td>
                                                     <td className="px-3 py-2.5 text-muted-foreground">{item.satuan}</td>
                                                     <td className="px-3 py-2.5 text-right tabular-nums">{fmt(item.harga_satuan)}</td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums text-orange-600">{fmt(item.terpakai ?? 0)}</td>
                                                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-blue-700">{fmt(item.total)}</td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600">{fmt(Math.max(0, Number(item.sisa_anggaran ?? 0)))}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                         <tfoot>
                                             <tr className="bg-blue-50 border-t font-bold">
-                                                <td colSpan={5} className="px-3 py-2.5 text-right text-xs text-gray-600">Total Permintaan</td>
+                                                <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-gray-600">Total Permintaan</td>
                                                 <td className="px-3 py-2.5 text-right tabular-nums text-blue-700">{fmt(pd.total_anggaran)}</td>
+                                                <td></td>
                                             </tr>
                                         </tfoot>
                                     </table>

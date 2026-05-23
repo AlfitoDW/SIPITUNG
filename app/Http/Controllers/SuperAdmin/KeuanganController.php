@@ -99,9 +99,22 @@ class KeuanganController extends Controller
     {
         $pd->load([
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'items', 'dokumens', 'createdBy', 'timKerja',
+            'kapokja', 'picKeuangan', 'dokumens', 'createdBy', 'timKerja',
             'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy',
         ]);
+
+        $items = \App\Models\PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
+            ->with('djaRincianBiaya')
+            ->get();
+
+        $djaIds = $items->pluck('dja_rincian_biaya_id')->filter()->unique()->values();
+        $terpakaiMap = \App\Models\PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $djaIds)
+            ->whereHas('permohonanDana', fn ($q) => $q
+                ->whereNotIn('status', ['draft', 'rejected'])
+                ->where('id', '!=', $pd->id))
+            ->selectRaw('dja_rincian_biaya_id, SUM(jumlah_permintaan) as total')
+            ->groupBy('dja_rincian_biaya_id')
+            ->pluck('total', 'dja_rincian_biaya_id');
 
         return Inertia::render('SuperAdmin/Keuangan/PermohonanDana/Detail', [
             'pd' => [
@@ -158,9 +171,13 @@ class KeuanganController extends Controller
                 'dja_ro' => $pd->djaRo ? ['nama' => $pd->djaRo->nama] : null,
                 'dja_komponen' => $pd->djaKomponen ? ['nama' => $pd->djaKomponen->nama] : null,
                 'dja_kegiatan' => $pd->djaKegiatan ? ['kode' => $pd->djaKegiatan->kode, 'nama' => $pd->djaKegiatan->nama] : null,
-                'items' => $pd->items->map(fn ($i) => [
+                'items' => $items->map(fn ($i) => [
                     'id' => $i->id, 'kode_akun' => $i->kode_akun, 'uraian' => $i->uraian,
                     'volume' => $i->volume, 'satuan' => $i->satuan, 'harga_satuan' => $i->harga_satuan, 'total' => $i->total,
+                    'pagu_total' => $i->djaRincianBiaya?->pagu_total ?? 0,
+                    'sbm' => $i->djaRincianBiaya?->harga_satuan ?? $i->harga_satuan,
+                    'terpakai' => $terpakaiMap[$i->dja_rincian_biaya_id] ?? 0,
+                    'sisa_anggaran' => max(0, ($i->djaRincianBiaya?->pagu_total ?? 0) - ($terpakaiMap[$i->dja_rincian_biaya_id] ?? 0)),
                 ])->values(),
                 'dokumens' => $pd->dokumens->map(fn ($d) => [
                     'id' => $d->id, 'nama_jenis' => $d->nama_jenis, 'nama_file' => $d->nama_file, 'path_file' => $d->path_file,

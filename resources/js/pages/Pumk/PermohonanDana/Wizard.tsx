@@ -54,7 +54,10 @@ interface Props {
     jenisDokumen: Record<string,string>;
 }
 
-const fmt = (n:number) => new Intl.NumberFormat('id-ID').format(n);
+const fmt = (n: number | string | null | undefined) => {
+    const num = Number(n);
+    return new Intl.NumberFormat('id-ID').format(Number.isNaN(num) ? 0 : num);
+};
 const STEPS = ['Kegiatan','Waktu & PJ','Dokumen','Rincian Biaya'];
 
 /** Normalize date string ke YYYY-MM-DD untuk <input type="date"> */
@@ -224,7 +227,7 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
                     <div className={readonly ? 'pointer-events-none opacity-75 space-y-4' : 'space-y-4'}>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label className="text-sm">Tanggal Pelaksanaan <span className="text-red-500">*</span></Label>
+                                <Label className="text-sm">Tanggal Pelaksanaan Awal <span className="text-red-500">*</span></Label>
                                 <DateInput className="mt-1" value={form.tanggal_mulai} onChange={v => setForm('tanggal_mulai', v)} />
                                 {errors.tanggal_mulai && <p className="text-xs text-red-500 mt-1">{errors.tanggal_mulai}</p>}
                             </div>
@@ -235,12 +238,12 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
                             </div>
                         </div>
                         <div>
-                            <Label className="text-sm">Jam Pelaksanaan</Label>
+                            <Label className="text-sm">Waktu Pelaksanaan</Label>
                             <input type="time" className="mt-1 flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" value={form.jam_pelaksanaan}
                                 onChange={e => setForm('jam_pelaksanaan', e.target.value)} />
                         </div>
                         <div>
-                            <Label className="text-sm">Kapokja Kegiatan <span className="text-red-500">*</span></Label>
+                            <Label className="text-sm">Ketua Tim Kerja <span className="text-red-500">*</span></Label>
                             <Select value={form.kapokja_id} onValueChange={v => setForm('kapokja_id', v)}>
                                 <SelectTrigger className="mt-1">
                                     <SelectValue placeholder="Pilih Kapokja..." />
@@ -267,10 +270,10 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
                             <Label className="text-sm">Tempat Pelaksanaan</Label>
                             <Input className="mt-1" value={form.tempat}
                                 onChange={e => setForm('tempat', e.target.value)}
-                                placeholder="Nama tempat / lokasi kegiatan" />
+                                placeholder="Alamat dan Kota Tempat Pelaksanaan (Sesuaikan)" />
                         </div>
                         <div>
-                            <Label className="text-sm">Waktu Penyelesaian Pertanggungjawaban</Label>
+                            <Label className="text-sm">Waktu Penyelesaian Pertanggungjawaban (sesuai RPD)</Label>
                             <DateInput className="mt-1 w-56" value={form.tgl_pertanggungjawaban} onChange={v => setForm('tgl_pertanggungjawaban', v)} />
                         </div>
                         <div>
@@ -655,7 +658,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                         {first.kode_akun} — {first.nama_akun}
                                     </span>
                                     <span className="text-xs text-gray-500 font-medium">
-                                        Pagu: <span className="text-gray-700 font-bold">Rp {fmt(group.reduce((s, item) => s + item.pagu_total, 0))}</span>
+                                        Pagu: <span className="text-gray-700 font-bold">Rp {fmt(group.reduce((s, item) => s + Number(item.pagu_total ?? 0), 0))}</span>
                                     </span>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -668,11 +671,11 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                 <th className="text-center px-2 py-2 w-14">Sat.</th>
                                                 <th className="text-right px-2 py-2 w-36">
                                                     Harga Satuan
-                                                    <span className="block text-[10px] text-blue-500 font-normal">(DJA / lapangan)</span>
+                                                    <span className="block text-[10px] text-blue-500 font-normal">(SBM / lapangan)</span>
                                                 </th>
                                                 <th className="text-right px-2 py-2 w-28 text-orange-600">Terpakai</th>
-                                                <th className="text-right px-2 py-2 w-28 text-emerald-600">Sisa</th>
-                                                <th className="text-right px-3 py-2 w-32 text-blue-700">Jml Permintaan</th>
+                                                <th className="text-right px-2 py-2 w-32 text-blue-700">Jml Permintaan</th>
+                                                <th className="text-right px-3 py-2 w-28 text-emerald-600">Sisa</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -682,7 +685,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                 const req   = vol * harga;
                                                 const sisa  = sisaDinamis(item);
                                                 const over  = req > item.sisa_anggaran;
-                                                const hargaBeda = harga !== item.harga_satuan; // beda dari DJA
+                                                const hargaBeda = harga < item.harga_satuan; // di bawah SBM
                                                 return (
                                                     <tr key={item.id} className={cn('border-b last:border-0 align-top', over ? 'bg-red-50' : '')}>
                                                         <td className="px-3 py-2 text-gray-700 leading-snug">
@@ -690,7 +693,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                         </td>
                                                         {/* Pagu Anggaran */}
                                                         <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">
-                                                            {fmt(item.pagu_total)}
+                                                            {fmt(item.pagu_total ?? 0)}
                                                         </td>
                                                         {/* Volume */}
                                                         <td className="px-2 py-2">
@@ -710,7 +713,10 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                                     type="number" min={0} step="1"
                                                                     value={harga || ''}
                                                                     placeholder="0"
-                                                                    onChange={e => setHargaSatuan(h => ({ ...h, [item.id]: Number(e.target.value) }))}
+                                                                    onChange={e => {
+                                                                        const val = Math.min(Number(e.target.value), item.harga_satuan);
+                                                                        setHargaSatuan(h => ({ ...h, [item.id]: val }));
+                                                                    }}
                                                                     className={cn(
                                                                         'w-full text-right border rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-400',
                                                                         hargaBeda && 'border-amber-400 bg-amber-50',
@@ -718,24 +724,24 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                                 />
                                                                 {hargaBeda && (
                                                                     <span className="text-[10px] text-amber-600 text-right">
-                                                                        DJA: {fmt(item.harga_satuan)}
+                                                                        SBM: {fmt(item.harga_satuan)}
                                                                     </span>
                                                                 )}
                                                             </div>
                                                         </td>
                                                         {/* Terpakai (dari PD lain) */}
                                                         <td className="px-2 py-2 text-right text-orange-600 whitespace-nowrap">
-                                                            {fmt(item.terpakai)}
-                                                        </td>
-                                                        {/* Sisa dinamis */}
-                                                        <td className={cn('px-2 py-2 text-right whitespace-nowrap font-medium', sisa < 0 ? 'text-red-600' : 'text-emerald-600')}>
-                                                            {fmt(Math.max(0, sisa))}
-                                                            {sisa < 0 && <AlertTriangle className="w-3 h-3 inline ml-0.5" />}
+                                                            {fmt(item.terpakai ?? 0)}
                                                         </td>
                                                         {/* Jumlah Permintaan */}
-                                                        <td className={cn('px-3 py-2 text-right font-semibold whitespace-nowrap', over ? 'text-red-600' : 'text-blue-700')}>
+                                                        <td className={cn('px-2 py-2 text-right font-semibold whitespace-nowrap', over ? 'text-red-600' : 'text-blue-700')}>
                                                             {fmt(req)}
                                                             {over && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                                                        </td>
+                                                        {/* Sisa dinamis */}
+                                                        <td className={cn('px-3 py-2 text-right whitespace-nowrap font-medium', sisa < 0 ? 'text-red-600' : 'text-emerald-600')}>
+                                                            {fmt(Math.max(0, sisa ?? 0))}
+                                                            {sisa < 0 && <AlertTriangle className="w-3 h-3 inline ml-0.5" />}
                                                         </td>
                                                     </tr>
                                                 );
@@ -743,12 +749,13 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                         </tbody>
                                         <tfoot>
                                             <tr className="bg-gray-50 border-t">
-                                                <td colSpan={7} className="px-3 py-2 text-right text-xs font-semibold text-gray-600">
+                                                <td colSpan={6} className="px-3 py-2 text-right text-xs font-semibold text-gray-600">
                                                     Total {first.kode_akun}:
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-xs font-bold text-blue-700 whitespace-nowrap">
                                                     Rp {fmt(totalAkun(group))}
                                                 </td>
+                                                <td></td>
                                             </tr>
                                         </tfoot>
                                     </table>

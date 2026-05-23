@@ -184,12 +184,12 @@ export default function PrintPreview({ pd }: Props) {
                 {/* ── Waktu & PJ ──────────────────────────────────────────── */}
                 <SectionTitle>B. Waktu &amp; Penanggung Jawab</SectionTitle>
                 <InfoTable rows={[
-                    ['Tanggal Mulai', fmtDate(pd.tanggal_mulai)],
-                    ['Tanggal Selesai', fmtDate(pd.tanggal_selesai)],
-                    ['Jam Pelaksanaan', pd.jam_pelaksanaan ?? '-'],
+                    ['Tanggal Pelaksanaan Awal', fmtDate(pd.tanggal_mulai)],
+                    ['Tanggal Pelaksanaan Akhir', fmtDate(pd.tanggal_selesai)],
+                    ['Waktu Pelaksanaan', pd.jam_pelaksanaan ?? '-'],
                     ['Tempat', pd.tempat ?? '-'],
-                    ['Tgl Pertanggungjawaban', fmtDate(pd.tgl_pertanggungjawaban)],
-                    ['Kapokja', pd.kapokja?.nama_lengkap ?? '-'],
+                    ['Waktu Penyelesaian Pertanggungjawaban (sesuai RPD)', fmtDate(pd.tgl_pertanggungjawaban)],
+                    ['Ketua Tim Kerja', pd.kapokja?.nama_lengkap ?? '-'],
                     ['PIC Keuangan', pd.pic_keuangan?.nama_lengkap ?? '-'],
                 ]} />
 
@@ -318,7 +318,7 @@ export default function PrintPreview({ pd }: Props) {
                                     <div style={{ borderTop: '1px solid #374151', width: '70%', margin: '0 auto', paddingTop: '3px' }}>
                                         <strong>( {pd.kapokja?.nama_lengkap ?? '……………………………'} )</strong>
                                     </div>
-                                    <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '2px' }}>Kapokja Kegiatan</div>
+                                    <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '2px' }}>Ketua Tim Kerja</div>
                                 </td>
                             </tr>
                         </tbody>
