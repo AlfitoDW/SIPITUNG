@@ -21,20 +21,50 @@ class NominatifController extends Controller
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
 
-        $pd->load(['items.nominatif', 'timKerja']);
-
-        $itemsHonor = $pd->items->filter(fn ($i) => $i->isHonor())->values();
-        $itemsPerjadin = $pd->items->filter(fn ($i) => $i->isPerjadin())->values();
+        $pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja']);
 
         $refNama = RefNama::aktif()
             ->orderBy('nama')
             ->get(['id', 'nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian',
                 'nama_rekening', 'no_rekening', 'nama_bank', 'email', 'pph21_persen']);
 
+        // Build rincian biaya data grouped by kode_akun (same format as Wizard Step 4)
+        $rincianBiaya = [];
+        foreach ($pd->items as $item) {
+            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $item->dja_rincian_biaya_id)
+                ->whereHas('permohonanDana', fn ($q) => $q
+                    ->whereNotIn('status', ['draft', 'rejected'])
+                    ->where('id', '!=', $pd->id))
+                ->sum('jumlah_permintaan');
+
+            $dja = $item->djaRincianBiaya;
+
+            $data = [
+                'id' => $item->id, // permohonan_dana_item id (used as item_id in nominatif)
+                'kode_akun' => $item->kode_akun,
+                'nama_akun' => $dja?->nama_akun ?? '-',
+                'nama_item' => $item->uraian,
+                'satuan' => $item->satuan,
+                'harga_satuan' => $dja?->harga_satuan ?? 0,
+                'pagu_total' => $dja?->pagu_total ?? 0,
+                'terpakai' => $terpakai,
+                'sisa_anggaran' => max(0, ($dja?->pagu_total ?? 0) - $terpakai),
+                'volume' => $item->volume,
+                'harga_satuan_aktual' => $item->harga_satuan,
+                'total' => $item->total,
+                'jumlah_permintaan' => $item->jumlah_permintaan,
+                'tipe_nominatif' => $item->tipe_nominatif,
+                'nominatif_count' => $item->nominatif->count(),
+                'nominatif' => $item->nominatif,
+            ];
+
+            $key = $item->kode_akun . '|' . ($dja?->nama_akun ?? '-');
+            $rincianBiaya[$key][] = $data;
+        }
+
         return Inertia::render('Pumk/PermohonanDana/Nominatif', [
             'permohonan' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-            'items_honor' => $itemsHonor,
-            'items_perjadin' => $itemsPerjadin,
+            'rincian_biaya' => array_values($rincianBiaya),
             'ref_nama' => $refNama,
         ]);
     }
