@@ -21,16 +21,26 @@ class PermohonanDanaController extends Controller
 {
     private function statusForRole(): string
     {
-        return auth()->user()->isPimpinanKabagUmum()
-            ? 'katim_approved'
-            : 'kabag_approved';
+        $user = auth()->user();
+        if ($user->isPimpinanKabagUmum()) {
+            return 'katim_approved';
+        }
+        if ($user->isPimpinanPPK()) {
+            return 'kabag_approved';
+        }
+        abort(403, 'Pimpinan tidak terdaftar sebagai Kabag Umum atau PPK.');
     }
 
     private function nextStatus(): string
     {
-        return auth()->user()->isPimpinanKabagUmum()
-            ? 'kabag_approved'
-            : 'ppk_approved';
+        $user = auth()->user();
+        if ($user->isPimpinanKabagUmum()) {
+            return 'kabag_approved';
+        }
+        if ($user->isPimpinanPPK()) {
+            return 'ppk_approved';
+        }
+        abort(403, 'Pimpinan tidak terdaftar sebagai Kabag Umum atau PPK.');
     }
 
     private function approvalField(): string
@@ -227,40 +237,82 @@ class PermohonanDanaController extends Controller
 
     public function approve(Request $request, PermohonanDana $pd): RedirectResponse
     {
-        abort_if($pd->status !== $this->statusForRole(), 422, 'Status tidak valid.');
+        $user = $request->user();
+
+        // Pastikan user adalah Kabag Umum atau PPK (bukan pimpinan_type lain/NULL)
+        abort_unless(
+            $user->isPimpinanKabagUmum() || $user->isPimpinanPPK(),
+            403,
+            'Anda tidak berhak melakukan approval permohonan dana.'
+        );
+
+        // Validasi status sesuai role:
+        // - Kabag Umum hanya bisa approve status `katim_approved`
+        // - PPK hanya bisa approve status `kabag_approved`
+        $expectedStatus = $user->isPimpinanKabagUmum() ? 'katim_approved' : 'kabag_approved';
+
+        if ($pd->status !== $expectedStatus) {
+            $msg = $user->isPimpinanPPK() && $pd->status === 'katim_approved'
+                ? 'Permohonan ini masih menunggu persetujuan Kabag Umum, belum bisa di-approve oleh PPK.'
+                : "Status permohonan tidak sesuai. Diharapkan: {$expectedStatus}, status saat ini: {$pd->status}.";
+
+            abort(422, $msg);
+        }
 
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
-        \DB::transaction(function () use ($pd, $request) {
-            $pd->lockForUpdate()->update([
+        \DB::transaction(function () use ($pd, $request, $user) {
+            $pd->lockForUpdate();
+            // Re-check status di dalam transaction untuk hindari race condition
+            $fresh = PermohonanDana::lockForUpdate()->find($pd->id);
+            $expected = $user->isPimpinanKabagUmum() ? 'katim_approved' : 'kabag_approved';
+            abort_if($fresh->status !== $expected, 409, 'Status berubah, silakan refresh halaman.');
+
+            $fresh->update([
                 'status' => $this->nextStatus(),
-                $this->approvalField() => $request->user()->id,
+                $this->approvalField() => $user->id,
                 $this->catatanField() => $request->catatan,
                 $this->approvalAtField() => now(),
             ]);
         });
 
-        $next = $request->user()->isPimpinanKabagUmum() ? 'PPK' : 'PIC Keuangan';
+        $next = $user->isPimpinanKabagUmum() ? 'PPK' : 'PIC Keuangan';
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} disetujui, diteruskan ke {$next}.");
     }
 
     public function reject(Request $request, PermohonanDana $pd): RedirectResponse
     {
-        abort_if($pd->status !== $this->statusForRole(), 422, 'Status tidak valid.');
+        $user = $request->user();
+
+        abort_unless(
+            $user->isPimpinanKabagUmum() || $user->isPimpinanPPK(),
+            403,
+            'Anda tidak berhak melakukan reject permohonan dana.'
+        );
+
+        $expectedStatus = $user->isPimpinanKabagUmum() ? 'katim_approved' : 'kabag_approved';
+
+        if ($pd->status !== $expectedStatus) {
+            abort(422, "Status permohonan tidak sesuai untuk di-reject. Diharapkan: {$expectedStatus}, status saat ini: {$pd->status}.");
+        }
 
         $request->validate(['catatan' => 'required|string|max:1000']);
 
-        \DB::transaction(function () use ($pd, $request) {
-            $pd->lockForUpdate()->update([
+        \DB::transaction(function () use ($pd, $request, $user) {
+            $fresh = PermohonanDana::lockForUpdate()->find($pd->id);
+            $expected = $user->isPimpinanKabagUmum() ? 'katim_approved' : 'kabag_approved';
+            abort_if($fresh->status !== $expected, 409, 'Status berubah, silakan refresh halaman.');
+
+            $fresh->update([
                 'status' => 'rejected',
                 'rejected_at_step' => $this->rejectedStep(),
                 'catatan_penolakan' => $request->catatan,
                 'rejected_at' => now(),
             ]);
 
-            $pd->rejections()->create([
-                'rejected_by' => $request->user()->id,
+            $fresh->rejections()->create([
+                'rejected_by' => $user->id,
                 'rejected_at_step' => $this->rejectedStep(),
                 'catatan' => $request->catatan,
                 'rejected_at' => now(),
