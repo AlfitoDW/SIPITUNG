@@ -228,6 +228,7 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Nama</TableHead>
+                                    <TableHead>NIP</TableHead>
                                     <TableHead>Username</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Role</TableHead>
@@ -239,6 +240,7 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                 {paginated.length > 0 ? paginated.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.nama_lengkap}</TableCell>
+                                        <TableCell className="text-muted-foreground font-mono text-xs">{item.nip || '-'}</TableCell>
                                         <TableCell className="text-muted-foreground">{item.username}</TableCell>
                                         <TableCell>{item.email}</TableCell>
                                         <TableCell>
@@ -277,7 +279,7 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                                             Tidak ada data akun
                                         </TableCell>
                                     </TableRow>
@@ -337,6 +339,15 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                 onChange={(e) => setData('nama_lengkap', e.target.value)}
                             />
                             {errors.nama_lengkap && <p className="text-xs text-red-500">{errors.nama_lengkap}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label>NIP <span className="text-muted-foreground text-xs">(opsional)</span></Label>
+                            <Input
+                                placeholder="Misal: 198501012010011001"
+                                value={data.nip}
+                                onChange={(e) => setData('nip', e.target.value)}
+                            />
+                            {errors.nip && <p className="text-xs text-red-500">{errors.nip}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label>Username <span className="text-red-500">*</span></Label>

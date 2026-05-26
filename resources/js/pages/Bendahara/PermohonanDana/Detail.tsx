@@ -255,11 +255,11 @@ export default function Detail({ pd }: Props) {
                         {canPrint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Link href={`/bendahara/permohonan-dana/${pd.id}/nominatif`} target="_blank">
+                                    <a href={`/bendahara/permohonan-dana/${pd.id}/nominatif`}>
                                         <Button size="sm" variant="outline" className="gap-1.5 h-8 text-blue-600 border-blue-200 hover:bg-blue-50">
                                             <Download className="h-4 w-4" /> Nominatif
                                         </Button>
-                                    </Link>
+                                    </a>
                                 </TooltipTrigger>
                                 <TooltipContent>Download Nominatif</TooltipContent>
                             </Tooltip>

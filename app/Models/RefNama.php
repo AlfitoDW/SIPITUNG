@@ -39,7 +39,7 @@ class RefNama extends Model
         if (! $gol) {
             return 0;
         }
-        $golKelas = strtoupper(substr($gol, 0, 2)); // 'II', 'III', 'IV'
+        $golKelas = strtoupper(explode('/', $gol)[0]); // 'II', 'III', 'IV'
 
         return match (true) {
             str_starts_with($golKelas, 'IV') => 15.0,

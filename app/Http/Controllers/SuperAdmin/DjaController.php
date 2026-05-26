@@ -424,7 +424,7 @@ class DjaController extends Controller
         $imported = 0;
 
         $paguInt = fn ($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
-        $parseDecimal = fn ($v) => (float) str_replace(',', '.', str_replace('.', '', (string) ($v ?? 0)));
+        $parseDecimal = fn ($v) => (float) preg_replace('/[^\d.]/', '', str_replace(',', '', (string) ($v ?? 0)));
 
         foreach ($rows as $rowNum => $row) {
             $a = trim((string) ($row['A'] ?? ''));

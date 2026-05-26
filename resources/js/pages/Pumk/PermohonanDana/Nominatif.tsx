@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ type NominatifRow = {
     pph21_persen: string;
     jabatan: string;
     volume: string;
+    satuan: string;
     harga_satuan: string;
     transport: string;
     uang_harian_vol: string;
@@ -117,30 +118,64 @@ const fmt = (n: number | string | null | undefined) => {
 
 const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
 
-const JABATAN_OPTIONS = ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Anggota', 'Penanggung Jawab', 'Narasumber', 'Moderator'];
+// Hitung tarif PPh21 real-time (mirror logic PHP RefNama::hitungPph21)
+function hitungPph21(status: string, gol: string | null, npwp: string | null): number {
+    if (status === 'Non-PNS') {
+        return npwp ? 3.0 : 2.5;
+    }
+    if (!gol) return 0;
+    const g = gol.toUpperCase();
+    if (g.startsWith('IV')) return 15.0;
+    if (g.startsWith('III')) return 5.0;
+    return 0.0;
+}
+
+const JABATAN_OPTIONS_521213 = [
+    'Honorarium Penanggungjawab',
+    'Honorarium Ketua',
+    'Honorarium Wakil Ketua',
+    'Honorarium Sekretaris',
+    'Honorarium Anggota',
+];
+
+const JABATAN_OPTIONS_522151 = [
+    'Honorarium Narasumber (Pejabat Eselon II)',
+    'Honorarium Narasumber (Pejabat Eselon III)',
+    'Honorarium Moderator',
+    'Honorarium Redaktur (Managing Editor)',
+    'Honorarium Penyunting/Editor',
+    'Honorarium Sekretariat',
+    'Honorarium Pembawa Acara',
+];
+
+function getJabatanOptions(kodeAkun: string): string[] {
+    if (kodeAkun === '521213') return JABATAN_OPTIONS_521213;
+    if (kodeAkun === '522151') return JABATAN_OPTIONS_522151;
+    return [];
+}
 
 const GOL_PNS = ['II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'];
 
 // ── Empty Row Factories ─────────────────────────────────────────────────────────
 
-function makeEmptyHonorRow(itemId: number, hargaDefault: number): NominatifRow {
+function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number): NominatifRow {
     return {
         item_id: itemId, ref_nama_id: null,
         nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
         nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
-        jabatan: '', volume: '1', harga_satuan: String(hargaDefault),
+        jabatan: '', volume: '1', satuan: satuan, harga_satuan: String(hargaDefault),
         transport: '0', uang_harian_vol: '0', uang_harian_satuan: '0',
         fullboard_vol: '0', fullboard_satuan: '0', fullday_vol: '0', fullday_satuan: '0',
         representasi: '0', taksi_pp: '0', tiket_pesawat: '0', hotel: '0',
     };
 }
 
-function makeEmptyPerjadinRow(itemId: number): NominatifRow {
+function makeEmptyPerjadinRow(itemId: number, satuan: string, hargaSatuan: number): NominatifRow {
     return {
         item_id: itemId, ref_nama_id: null,
         nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
         nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
-        jabatan: '', volume: '1', harga_satuan: '0',
+        jabatan: '', volume: '1', satuan: satuan, harga_satuan: String(hargaSatuan),
         transport: '0', uang_harian_vol: '0', uang_harian_satuan: '0',
         fullboard_vol: '0', fullboard_satuan: '0', fullday_vol: '0', fullday_satuan: '0',
         representasi: '0', taksi_pp: '0', tiket_pesawat: '0', hotel: '0',
@@ -148,6 +183,19 @@ function makeEmptyPerjadinRow(itemId: number): NominatifRow {
 }
 
 function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): NominatifRow {
+    // For perjadin items with component data, compute generic total
+    const perjadinTotal =
+        (parseFloat(String(nom.transport)) || 0) +
+        ((parseFloat(String(nom.uang_harian_vol)) || 0) * (parseFloat(String(nom.uang_harian_satuan)) || 0)) +
+        ((parseFloat(String(nom.fullboard_vol)) || 0) * (parseFloat(String(nom.fullboard_satuan)) || 0)) +
+        ((parseFloat(String(nom.fullday_vol)) || 0) * (parseFloat(String(nom.fullday_satuan)) || 0)) +
+        (parseFloat(String(nom.representasi)) || 0) +
+        (parseFloat(String(nom.taksi_pp)) || 0) +
+        (parseFloat(String(nom.tiket_pesawat)) || 0) +
+        (parseFloat(String(nom.hotel)) || 0);
+
+    const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
+
     return {
         item_id: itemId, ref_nama_id: nom.ref_nama_id,
         nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
@@ -155,7 +203,10 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         nama_rekening: nom.nama_rekening ?? '', no_rekening: nom.no_rekening ?? '',
         nama_bank: nom.nama_bank ?? '', email: nom.email ?? '',
         pph21_persen: nom.pph21_persen,
-        jabatan: nom.jabatan ?? '', volume: nom.volume, harga_satuan: nom.harga_satuan,
+        jabatan: nom.jabatan ?? '',
+        volume: isGeneric ? nom.volume : (perjadinTotal > 0 ? '1' : nom.volume),
+        satuan: '',
+        harga_satuan: isGeneric ? nom.harga_satuan : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
         transport: nom.transport, uang_harian_vol: nom.uang_harian_vol,
         uang_harian_satuan: nom.uang_harian_satuan,
         fullboard_vol: nom.fullboard_vol, fullboard_satuan: nom.fullboard_satuan,
@@ -526,26 +577,26 @@ function ActionBtn({
 
 function HonorNominatifTable({
     itemId,
-    kodeAkun,
     rows,
     onChange,
     onAdd,
     onRemove,
     refNama,
     onOpenAddDialog,
-    showJabatan,
     itemTotal,
+    defaultSatuan,
+    defaultHargaSatuan,
 }: {
     itemId: number;
-    kodeAkun: string;
     rows: NominatifRow[];
     onChange: (idx: number, field: keyof NominatifRow, val: string) => void;
     onAdd: () => void;
     onRemove: (idx: number) => void;
     refNama: RefNama[];
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
-    showJabatan: boolean;
     itemTotal: number;
+    defaultSatuan: string;
+    defaultHargaSatuan: number;
 }) {
     const fillFromPegawai = (idx: number, nama: string, peg: RefNama | null) => {
         onChange(idx, 'nama', nama);
@@ -558,7 +609,8 @@ function HonorNominatifTable({
         onChange(idx, 'no_rekening', peg?.no_rekening ?? '');
         onChange(idx, 'nama_bank', peg?.nama_bank ?? '');
         onChange(idx, 'email', peg?.email ?? '');
-        onChange(idx, 'pph21_persen', peg?.pph21_persen ?? '0');
+        const pph = peg ? String(hitungPph21(peg.status_kepegawaian, peg.gol_ruang, peg.npwp)) : '0';
+        onChange(idx, 'pph21_persen', pph);
     };
 
     const totalNominatif = rows.reduce((s, r) => {
@@ -570,19 +622,18 @@ function HonorNominatifTable({
     const isMatch = Math.abs(totalNominatif - itemTotal) <= 0.01;
 
     return (
-        <div className="mt-3">
+        <div className="mt-3 rounded-lg border border-orange-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs" style={{ minWidth: 720 }}>
                     <thead>
-                        <tr className="border-b bg-orange-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                            <th className="text-left px-2 py-1.5 w-48">Nama</th>
-                            {showJabatan && <th className="text-left px-2 py-1.5 w-32">Jabatan</th>}
-                            <th className="text-right px-2 py-1.5 w-16">Vol</th>
-                            <th className="text-right px-2 py-1.5 w-28">Harga Satuan</th>
-                            <th className="text-right px-2 py-1.5 w-16">PPh21%</th>
-                            <th className="text-right px-2 py-1.5 w-28">Bruto</th>
-                            <th className="text-right px-2 py-1.5 w-28">Pajak</th>
-                            <th className="text-right px-2 py-1.5 w-28">Diterima</th>
+                        <tr className="border-b bg-orange-100 text-[10px] font-semibold text-amber-800 uppercase tracking-wider shadow-sm">
+                            <th className="text-left px-2 py-1.5 w-48 border-r border-orange-200/60 last:border-r-0">Nama</th>
+                            <th className="text-left px-2 py-1.5 w-40 border-r border-orange-200/60 last:border-r-0">Detail Identitas</th>
+                            <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60 last:border-r-0">Rekening</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">Vol</th>
+                            <th className="text-center px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">Sat</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60 last:border-r-0">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60 last:border-r-0">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
                         </tr>
                     </thead>
@@ -590,72 +641,39 @@ function HonorNominatifTable({
                         {rows.map((row, idx) => {
                             const vol = parseFloat(row.volume) || 0;
                             const harga = parseFloat(row.harga_satuan) || 0;
-                            const bruto = vol * harga;
-                            const pph21 = parseFloat(row.pph21_persen) || 0;
-                            const pajak = bruto * pph21 / 100;
-                            const diterima = bruto - pajak;
-
-                            const matchedPegawai = row.ref_nama_id
-                                ? refNama.find(p => p.id === Number(row.ref_nama_id))
-                                : row.nama ? refNama.find(p => p.nama === row.nama) : null;
+                            const jumlah = vol * harga;
 
                             return (
-                                <tr key={idx} className="border-b last:border-0 hover:bg-gray-50/50">
-                                    <td className="px-2 py-1.5 align-top">
+                                <tr key={idx} className="border-b last:border-0 even:bg-orange-50/30 hover:bg-amber-50/60 transition-colors duration-150">
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
                                         <PegawaiCombobox
                                             value={row.nama}
                                             options={refNama}
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
                                         />
-                                        {matchedPegawai && (
-                                            <div className="mt-0.5 flex items-center gap-1">
-                                                <span className={cn('text-[9px] px-1 py-0.5 rounded', statusColor(matchedPegawai.status_kepegawaian))}>
-                                                    {matchedPegawai.status_kepegawaian}
-                                                </span>
-                                                {matchedPegawai.nip && <span className="text-[9px] text-muted-foreground">{matchedPegawai.nip}</span>}
-                                            </div>
-                                        )}
                                     </td>
-                                    {showJabatan && (
-                                        <td className="px-2 py-1.5 align-top">
-                                            <Select value={row.jabatan} onValueChange={v => onChange(idx, 'jabatan', v)}>
-                                                <SelectTrigger className="h-7 text-xs">
-                                                    <SelectValue placeholder="Jabatan" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {JABATAN_OPTIONS.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                    )}
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input
-                                            type="number" min="0" step="0.5"
-                                            value={row.volume}
-                                            onChange={e => onChange(idx, 'volume', e.target.value)}
-                                            className="h-7 text-xs text-right"
-                                        />
+                                    <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
+                                        {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
+                                        {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
+                                        {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
+                                        {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input
-                                            type="number" min="0"
-                                            value={row.harga_satuan}
-                                            onChange={e => onChange(idx, 'harga_satuan', e.target.value)}
-                                            className="h-7 text-xs text-right"
-                                        />
+                                    <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
+                                        {row.no_rekening && <div><span className="text-gray-400">No.Rek:</span> {row.no_rekening}</div>}
+                                        {row.nama_rekening && <div><span className="text-gray-400">a.n:</span> {row.nama_rekening}</div>}
+                                        {row.nama_bank && <div><span className="text-gray-400">Bank:</span> {row.nama_bank}</div>}
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input
-                                            type="number" min="0" max="100" step="0.5"
-                                            value={row.pph21_persen}
-                                            onChange={e => onChange(idx, 'pph21_persen', e.target.value)}
-                                            className="h-7 text-xs text-right"
-                                        />
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="number" min="0" step="0.5" value={row.volume} onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
                                     </td>
-                                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-700">{fmt(bruto)}</td>
-                                    <td className="px-2 py-1.5 text-right tabular-nums text-amber-600">{fmt(pajak)}</td>
-                                    <td className="px-2 py-1.5 text-right tabular-nums font-medium text-emerald-700">{fmt(diterima)}</td>
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="text" value={row.satuan || defaultSatuan} onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
+                                    </td>
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="number" min="0" value={row.harga_satuan || String(defaultHargaSatuan)} onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700 border-r border-slate-100 last:border-r-0">{fmt(jumlah)}</td>
                                     <td className="px-2 py-1.5 text-center">
                                         <ActionBtn
                                             title="Hapus peserta"
@@ -670,28 +688,12 @@ function HonorNominatifTable({
                         })}
                     </tbody>
                     <tfoot>
-                        <tr className="border-t bg-gray-50">
-                            <td colSpan={showJabatan ? 5 : 4} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
+                        <tr className="border-t-2 border-t-orange-200 bg-orange-50/60">
+                            <td colSpan={6} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
                                 Total Nominatif:
                             </td>
-                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-gray-800">{fmt(totalNominatif)}</td>
-                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-amber-600">
-                                {fmt(rows.reduce((s, r) => {
-                                    const vol = parseFloat(r.volume) || 0;
-                                    const harga = parseFloat(r.harga_satuan) || 0;
-                                    const bruto = vol * harga;
-                                    const pph = parseFloat(r.pph21_persen) || 0;
-                                    return s + (bruto * pph / 100);
-                                }, 0))}
-                            </td>
-                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-emerald-700">
-                                {fmt(rows.reduce((s, r) => {
-                                    const vol = parseFloat(r.volume) || 0;
-                                    const harga = parseFloat(r.harga_satuan) || 0;
-                                    const bruto = vol * harga;
-                                    const pph = parseFloat(r.pph21_persen) || 0;
-                                    return s + (bruto - (bruto * pph / 100));
-                                }, 0))}
+                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700">
+                                {fmt(totalNominatif)}
                             </td>
                             <td></td>
                         </tr>
@@ -699,12 +701,12 @@ function HonorNominatifTable({
                 </table>
             </div>
 
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-2 px-1">
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={onAdd}
-                    className="h-7 text-xs gap-1 text-orange-600 border-orange-200 hover:text-orange-700 hover:bg-orange-50"
+                    className="h-7 text-xs gap-1 text-orange-700 border-orange-300 hover:text-white hover:bg-orange-500 hover:border-orange-500 transition-colors"
                 >
                     <Plus className="h-3.5 w-3.5" /> Tambah Peserta
                 </Button>
@@ -720,7 +722,7 @@ function HonorNominatifTable({
                 </div>
             </div>
             {!isMatch && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 mt-1 px-1">
                     Total nominatif (Rp {fmt(totalNominatif)}) tidak sama dengan jumlah permintaan (Rp {fmt(itemTotal)}). Selisih: Rp {fmt(Math.abs(totalNominatif - itemTotal))}
                 </p>
             )}
@@ -732,7 +734,6 @@ function HonorNominatifTable({
 
 function PerjadinNominatifTable({
     itemId,
-    kodeAkun,
     rows,
     onChange,
     onAdd,
@@ -740,9 +741,10 @@ function PerjadinNominatifTable({
     refNama,
     onOpenAddDialog,
     itemTotal,
+    defaultSatuan,
+    defaultHargaSatuan,
 }: {
     itemId: number;
-    kodeAkun: string;
     rows: NominatifRow[];
     onChange: (idx: number, field: keyof NominatifRow, val: string) => void;
     onAdd: () => void;
@@ -750,6 +752,8 @@ function PerjadinNominatifTable({
     refNama: RefNama[];
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     itemTotal: number;
+    defaultSatuan: string;
+    defaultHargaSatuan: number;
 }) {
     const fillFromPegawai = (idx: number, nama: string, peg: RefNama | null) => {
         onChange(idx, 'nama', nama);
@@ -764,106 +768,67 @@ function PerjadinNominatifTable({
         onChange(idx, 'email', peg?.email ?? '');
     };
 
-    const calcJumlah = (vol: string, sat: string) => (parseFloat(vol) || 0) * (parseFloat(sat) || 0);
-
     const totalNominatif = rows.reduce((s, r) => {
-        const uh = calcJumlah(r.uang_harian_vol, r.uang_harian_satuan);
-        const fb = calcJumlah(r.fullboard_vol, r.fullboard_satuan);
-        const fd = calcJumlah(r.fullday_vol, r.fullday_satuan);
-        return s + (parseFloat(r.transport) || 0) + uh + fb + fd
-            + (parseFloat(r.representasi) || 0) + (parseFloat(r.taksi_pp) || 0)
-            + (parseFloat(r.tiket_pesawat) || 0) + (parseFloat(r.hotel) || 0);
+        const vol = parseFloat(r.volume) || 0;
+        const harga = parseFloat(r.harga_satuan) || 0;
+        return s + (vol * harga);
     }, 0);
 
     const isMatch = Math.abs(totalNominatif - itemTotal) <= 0.01;
 
     return (
-        <div className="mt-3">
+        <div className="mt-3 rounded-lg border border-blue-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-                <table className="w-full text-xs" style={{ minWidth: 900 }}>
+                <table className="w-full text-xs" style={{ minWidth: 720 }}>
                     <thead>
-                        <tr className="border-b bg-blue-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                            <th className="text-left px-2 py-1.5 w-48">Nama</th>
-                            <th className="text-right px-2 py-1.5 w-20">Transport</th>
-                            <th className="text-right px-2 py-1.5 w-20">UH Biasa</th>
-                            <th className="text-right px-2 py-1.5 w-20">UH Fullboard</th>
-                            <th className="text-right px-2 py-1.5 w-20">UH Fullday</th>
-                            <th className="text-right px-2 py-1.5 w-20">Representasi</th>
-                            <th className="text-right px-2 py-1.5 w-20">Taksi PP</th>
-                            <th className="text-right px-2 py-1.5 w-20">Tiket</th>
-                            <th className="text-right px-2 py-1.5 w-20">Hotel</th>
-                            <th className="text-right px-2 py-1.5 w-24">Total</th>
+                        <tr className="border-b bg-blue-100 text-[10px] font-semibold text-blue-800 uppercase tracking-wider shadow-sm">
+                            <th className="text-left px-2 py-1.5 w-48 border-r border-blue-200/60 last:border-r-0">Nama</th>
+                            <th className="text-left px-2 py-1.5 w-40 border-r border-blue-200/60 last:border-r-0">Detail Identitas</th>
+                            <th className="text-left px-2 py-1.5 w-36 border-r border-blue-200/60 last:border-r-0">Rekening</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-blue-200/60 last:border-r-0">Vol</th>
+                            <th className="text-center px-2 py-1.5 w-16 border-r border-blue-200/60 last:border-r-0">Sat</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60 last:border-r-0">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60 last:border-r-0">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row, idx) => {
-                            const uhJml = calcJumlah(row.uang_harian_vol, row.uang_harian_satuan);
-                            const fbJml = calcJumlah(row.fullboard_vol, row.fullboard_satuan);
-                            const fdJml = calcJumlah(row.fullday_vol, row.fullday_satuan);
-                            const total = (parseFloat(row.transport) || 0) + uhJml + fbJml + fdJml
-                                + (parseFloat(row.representasi) || 0) + (parseFloat(row.taksi_pp) || 0)
-                                + (parseFloat(row.tiket_pesawat) || 0) + (parseFloat(row.hotel) || 0);
-
-                            const matchedPegawai = row.ref_nama_id
-                                ? refNama.find(p => p.id === Number(row.ref_nama_id))
-                                : row.nama ? refNama.find(p => p.nama === row.nama) : null;
+                            const vol = parseFloat(row.volume) || 0;
+                            const harga = parseFloat(row.harga_satuan) || 0;
+                            const jumlah = vol * harga;
 
                             return (
-                                <tr key={idx} className="border-b last:border-0 hover:bg-gray-50/50">
-                                    <td className="px-2 py-1.5 align-top">
+                                <tr key={idx} className="border-b last:border-0 even:bg-blue-50/30 hover:bg-sky-50/60 transition-colors duration-150">
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
                                         <PegawaiCombobox
                                             value={row.nama}
                                             options={refNama}
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
                                         />
-                                        {matchedPegawai && (
-                                            <div className="mt-0.5 flex items-center gap-1">
-                                                <span className={cn('text-[9px] px-1 py-0.5 rounded', statusColor(matchedPegawai.status_kepegawaian))}>
-                                                    {matchedPegawai.status_kepegawaian}
-                                                </span>
-                                                {matchedPegawai.nip && <span className="text-[9px] text-muted-foreground">{matchedPegawai.nip}</span>}
-                                            </div>
-                                        )}
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input type="number" min="0" value={row.transport} onChange={e => onChange(idx, 'transport', e.target.value)} className="h-7 text-xs text-right" />
+                                    <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
+                                        {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
+                                        {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
+                                        {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
+                                        {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <div className="flex gap-1">
-                                            <Input type="number" min="0" value={row.uang_harian_vol} onChange={e => onChange(idx, 'uang_harian_vol', e.target.value)} className="h-7 text-xs text-right w-12 px-1" placeholder="Vol" />
-                                            <Input type="number" min="0" value={row.uang_harian_satuan} onChange={e => onChange(idx, 'uang_harian_satuan', e.target.value)} className="h-7 text-xs text-right w-16 px-1" placeholder="Hrg" />
-                                        </div>
-                                        <div className="text-right text-[10px] text-gray-500 mt-0.5">{fmt(uhJml)}</div>
+                                    <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
+                                        {row.no_rekening && <div><span className="text-gray-400">No.Rek:</span> {row.no_rekening}</div>}
+                                        {row.nama_rekening && <div><span className="text-gray-400">a.n:</span> {row.nama_rekening}</div>}
+                                        {row.nama_bank && <div><span className="text-gray-400">Bank:</span> {row.nama_bank}</div>}
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <div className="flex gap-1">
-                                            <Input type="number" min="0" value={row.fullboard_vol} onChange={e => onChange(idx, 'fullboard_vol', e.target.value)} className="h-7 text-xs text-right w-12 px-1" placeholder="Vol" />
-                                            <Input type="number" min="0" value={row.fullboard_satuan} onChange={e => onChange(idx, 'fullboard_satuan', e.target.value)} className="h-7 text-xs text-right w-16 px-1" placeholder="Hrg" />
-                                        </div>
-                                        <div className="text-right text-[10px] text-gray-500 mt-0.5">{fmt(fbJml)}</div>
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="number" min="0" step="0.5" value={row.volume} onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <div className="flex gap-1">
-                                            <Input type="number" min="0" value={row.fullday_vol} onChange={e => onChange(idx, 'fullday_vol', e.target.value)} className="h-7 text-xs text-right w-12 px-1" placeholder="Vol" />
-                                            <Input type="number" min="0" value={row.fullday_satuan} onChange={e => onChange(idx, 'fullday_satuan', e.target.value)} className="h-7 text-xs text-right w-16 px-1" placeholder="Hrg" />
-                                        </div>
-                                        <div className="text-right text-[10px] text-gray-500 mt-0.5">{fmt(fdJml)}</div>
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="text" value={row.harga_satuan ? defaultSatuan : ''} onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input type="number" min="0" value={row.representasi} onChange={e => onChange(idx, 'representasi', e.target.value)} className="h-7 text-xs text-right" />
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        <Input type="number" min="0" value={row.harga_satuan} onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
                                     </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input type="number" min="0" value={row.taksi_pp} onChange={e => onChange(idx, 'taksi_pp', e.target.value)} className="h-7 text-xs text-right" />
-                                    </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input type="number" min="0" value={row.tiket_pesawat} onChange={e => onChange(idx, 'tiket_pesawat', e.target.value)} className="h-7 text-xs text-right" />
-                                    </td>
-                                    <td className="px-2 py-1.5 align-top">
-                                        <Input type="number" min="0" value={row.hotel} onChange={e => onChange(idx, 'hotel', e.target.value)} className="h-7 text-xs text-right" />
-                                    </td>
-                                    <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700">{fmt(total)}</td>
+                                    <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700 border-r border-slate-100 last:border-r-0">{fmt(jumlah)}</td>
                                     <td className="px-2 py-1.5 text-center">
                                         <ActionBtn
                                             title="Hapus peserta"
@@ -878,8 +843,8 @@ function PerjadinNominatifTable({
                         })}
                     </tbody>
                     <tfoot>
-                        <tr className="border-t bg-gray-50">
-                            <td colSpan={9} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
+                        <tr className="border-t-2 border-t-blue-200 bg-blue-50/60">
+                            <td colSpan={6} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
                                 Total Nominatif:
                             </td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700">
@@ -891,12 +856,12 @@ function PerjadinNominatifTable({
                 </table>
             </div>
 
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-2 px-1">
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={onAdd}
-                    className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:text-blue-700 hover:bg-blue-50"
+                    className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:text-white hover:bg-blue-500 hover:border-blue-500 transition-colors"
                 >
                     <Plus className="h-3.5 w-3.5" /> Tambah Peserta
                 </Button>
@@ -912,7 +877,7 @@ function PerjadinNominatifTable({
                 </div>
             </div>
             {!isMatch && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 mt-1 px-1">
                     Total nominatif (Rp {fmt(totalNominatif)}) tidak sama dengan jumlah permintaan (Rp {fmt(itemTotal)}). Selisih: Rp {fmt(Math.abs(totalNominatif - itemTotal))}
                 </p>
             )}
@@ -924,6 +889,7 @@ function PerjadinNominatifTable({
 
 export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initialRefNama }: Props) {
     const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
     const [refNama, setRefNama] = useState<RefNama[]>(initialRefNama);
 
     // Dialog tambah pegawai baru
@@ -963,9 +929,9 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
             if (item.nominatif.length > 0) {
                 m[item.id] = item.nominatif.map(n => rowFromExisting(n, item.id));
             } else if (item.tipe_nominatif === 'honor' && item.volume > 0) {
-                m[item.id] = [makeEmptyHonorRow(item.id, item.harga_satuan_aktual)];
+                m[item.id] = [makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual)];
             } else if (item.tipe_nominatif === 'perjadin' && item.volume > 0) {
-                m[item.id] = [makeEmptyPerjadinRow(item.id)];
+                m[item.id] = [makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual)];
             } else {
                 m[item.id] = [];
             }
@@ -982,29 +948,35 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
         });
     };
 
-    const setRow = (itemId: number, idx: number, f: keyof NominatifRow, v: string) =>
+    const setRow = (itemId: number, idx: number, f: keyof NominatifRow, v: string) => {
+        setHasChanges(true);
         setNominatifRows(prev => {
             const rows = [...(prev[itemId] ?? [])];
             rows[idx] = { ...rows[idx], [f]: v };
             return { ...prev, [itemId]: rows };
         });
+    };
 
-    const addRow = (item: RincianItem) =>
+    const addRow = (item: RincianItem) => {
+        setHasChanges(true);
         setNominatifRows(prev => {
             const rows = [...(prev[item.id] ?? [])];
             if (item.tipe_nominatif === 'honor') {
-                rows.push(makeEmptyHonorRow(item.id, item.harga_satuan_aktual));
+                rows.push(makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual));
             } else {
-                rows.push(makeEmptyPerjadinRow(item.id));
+                rows.push(makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual));
             }
             return { ...prev, [item.id]: rows };
         });
+    };
 
-    const removeRow = (itemId: number, idx: number) =>
+    const removeRow = (itemId: number, idx: number) => {
+        setHasChanges(true);
         setNominatifRows(prev => ({
             ...prev,
             [itemId]: (prev[itemId] ?? []).filter((_, i) => i !== idx),
         }));
+    };
 
     // ── Validation ────────────────────────────────────────────────────────────
     const isItemValid = (item: RincianItem) => {
@@ -1013,25 +985,13 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
         const rows = nominatifRows[item.id] ?? [];
         if (rows.length === 0) return false;
 
-        // Check total match
-        let totalNominatif = 0;
-        if (item.tipe_nominatif === 'honor') {
-            totalNominatif = rows.reduce((s, r) => {
-                const vol = parseFloat(r.volume) || 0;
-                const harga = parseFloat(r.harga_satuan) || 0;
-                return s + (vol * harga);
-            }, 0);
-        } else if (item.tipe_nominatif === 'perjadin') {
-            totalNominatif = rows.reduce((s, r) => {
-                const uh = (parseFloat(r.uang_harian_vol) || 0) * (parseFloat(r.uang_harian_satuan) || 0);
-                const fb = (parseFloat(r.fullboard_vol) || 0) * (parseFloat(r.fullboard_satuan) || 0);
-                const fd = (parseFloat(r.fullday_vol) || 0) * (parseFloat(r.fullday_satuan) || 0);
-                return s + (parseFloat(r.transport) || 0) + uh + fb + fd
-                    + (parseFloat(r.representasi) || 0) + (parseFloat(r.taksi_pp) || 0)
-                    + (parseFloat(r.tiket_pesawat) || 0) + (parseFloat(r.hotel) || 0);
-            }, 0);
-        }
-        return Math.abs(totalNominatif - item.total) <= 0.01;
+        // Check total match (generic: volume × harga_satuan for both honor and perjadin)
+        const totalNominatif = rows.reduce((s, r) => {
+            const vol = parseFloat(r.volume) || 0;
+            const harga = parseFloat(r.harga_satuan) || 0;
+            return s + (vol * harga);
+        }, 0);
+        return Math.abs(totalNominatif - Number(item.total)) <= 0.01;
     };
 
     const invalidItems = rincian_biaya.flat().filter(item =>
@@ -1042,11 +1002,25 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
 
     const canSave = invalidItems.length === 0;
 
+    // ── Beforeunload guard ────────────────────────────────────────────────────
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [hasChanges]);
+
     // ── Save ──────────────────────────────────────────────────────────────────
     const handleSave = () => {
         if (!canSave) {
-            toast.error('Terdapat item yang total nominatifnya tidak sesuai dengan rincian biaya.');
-            return;
+            const ok = window.confirm(
+                `Ada ${invalidItems.length} item yang total nominatifnya belum sesuai dengan rincian biaya.\n\nYakin ingin menyimpan data saat ini?`
+            );
+            if (!ok) return;
         }
 
         const payload: NominatifRow[] = [];
@@ -1064,6 +1038,10 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                 preserveState: true,
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
+                onSuccess: () => {
+                    setHasChanges(false);
+                    toast.success('Nominatif berhasil disimpan.');
+                },
                 onError: (errs: Record<string, string>) => {
                     toast.error(Object.values(errs)[0] ?? 'Gagal menyimpan nominatif.');
                 },
@@ -1098,7 +1076,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                     </div>
                     <Button
                         onClick={handleSave}
-                        disabled={saving || !canSave}
+                        disabled={saving}
                         className="h-9 text-sm gap-2"
                     >
                         {saving ? 'Menyimpan...' : <><Save className="h-4 w-4" /> Simpan Nominatif</>}
@@ -1120,23 +1098,11 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                 <ul className="mt-2 space-y-1">
                                     {invalidItems.map(item => {
                                         const rows = nominatifRows[item.id] ?? [];
-                                        let totalNominatif = 0;
-                                        if (item.tipe_nominatif === 'honor') {
-                                            totalNominatif = rows.reduce((s, r) => {
-                                                const vol = parseFloat(r.volume) || 0;
-                                                const harga = parseFloat(r.harga_satuan) || 0;
-                                                return s + (vol * harga);
-                                            }, 0);
-                                        } else {
-                                            totalNominatif = rows.reduce((s, r) => {
-                                                const uh = (parseFloat(r.uang_harian_vol) || 0) * (parseFloat(r.uang_harian_satuan) || 0);
-                                                const fb = (parseFloat(r.fullboard_vol) || 0) * (parseFloat(r.fullboard_satuan) || 0);
-                                                const fd = (parseFloat(r.fullday_vol) || 0) * (parseFloat(r.fullday_satuan) || 0);
-                                                return s + (parseFloat(r.transport) || 0) + uh + fb + fd
-                                                    + (parseFloat(r.representasi) || 0) + (parseFloat(r.taksi_pp) || 0)
-                                                    + (parseFloat(r.tiket_pesawat) || 0) + (parseFloat(r.hotel) || 0);
-                                            }, 0);
-                                        }
+                                        const totalNominatif = rows.reduce((s, r) => {
+                                            const vol = parseFloat(r.volume) || 0;
+                                            const harga = parseFloat(r.harga_satuan) || 0;
+                                            return s + (vol * harga);
+                                        }, 0);
                                         return (
                                             <li key={item.id} className="text-xs text-red-800">
                                                 <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}
@@ -1161,8 +1127,8 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                         rincian_biaya.map((group, gi) => {
                             const first = group[0];
                             return (
-                                <Card key={gi} className="overflow-hidden">
-                                    <CardHeader className="bg-slate-50 px-4 py-3">
+                                <Card key={gi} className="overflow-hidden shadow-sm border-slate-200">
+                                    <CardHeader className="bg-gradient-to-r from-slate-50 to-white px-4 py-3 border-b border-slate-100">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <Badge variant="outline" className="font-mono text-xs">
@@ -1179,45 +1145,45 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-xs">
                                                 <thead>
-                                                    <tr className="border-b bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                                                        <th className="text-left px-3 py-2">Uraian</th>
-                                                        <th className="text-right px-2 py-2 w-28">Pagu Anggaran</th>
-                                                        <th className="text-center px-2 py-2 w-16">Vol</th>
-                                                        <th className="text-center px-2 py-2 w-14">Sat.</th>
-                                                        <th className="text-right px-2 py-2 w-32">Harga Satuan</th>
-                                                        <th className="text-right px-2 py-2 w-28 text-orange-600">Terpakai</th>
-                                                        <th className="text-right px-2 py-2 w-32 text-blue-700">Jml Permintaan</th>
+                                                    <tr className="border-b bg-slate-100 text-[10px] font-semibold text-slate-600 uppercase tracking-wider shadow-sm">
+                                                        <th className="text-left px-3 py-2 border-r border-slate-200 last:border-r-0">Uraian</th>
+                                                        <th className="text-right px-2 py-2 w-28 border-r border-slate-200 last:border-r-0">Pagu Anggaran</th>
+                                                        <th className="text-center px-2 py-2 w-16 border-r border-slate-200 last:border-r-0">Vol</th>
+                                                        <th className="text-center px-2 py-2 w-14 border-r border-slate-200 last:border-r-0">Sat.</th>
+                                                        <th className="text-right px-2 py-2 w-32 border-r border-slate-200 last:border-r-0">Harga Satuan</th>
+                                                        <th className="text-right px-2 py-2 w-28 text-orange-600 border-r border-slate-200 last:border-r-0">Terpakai</th>
+                                                        <th className="text-right px-2 py-2 w-32 text-blue-700 border-r border-slate-200 last:border-r-0">Jml Permintaan</th>
                                                         <th className="text-right px-3 py-2 w-28 text-emerald-600">Sisa</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {group.map(item => (
-                                                        <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50/50">
-                                                            <td className="px-3 py-2 text-gray-700 leading-snug">{item.nama_item}</td>
-                                                            <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">{fmt(item.pagu_total ?? 0)}</td>
-                                                            <td className="px-2 py-2 text-center font-medium">{fmt(item.volume ?? 0)}</td>
-                                                            <td className="px-2 py-2 text-center text-gray-500">{item.satuan}</td>
-                                                            <td className="px-2 py-2 text-right text-gray-600 whitespace-nowrap">
+                                                        <tr key={item.id} className="border-b last:border-0 even:bg-slate-50/60 hover:bg-blue-50/40 transition-colors duration-150">
+                                                            <td className="px-3 py-2 text-gray-700 leading-snug border-r border-slate-100 last:border-r-0">{item.nama_item}</td>
+                                                            <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap border-r border-slate-100 last:border-r-0">{fmt(item.pagu_total ?? 0)}</td>
+                                                            <td className="px-2 py-2 text-center font-medium border-r border-slate-100 last:border-r-0">{fmt(item.volume ?? 0)}</td>
+                                                            <td className="px-2 py-2 text-center text-gray-500 border-r border-slate-100 last:border-r-0">{item.satuan}</td>
+                                                            <td className="px-2 py-2 text-right text-gray-600 whitespace-nowrap border-r border-slate-100 last:border-r-0">
                                                                 Rp {fmt(item.harga_satuan_aktual ?? 0)}
                                                                 {item.harga_satuan_aktual < item.harga_satuan && (
                                                                     <span className="block text-[10px] text-amber-600">SBM: {fmt(item.harga_satuan)}</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-2 py-2 text-right text-orange-600 whitespace-nowrap">{fmt(item.terpakai ?? 0)}</td>
-                                                            <td className="px-2 py-2 text-right font-semibold whitespace-nowrap text-blue-700">Rp {fmt(item.total ?? 0)}</td>
-                                                            <td className={cn('px-3 py-2 text-right whitespace-nowrap font-medium', (item.sisa_anggaran - item.total) < 0 ? 'text-red-600' : 'text-emerald-600')}>
+                                                            <td className="px-2 py-2 text-right text-orange-600 whitespace-nowrap border-r border-slate-100 last:border-r-0">{fmt(item.terpakai ?? 0)}</td>
+                                                            <td className="px-2 py-2 text-right font-semibold whitespace-nowrap text-blue-700 border-r border-slate-100 last:border-r-0">Rp {fmt(item.total ?? 0)}</td>
+                                                            <td className={cn('px-3 py-2 text-right whitespace-nowrap font-medium', (item.sisa_anggaran - Number(item.total)) < 0 ? 'text-red-600' : 'text-emerald-600')}>
                                                                 {fmt(Math.max(0, (item.sisa_anggaran ?? 0) - (item.total ?? 0)))}
                                                             </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
-                                                <tfoot>
-                                                    <tr className="bg-gray-50 border-t">
+                                                    <tfoot>
+                                                        <tr className="bg-slate-50/80 border-t-2 border-t-slate-200">
                                                         <td colSpan={6} className="px-3 py-2 text-right text-xs font-semibold text-gray-600">
                                                             Total {first.kode_akun}:
                                                         </td>
                                                         <td className="px-3 py-2 text-right text-xs font-bold text-blue-700 whitespace-nowrap">
-                                                            Rp {fmt(group.reduce((s, item) => s + (item.total ?? 0), 0))}
+                                                            Rp {fmt(group.reduce((s, item) => s + Number(item.total ?? 0), 0))}
                                                         </td>
                                                         <td></td>
                                                     </tr>
@@ -1233,61 +1199,86 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                             const isValid = isItemValid(item);
 
                                             return (
-                                                <div key={item.id} className="border-t bg-white">
+                                                <div key={item.id} className={cn(
+                                                    "border-t bg-white",
+                                                    item.tipe_nominatif === 'honor'
+                                                        ? 'border-l-4 border-l-amber-300'
+                                                        : 'border-l-4 border-l-blue-300'
+                                                )}>
                                                     <button
                                                         type="button"
                                                         onClick={() => toggleExpand(item.id)}
-                                                        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-gray-50/80 transition-colors"
+                                                        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50/80 transition-colors"
                                                     >
                                                         <div className="flex items-center gap-2">
-                                                            {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                                                            {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
                                                             <Badge
                                                                 variant="outline"
                                                                 className={cn(
-                                                                    'text-xs font-mono',
+                                                                    'text-xs font-mono shadow-sm',
                                                                     item.tipe_nominatif === 'honor'
-                                                                        ? 'bg-orange-50 border-orange-200 text-orange-700'
+                                                                        ? 'bg-amber-50 border-amber-200 text-amber-700'
                                                                         : 'bg-blue-50 border-blue-200 text-blue-700'
                                                                 )}
                                                             >
                                                                 {item.kode_akun}
                                                             </Badge>
-                                                            <span className="text-xs font-medium text-gray-700">{item.nama_item}</span>
-                                                            <span className="text-xs text-muted-foreground">
+                                                            <span className="text-xs font-semibold text-slate-700">{item.nama_item}</span>
+                                                            <span className="text-xs text-slate-400">
                                                                 · {rows.length} peserta
                                                             </span>
                                                             {isValid ? (
-                                                                <span className="text-[10px] text-emerald-600 font-medium">✓ Sesuai</span>
+                                                                <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium border border-emerald-100">
+                                                                    <CheckCircle2 className="h-3 w-3" /> Sesuai
+                                                                </span>
                                                             ) : (
-                                                                <span className="text-[10px] text-red-600 font-medium flex items-center gap-0.5">
+                                                                <span className="inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium border border-red-100">
                                                                     <AlertTriangle className="h-3 w-3" /> Belum sesuai
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            Jml Permintaan: <span className="font-semibold text-gray-700">Rp {fmt(item.total)}</span>
+                                                        <span className="text-xs text-slate-400">
+                                                            Jml Permintaan: <span className="font-semibold text-slate-700">Rp {fmt(item.total)}</span>
                                                         </span>
                                                     </button>
 
                                                     {isExpanded && (
                                                         <div className="px-4 pb-4">
                                                             {item.tipe_nominatif === 'honor' ? (
-                                                                <HonorNominatifTable
-                                                                    itemId={item.id}
-                                                                    kodeAkun={item.kode_akun}
-                                                                    rows={rows}
-                                                                    onChange={(idx, f, v) => setRow(item.id, idx, f, v)}
-                                                                    onAdd={() => addRow(item)}
-                                                                    onRemove={(idx) => removeRow(item.id, idx)}
-                                                                    refNama={refNama}
-                                                                    onOpenAddDialog={openAddDialog}
-                                                                    showJabatan={item.kode_akun !== '521115'}
-                                                                    itemTotal={item.total}
-                                                                />
+                                                                <>
+                                                                    {item.kode_akun !== '521115' && (
+                                                                        <div className="mb-2 flex items-center gap-2">
+                                                                            <Select
+                                                                                value={rows[0]?.jabatan ?? ''}
+                                                                                onValueChange={v => {
+                                                                                    rows.forEach((_, idx) => setRow(item.id, idx, 'jabatan', v));
+                                                                                }}
+                                                                            >
+                                                                                <SelectTrigger className="h-7 text-xs w-64">
+                                                                                    <SelectValue placeholder="Pilih Rincian / Jabatan" />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {getJabatanOptions(item.kode_akun).map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>
+                                                                    )}
+                                                                    <HonorNominatifTable
+                                                                        itemId={item.id}
+                                                                        rows={rows}
+                                                                        onChange={(idx, f, v) => setRow(item.id, idx, f, v)}
+                                                                        onAdd={() => addRow(item)}
+                                                                        onRemove={(idx) => removeRow(item.id, idx)}
+                                                                        refNama={refNama}
+                                                                        onOpenAddDialog={openAddDialog}
+                                                                        itemTotal={item.total}
+                                                                        defaultSatuan={item.satuan}
+                                                                        defaultHargaSatuan={item.harga_satuan_aktual}
+                                                                    />
+                                                                </>
                                                             ) : (
                                                                 <PerjadinNominatifTable
                                                                     itemId={item.id}
-                                                                    kodeAkun={item.kode_akun}
                                                                     rows={rows}
                                                                     onChange={(idx, f, v) => setRow(item.id, idx, f, v)}
                                                                     onAdd={() => addRow(item)}
@@ -1295,6 +1286,8 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                                     refNama={refNama}
                                                                     onOpenAddDialog={openAddDialog}
                                                                     itemTotal={item.total}
+                                                                    defaultSatuan={item.satuan}
+                                                                    defaultHargaSatuan={item.harga_satuan_aktual}
                                                                 />
                                                             )}
                                                         </div>
