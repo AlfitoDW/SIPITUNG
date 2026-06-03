@@ -114,5 +114,43 @@ class UserSeeder extends Seeder
                 ]
             );
         }
+
+        // 16+. PUMK dan PIC Keuangan untuk setiap tim kerja
+        // Username: pumk.{kode_lower} & pic.{kode_lower}
+        foreach (TimKerja::all() as $tim) {
+            $kodeLower = strtolower(str_replace('TK-', '', $tim->kode));
+
+            // PUMK
+            User::updateOrCreate(
+                ['role' => 'pumk', 'tim_kerja_id' => $tim->id],
+                [
+                    'nama_lengkap' => 'PUMK '.$tim->nama,
+                    'nip' => null,
+                    'username' => "pumk.{$kodeLower}",
+                    'email' => "pumk.{$kodeLower}@lldikti3.go.id",
+                    'password' => $password,
+                    'role' => 'pumk',
+                    'tim_kerja_id' => $tim->id,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            // PIC Keuangan
+            User::updateOrCreate(
+                ['role' => 'pic_keuangan', 'tim_kerja_id' => $tim->id],
+                [
+                    'nama_lengkap' => 'PIC Keuangan '.$tim->nama,
+                    'nip' => null,
+                    'username' => "pic.{$kodeLower}",
+                    'email' => "pic.{$kodeLower}@lldikti3.go.id",
+                    'password' => $password,
+                    'role' => 'pic_keuangan',
+                    'tim_kerja_id' => $tim->id,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+        }
     }
 }
