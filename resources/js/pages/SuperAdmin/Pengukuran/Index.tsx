@@ -124,7 +124,7 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
 
                 <div className="flex justify-end">
                     <Button variant="outline" size="sm" asChild>
-                        <a href="/super-admin/pengukuran/realisasi">Lihat Realisasi Kinerja &rarr;</a>
+                        <a href="/super-admin/pengukuran/realisasi">Lihat Capaian Kinerja &rarr;</a>
                     </Button>
                 </div>
 

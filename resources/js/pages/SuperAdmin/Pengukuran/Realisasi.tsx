@@ -12,7 +12,7 @@ import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran', href: '/super-admin/pengukuran' },
-    { title: 'Realisasi Kinerja', href: '/super-admin/pengukuran/realisasi' },
+    { title: 'Capaian Kinerja', href: '/super-admin/pengukuran/realisasi' },
 ];
 
 type Periode  = { id: number; triwulan: string; is_active: boolean };
@@ -354,13 +354,13 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Realisasi Kinerja" />
+            <Head title="Capaian Kinerja" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
 
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Realisasi Kinerja</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Capaian Kinerja</h1>
                         <p className="text-muted-foreground text-sm">{tahun.label}</p>
                     </div>
                     {periode && (
@@ -387,7 +387,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                 {/* Tabs */}
                 <Tabs defaultValue="realisasi">
                     <TabsList>
-                        <TabsTrigger value="realisasi">Realisasi Kinerja</TabsTrigger>
+                        <TabsTrigger value="realisasi">Capaian Kinerja</TabsTrigger>
                         <TabsTrigger value="status" className="gap-1.5">
                             Status Laporan
                             {pendingCount > 0 && (

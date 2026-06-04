@@ -276,11 +276,11 @@ class PengukuranController extends Controller
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(12);
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Realisasi Kinerja');
+        $sheet->setTitle('Capaian Kinerja');
 
         // ── Title row ─────────────────────────────────────────────────────────
         $sheet->mergeCells('A1:Q1');
-        $sheet->setCellValue('A1', "Realisasi Kinerja — {$tahun->label}");
+        $sheet->setCellValue('A1', "Capaian Kinerja — {$tahun->label}");
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
@@ -536,7 +536,7 @@ class PengukuranController extends Controller
             }
         }
 
-        // Shared styles untuk sheet TW — selaras dengan sheet Realisasi Kinerja
+        // Shared styles untuk sheet TW — selaras dengan sheet Capaian Kinerja
         $kgWrapStyle = [
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
@@ -637,11 +637,11 @@ class PengukuranController extends Controller
             $shTw->freezePane('A3');
         }
 
-        // Reset ke sheet pertama (Realisasi Kinerja)
+        // Reset ke sheet pertama (Capaian Kinerja)
         $spreadsheet->setActiveSheetIndex(0);
 
         // ── Output ────────────────────────────────────────────────────────────
-        $filename = "Realisasi_Kinerja_{$tahun->tahun}.xlsx";
+        $filename = "Capaian_Kinerja_{$tahun->tahun}.xlsx";
 
         $writer = new Xlsx($spreadsheet);
 

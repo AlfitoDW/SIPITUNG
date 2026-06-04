@@ -65,7 +65,7 @@ const superAdminNav: NavGroup[] = [
                 icon: ChartNoAxesColumn,
                 children: [
                     { title: 'Kelola Periode',    href: '/super-admin/pengukuran' },
-                    { title: 'Realisasi Kinerja', href: '/super-admin/pengukuran/realisasi' },
+                    { title: 'Capaian Kinerja', href: '/super-admin/pengukuran/realisasi' },
                 ],
             },
         ],
