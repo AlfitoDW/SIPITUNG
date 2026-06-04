@@ -107,7 +107,7 @@ function DeleteConfirm({ open, onClose, onConfirm }: { open: boolean; onClose: (
                 <AlertDialogHeader>
                     <AlertDialogTitle>Hapus Data?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Semua data turunan akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.
+                        Semua data turunan akan ikut terhapus. Data yang masih digunakan oleh permohonan dana tidak dapat dihapus. Nonaktifkan saja jika tidak lagi digunakan.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

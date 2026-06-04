@@ -10,6 +10,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,82 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class DjaController extends Controller
 {
+    /**
+     * Cek apakah ada permohonan dana aktif (bukan draft/rejected)
+     * yang menggunakan rincian biaya dengan ID tertentu.
+     */
+    private function hasActivePermohonanDana(int $djaRincianBiayaId): bool
+    {
+        return PermohonanDanaItem::where('dja_rincian_biaya_id', $djaRincianBiayaId)
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu kegiatan.
+     */
+    private function kegiatanHasActivePermohonanDana(int $kegiatanId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya', fn ($q) => $q->where('kegiatan_id', $kegiatanId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu komponen.
+     */
+    private function komponenHasActivePermohonanDana(int $komponenId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan', fn ($q) => $q->where('komponen_id', $komponenId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu RO.
+     */
+    private function roHasActivePermohonanDana(int $roId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen', fn ($q) => $q->where('ro_id', $roId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu KRO.
+     */
+    private function kroHasActivePermohonanDana(int $kroId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro', fn ($q) => $q->where('kro_id', $kroId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu sasaran.
+     */
+    private function sasaranHasActivePermohonanDana(int $sasaranId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro.kro', fn ($q) => $q->where('sasaran_id', $sasaranId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu program.
+     */
+    private function programHasActivePermohonanDana(int $programId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro.kro.sasaran', fn ($q) => $q->where('program_id', $programId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
     // ─── Index ────────────────────────────────────────────────────────────────────
 
     public function index(): Response
@@ -115,6 +192,10 @@ class DjaController extends Controller
 
     public function programDestroy(DjaProgram $program): RedirectResponse
     {
+        if ($this->programHasActivePermohonanDana($program->id)) {
+            return back()->withErrors(['delete' => 'Program tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $program->delete();
 
         return back()->with('success', 'Program dihapus.');
@@ -156,6 +237,10 @@ class DjaController extends Controller
 
     public function sasaranDestroy(DjaSasaran $sasaran): RedirectResponse
     {
+        if ($this->sasaranHasActivePermohonanDana($sasaran->id)) {
+            return back()->withErrors(['delete' => 'Sasaran tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $sasaran->delete();
 
         return back()->with('success', 'Sasaran dihapus.');
@@ -197,6 +282,10 @@ class DjaController extends Controller
 
     public function kroDestroy(DjaKro $kro): RedirectResponse
     {
+        if ($this->kroHasActivePermohonanDana($kro->id)) {
+            return back()->withErrors(['delete' => 'KRO tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $kro->delete();
 
         return back()->with('success', 'KRO dihapus.');
@@ -238,6 +327,10 @@ class DjaController extends Controller
 
     public function roDestroy(DjaRo $ro): RedirectResponse
     {
+        if ($this->roHasActivePermohonanDana($ro->id)) {
+            return back()->withErrors(['delete' => 'RO tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $ro->delete();
 
         return back()->with('success', 'RO dihapus.');
@@ -281,6 +374,10 @@ class DjaController extends Controller
 
     public function komponenDestroy(DjaKomponen $komponen): RedirectResponse
     {
+        if ($this->komponenHasActivePermohonanDana($komponen->id)) {
+            return back()->withErrors(['delete' => 'Komponen tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $komponen->delete();
 
         return back()->with('success', 'Komponen dihapus.');
@@ -322,6 +419,10 @@ class DjaController extends Controller
 
     public function kegiatanDestroy(DjaKegiatan $kegiatan): RedirectResponse
     {
+        if ($this->kegiatanHasActivePermohonanDana($kegiatan->id)) {
+            return back()->withErrors(['delete' => 'Kegiatan tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $kegiatan->delete();
 
         return back()->with('success', 'Kegiatan dihapus.');
@@ -377,6 +478,10 @@ class DjaController extends Controller
 
     public function rincianDestroy(DjaRincianBiaya $rincian): RedirectResponse
     {
+        if ($this->hasActivePermohonanDana($rincian->id)) {
+            return back()->withErrors(['delete' => 'Rincian biaya tidak dapat dihapus karena masih digunakan oleh permohonan dana yang sedang/sudah diproses. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $rincian->delete();
 
         return back()->with('success', 'Rincian biaya dihapus.');

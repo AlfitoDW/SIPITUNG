@@ -362,42 +362,10 @@ class PermohonanDanaController extends Controller
             }
         }
 
-        // ── Validasi: tidak boleh melebihi sisa pagu ─────────────────────────────
-        foreach ($request->items as $item) {
-            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
-            $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
-
-            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
-                ->whereHas('permohonanDana', fn ($q) => $q
-                    ->whereNotIn('status', ['draft', 'rejected'])
-                    ->where('id', '!=', $pd->id))
-                ->sum('jumlah_permintaan');
-
-            $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
-
-            if ($jumlah > $sisaAnggaran) {
-                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
-                    ->with('error',
-                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
-                        'memerlukan Rp '.number_format($jumlah, 0, ',', '.').' '.
-                        'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
-                    )
-                    ->with('wizard_step', 4);
-            }
-        }
-
-        // ── Upsert: update existing items, create new ones, delete removed ones ──
-        // PENTING: Jangan delete-all karena cascade akan menghapus nominatif yang sudah diisi!
-
         $submittedRincianIds = collect($request->items)
             ->filter(fn ($i) => $i['volume'] > 0)
             ->pluck('dja_rincian_biaya_id')
             ->toArray();
-
-        // Hapus hanya item yang tidak ada di list DAN belum punya nominatif
-        $pd->items()->whereNotIn('dja_rincian_biaya_id', $submittedRincianIds)
-            ->whereDoesntHave('nominatif')
-            ->delete();
 
         // ── Validasi: item yang sudah punya nominatif tidak boleh dihapus dari form ──
         $itemsWithNominatif = $pd->items()
@@ -416,56 +384,92 @@ class PermohonanDanaController extends Controller
                 ->with('wizard_step', 4);
         }
 
-        foreach ($request->items as $idx => $item) {
-            if ($item['volume'] == 0) {
-                continue;
-            }
+        // ── Semua modify data dalam 1 transaction dengan lock ────────────────────
+        try {
+            \DB::transaction(function () use ($request, $pd, $submittedRincianIds) {
+                // Validasi pagu dengan lockForUpdate untuk mencegah race condition
+                foreach ($request->items as $item) {
+                    if ($item['volume'] == 0) {
+                        continue;
+                    }
 
-            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
-            $hargaAktual = (float) $item['harga_satuan'];
-            $jumlah = round($item['volume'] * $hargaAktual, 2);
+                    $rincian = DjaRincianBiaya::lockForUpdate()->find($item['dja_rincian_biaya_id']);
+                    $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
 
-            // Cek apakah item dengan rincian ini sudah ada
-            $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
+                    $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                        ->whereHas('permohonanDana', fn ($q) => $q
+                            ->whereNotIn('status', ['draft', 'rejected'])
+                            ->where('id', '!=', $pd->id))
+                        ->sum('jumlah_permintaan');
 
-            if ($existingItem) {
-                // Update item yang sudah ada — nominatif tetap aman karena ID tidak berubah
-                $existingItem->update([
-                    'uraian' => $rincian->nama_item,
-                    'volume' => $item['volume'],
-                    'harga_satuan' => $hargaAktual,
-                    'total' => $jumlah,
-                    'jumlah_permintaan' => $jumlah,
-                    'urutan' => $idx + 1,
+                    $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
+
+                    if ($jumlah > $sisaAnggaran) {
+                        throw new \Exception(
+                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                            'memerlukan Rp '.number_format($jumlah, 0, ',', '.').' '.
+                            'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
+                        );
+                    }
+                }
+
+                // Hapus hanya item yang tidak ada di list DAN belum punya nominatif
+                $pd->items()->whereNotIn('dja_rincian_biaya_id', $submittedRincianIds)
+                    ->whereDoesntHave('nominatif')
+                    ->delete();
+
+                // Upsert items
+                foreach ($request->items as $idx => $item) {
+                    if ($item['volume'] == 0) {
+                        continue;
+                    }
+
+                    $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+                    $hargaAktual = (float) $item['harga_satuan'];
+                    $jumlah = round($item['volume'] * $hargaAktual, 2);
+
+                    $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
+
+                    if ($existingItem) {
+                        $existingItem->update([
+                            'uraian' => $rincian->nama_item,
+                            'volume' => $item['volume'],
+                            'harga_satuan' => $hargaAktual,
+                            'total' => $jumlah,
+                            'jumlah_permintaan' => $jumlah,
+                            'urutan' => $idx + 1,
+                        ]);
+                    } else {
+                        $pd->items()->create([
+                            'dja_rincian_biaya_id' => $rincian->id,
+                            'kode_akun' => $rincian->kode_akun,
+                            'uraian' => $rincian->nama_item,
+                            'volume' => $item['volume'],
+                            'satuan' => $rincian->satuan,
+                            'harga_satuan' => $hargaAktual,
+                            'total' => $jumlah,
+                            'jumlah_permintaan' => $jumlah,
+                            'urutan' => $idx + 1,
+                        ]);
+                    }
+                }
+
+                $pd->update([
+                    'total_anggaran' => $pd->items()->sum('total'),
+                    'wizard_step' => max($pd->wizard_step, 4),
                 ]);
-            } else {
-                // Buat item baru jika belum ada
-                $pd->items()->create([
-                    'dja_rincian_biaya_id' => $rincian->id,
-                    'kode_akun' => $rincian->kode_akun,
-                    'uraian' => $rincian->nama_item,
-                    'volume' => $item['volume'],
-                    'satuan' => $rincian->satuan,
-                    'harga_satuan' => $hargaAktual,
-                    'total' => $jumlah,
-                    'jumlah_permintaan' => $jumlah,
-                    'urutan' => $idx + 1,
-                ]);
-            }
+            });
+        } catch (\Exception $e) {
+            return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                ->with('error', $e->getMessage())
+                ->with('wizard_step', 4);
         }
-
-        \DB::transaction(function () use ($pd) {
-            $pd->update([
-                'total_anggaran' => $pd->items()->sum('total'),
-                'wizard_step' => max($pd->wizard_step, 4),
-            ]);
-        });
 
         $pd->invalidateTerpakaiCache();
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Rincian biaya disimpan.')
-            ->with('wizard_step', 4);   // ← tetap di step 4 setelah simpan rincian
+            ->with('wizard_step', 4);
     }
 
     // ─── Submit (Draft → Submitted) ───────────────────────────────────────────────
@@ -502,44 +506,49 @@ class PermohonanDanaController extends Controller
                 ->with('wizard_step', 4);
         }
 
-        // ── Safety Net: Validasi tidak melebihi sisa pagu ──────────────────────
-        foreach ($pd->items as $item) {
-            if ($item->volume == 0) {
-                continue;
-            }
+        // ── Safety Net: Validasi tidak melebihi sisa pagu (dengan lock) ──────────
+        try {
+            \DB::transaction(function () use ($pd) {
+                foreach ($pd->items as $item) {
+                    if ($item->volume == 0) {
+                        continue;
+                    }
 
-            $rincian = $item->djaRincianBiaya;
-            if (! $rincian) {
-                continue;
-            }
+                    $rincian = $item->djaRincianBiaya;
+                    if (! $rincian) {
+                        continue;
+                    }
 
-            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
-                ->whereHas('permohonanDana', fn ($q) => $q
-                    ->whereNotIn('status', ['draft', 'rejected'])
-                    ->where('id', '!=', $pd->id))
-                ->sum('jumlah_permintaan');
+                    $rincian = DjaRincianBiaya::lockForUpdate()->find($rincian->id);
 
-            $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
+                    $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                        ->whereHas('permohonanDana', fn ($q) => $q
+                            ->whereNotIn('status', ['draft', 'rejected'])
+                            ->where('id', '!=', $pd->id))
+                        ->sum('jumlah_permintaan');
 
-            if ($item->jumlah_permintaan > $sisaAnggaran) {
-                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
-                    ->with('error',
-                        "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
-                        'memerlukan Rp '.number_format($item->jumlah_permintaan, 0, ',', '.').' '.
-                        'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
-                    )
-                    ->with('wizard_step', 4);
-            }
+                    $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
+
+                    if ($item->jumlah_permintaan > $sisaAnggaran) {
+                        throw new \Exception(
+                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                            'memerlukan Rp '.number_format($item->jumlah_permintaan, 0, ',', '.').' '.
+                            'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
+                        );
+                    }
+                }
+
+                $pd->update([
+                    'status' => 'submitted',
+                    'wizard_step' => 4,
+                    'submitted_at' => now(),
+                ]);
+            });
+        } catch (\Exception $e) {
+            return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                ->with('error', $e->getMessage())
+                ->with('wizard_step', 4);
         }
-        // ───────────────────────────────────────────────────────────────────────
-
-        \DB::transaction(function () use ($pd) {
-            $pd->update([
-                'status' => 'submitted',
-                'wizard_step' => 4,
-                'submitted_at' => now(),
-            ]);
-        });
 
         $pd->invalidateTerpakaiCache();
 
