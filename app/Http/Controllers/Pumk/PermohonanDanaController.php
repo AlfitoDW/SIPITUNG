@@ -50,11 +50,11 @@ class PermohonanDanaController extends Controller
                 'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
                 // actor names
                 'created_by_name' => $pd->createdBy?->nama_lengkap ?? $pd->createdBy?->name,
-                'katim_approved_by_name' => $pd->katimApprovedBy?->nama_lengkap ?? $pd->katimApprovedBy?->name,
-                'kabag_approved_by_name' => $pd->kabagApprovedBy?->nama_lengkap ?? $pd->kabagApprovedBy?->name,
-                'ppk_approved_by_name' => $pd->ppkApprovedBy?->nama_lengkap ?? $pd->ppkApprovedBy?->name,
-                'pic_approved_by_name' => $pd->picApprovedBy?->nama_lengkap ?? $pd->picApprovedBy?->name,
-                'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap ?? $pd->dicairkanBy?->name,
+                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap ?? $pd->katimApprovedBy?->name,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap ?? $pd->kabagApprovedBy?->name,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap ?? $pd->ppkApprovedBy?->name,
+                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap ?? $pd->picApprovedBy?->name,
+                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap ?? $pd->dicairkanBy?->name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
                     'katim_approved' => 'Kabag Umum',
@@ -455,7 +455,7 @@ class PermohonanDanaController extends Controller
         }
 
         \DB::transaction(function () use ($pd) {
-            $pd->lockForUpdate()->update([
+            $pd->update([
                 'total_anggaran' => $pd->items()->sum('total'),
                 'wizard_step' => max($pd->wizard_step, 4),
             ]);
@@ -534,7 +534,7 @@ class PermohonanDanaController extends Controller
         // ───────────────────────────────────────────────────────────────────────
 
         \DB::transaction(function () use ($pd) {
-            $pd->lockForUpdate()->update([
+            $pd->update([
                 'status' => 'submitted',
                 'wizard_step' => 4,
                 'submitted_at' => now(),

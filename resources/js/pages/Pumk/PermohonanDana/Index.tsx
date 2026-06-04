@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -330,13 +330,22 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
     const [page,         setPage]         = useState(1);
     const [deleteTarget, setDeleteTarget] = useState<PD | null>(null);
     const [historyTarget, setHistoryTarget] = useState<PD | null>(null);
+    const [fastTrackTarget, setFastTrackTarget] = useState<PD | null>(null);
 
     const deleteForm = useForm({});
+    const fastTrackForm = useForm({});
 
     const handleDelete = () => {
         if (!deleteTarget) return;
         deleteForm.delete(`/pumk/permohonan-dana/${deleteTarget.id}`, {
             onSuccess: () => setDeleteTarget(null),
+        });
+    };
+
+    const handleFastTrack = () => {
+        if (!fastTrackTarget) return;
+        fastTrackForm.post(`/pumk/permohonan-dana/${fastTrackTarget.id}/fast-track`, {
+            onSuccess: () => setFastTrackTarget(null),
         });
     };
 
@@ -592,6 +601,20 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>Riwayat proses ajuan</TooltipContent>
                                                             </Tooltip>
+                                                            {pd.status === 'submitted' && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost" size="icon"
+                                                                            className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                                                            onClick={() => setFastTrackTarget(pd)}
+                                                                        >
+                                                                            <Zap className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>Fast-track ke PIC Keuangan</TooltipContent>
+                                                                </Tooltip>
+                                                            )}
                                                             {canEdit && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
@@ -695,6 +718,27 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                         <AlertDialogCancel>Batal</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
                             Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Fast Track Dialog */}
+            <AlertDialog open={!!fastTrackTarget} onOpenChange={(o) => !o && setFastTrackTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Fast-Track Approval</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Setujui permohonan <strong>{fastTrackTarget?.nomor_permohonan}</strong> langsung sampai PIC Keuangan?
+                            <br /><br />
+                            Ini akan melewati approval KA.TIM, Kabag Umum, PPK, dan PIC secara otomatis.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleFastTrack} className="bg-amber-600 hover:bg-amber-700">
+                            <Zap className="h-4 w-4 mr-1" />
+                            Fast-Track
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

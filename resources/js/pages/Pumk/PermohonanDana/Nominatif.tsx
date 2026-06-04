@@ -1,7 +1,7 @@
 import { Head, router } from '@inertiajs/react';
-import { toast } from 'sonner';
-import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus, ChevronDown, ChevronRight, CheckCircle2, Pencil } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import EditPegawaiDialog from './EditPegawaiDialog';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -437,11 +438,13 @@ function PegawaiCombobox({
     onChange,
     options,
     onOpenAddDialog,
+    onOpenEditDialog,
 }: {
     value: string;
     onChange: (nama: string, pegawai: RefNama | null) => void;
     options: RefNama[];
-    onOpenAddDialog: (prefill: string) => void;
+    onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
     const [query, setQuery] = useState(value);
     const [open, setOpen] = useState(false);
@@ -514,30 +517,46 @@ function PegawaiCombobox({
                         <div className="px-3 py-3 text-muted-foreground text-center">Tidak ditemukan</div>
                     )}
                     {filtered.map(p => (
-                        <button
+                        <div
                             key={p.id}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-0"
-                            onMouseDown={e => {
-                                e.preventDefault();
-                                setQuery(p.nama);
-                                onChange(p.nama, p);
-                                setOpen(false);
-                            }}
+                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b last:border-0 group"
                         >
-                            <span className="font-medium">{p.nama}</span>
-                            {p.nip && <span className="text-muted-foreground ml-2 text-[10px]">{p.nip}</span>}
-                            <span className={cn(
-                                'ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium',
-                                p.status_kepegawaian === 'PNS'
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-orange-600 bg-orange-50'
-                            )}>
-                                {p.gol_ruang || p.status_kepegawaian}
-                            </span>
-                            {p.pph21_persen !== '0.00' && (
-                                <span className="ml-1 text-[10px] text-amber-600">PPh21: {p.pph21_persen}%</span>
-                            )}
-                        </button>
+                            <button
+                                className="flex-1 text-left"
+                                onMouseDown={e => {
+                                    e.preventDefault();
+                                    setQuery(p.nama);
+                                    onChange(p.nama, p);
+                                    setOpen(false);
+                                }}
+                            >
+                                <span className="font-medium">{p.nama}</span>
+                                {p.nip && <span className="text-muted-foreground ml-2 text-[10px]">{p.nip}</span>}
+                                <span className={cn(
+                                    'ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium',
+                                    p.status_kepegawaian === 'PNS'
+                                        ? 'text-blue-600 bg-blue-50'
+                                        : 'text-orange-600 bg-orange-50'
+                                )}>
+                                    {p.gol_ruang || p.status_kepegawaian}
+                                </span>
+                                {p.pph21_persen !== '0.00' && (
+                                    <span className="ml-1 text-[10px] text-amber-600">PPh21: {p.pph21_persen}%</span>
+                                )}
+                            </button>
+                            <button
+                                onMouseDown={e => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOpen(false);
+                                    onOpenEditDialog(p);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-blue-100 text-blue-500 transition-opacity"
+                                title="Edit data pegawai"
+                            >
+                                <Pencil className="h-3 w-3" />
+                            </button>
+                        </div>
                     ))}
                 </div>
             )}
@@ -583,6 +602,7 @@ function HonorNominatifTable({
     onRemove,
     refNama,
     onOpenAddDialog,
+    onOpenEditDialog,
     itemTotal,
     defaultSatuan,
     defaultHargaSatuan,
@@ -594,6 +614,7 @@ function HonorNominatifTable({
     onRemove: (idx: number) => void;
     refNama: RefNama[];
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
     itemTotal: number;
     defaultSatuan: string;
     defaultHargaSatuan: number;
@@ -651,13 +672,30 @@ function HonorNominatifTable({
                                             options={refNama}
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
+                                            onOpenEditDialog={onOpenEditDialog}
                                         />
                                     </td>
                                     <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
-                                        {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
-                                        {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
-                                        {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
-                                        {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
+                                                {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
+                                                {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
+                                                {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
+                                            </div>
+                                            {row.ref_nama_id && (
+                                                <button
+                                                    onClick={() => {
+                                                        const peg = refNama.find(p => String(p.id) === String(row.ref_nama_id));
+                                                        if (peg) onOpenEditDialog(peg);
+                                                    }}
+                                                    className="p-0.5 rounded hover:bg-blue-100 text-blue-500 ml-1"
+                                                    title="Edit data pegawai"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
                                         {row.no_rekening && <div><span className="text-gray-400">No.Rek:</span> {row.no_rekening}</div>}
@@ -740,6 +778,7 @@ function PerjadinNominatifTable({
     onRemove,
     refNama,
     onOpenAddDialog,
+    onOpenEditDialog,
     itemTotal,
     defaultSatuan,
     defaultHargaSatuan,
@@ -751,6 +790,7 @@ function PerjadinNominatifTable({
     onRemove: (idx: number) => void;
     refNama: RefNama[];
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
     itemTotal: number;
     defaultSatuan: string;
     defaultHargaSatuan: number;
@@ -806,13 +846,30 @@ function PerjadinNominatifTable({
                                             options={refNama}
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
+                                            onOpenEditDialog={onOpenEditDialog}
                                         />
                                     </td>
                                     <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
-                                        {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
-                                        {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
-                                        {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
-                                        {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                {row.nik && <div><span className="text-gray-400">NIK:</span> {row.nik}</div>}
+                                                {row.nip && <div><span className="text-gray-400">NIP:</span> {row.nip}</div>}
+                                                {row.npwp && <div><span className="text-gray-400">NPWP:</span> {row.npwp}</div>}
+                                                {row.gol_ruang && <div><span className="text-gray-400">Gol:</span> {row.gol_ruang}</div>}
+                                            </div>
+                                            {row.ref_nama_id && (
+                                                <button
+                                                    onClick={() => {
+                                                        const peg = refNama.find(p => String(p.id) === String(row.ref_nama_id));
+                                                        if (peg) onOpenEditDialog(peg);
+                                                    }}
+                                                    className="p-0.5 rounded hover:bg-blue-100 text-blue-500 ml-1"
+                                                    title="Edit data pegawai"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
                                         {row.no_rekening && <div><span className="text-gray-400">No.Rek:</span> {row.no_rekening}</div>}
@@ -909,6 +966,57 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
             pendingSelectRef.current(peg);
             pendingSelectRef.current = null;
         }
+    };
+
+    // Dialog edit pegawai
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editingPegawai, setEditingPegawai] = useState<RefNama | null>(null);
+
+    const openEditDialog = (pegawai: RefNama) => {
+        setEditingPegawai(pegawai);
+        setEditDialogOpen(true);
+    };
+
+    const handleUpdatePegawai = (peg: RefNama) => {
+        setRefNama(prev => {
+            const next = prev.map(p => p.id === peg.id ? peg : p).sort((a, b) => a.nama.localeCompare(b.nama));
+            return next;
+        });
+
+        // Update nominatif rows yang menggunakan pegawai ini
+        setNominatifRows(prev => {
+            const next: Record<number, NominatifRow[]> = {};
+            Object.keys(prev).forEach(itemId => {
+                const itemIdNum = Number(itemId);
+                next[itemIdNum] = prev[itemIdNum].map(row => {
+                    if (String(row.ref_nama_id) === String(peg.id)) {
+                        return {
+                            ...row,
+                            nama: peg.nama,
+                            nip: peg.nip ?? '',
+                            nik: peg.nik ?? '',
+                            npwp: peg.npwp ?? '',
+                            gol_ruang: peg.gol_ruang ?? '',
+                            nama_rekening: peg.nama_rekening ?? '',
+                            no_rekening: peg.no_rekening ?? '',
+                            nama_bank: peg.nama_bank ?? '',
+                            email: peg.email ?? '',
+                            pph21_persen: String(hitungPph21(peg.status_kepegawaian, peg.gol_ruang, peg.npwp)),
+                        };
+                    }
+                    return row;
+                });
+            });
+            return next;
+        });
+
+        setHasChanges(true);
+        toast.success(`Data pegawai ${peg.nama} berhasil diperbarui.`);
+    };
+
+    const handleToggleStatusPegawai = (peg: RefNama) => {
+        setRefNama(prev => prev.filter(p => p.id !== peg.id));
+        toast.success(`Pegawai ${peg.nama} telah dinonaktifkan.`);
     };
 
     // ── State: expanded items + nominatif rows ────────────────────────────────
@@ -1271,6 +1379,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                                         onRemove={(idx) => removeRow(item.id, idx)}
                                                                         refNama={refNama}
                                                                         onOpenAddDialog={openAddDialog}
+                                                                        onOpenEditDialog={openEditDialog}
                                                                         itemTotal={item.total}
                                                                         defaultSatuan={item.satuan}
                                                                         defaultHargaSatuan={item.harga_satuan_aktual}
@@ -1285,6 +1394,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                                     onRemove={(idx) => removeRow(item.id, idx)}
                                                                     refNama={refNama}
                                                                     onOpenAddDialog={openAddDialog}
+                                                                    onOpenEditDialog={openEditDialog}
                                                                     itemTotal={item.total}
                                                                     defaultSatuan={item.satuan}
                                                                     defaultHargaSatuan={item.harga_satuan_aktual}
@@ -1308,6 +1418,16 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                 onClose={() => setAddDialogOpen(false)}
                 onSuccess={handleNewPegawai}
             />
+
+            {editingPegawai && (
+                <EditPegawaiDialog
+                    open={editDialogOpen}
+                    onClose={() => { setEditDialogOpen(false); setEditingPegawai(null); }}
+                    onSuccess={handleUpdatePegawai}
+                    onToggleStatus={handleToggleStatusPegawai}
+                    pegawai={editingPegawai}
+                />
+            )}
         </AppLayout>
     );
 }

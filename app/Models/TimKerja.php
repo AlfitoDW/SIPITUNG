@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TimKerja extends Model
 {
@@ -43,6 +44,11 @@ class TimKerja extends Model
         return $this->hasOne(User::class, 'tim_kerja_id')
             ->where('role', 'pumk')
             ->where('is_active', true);
+    }
+
+    public function permohonanDana(): HasMany
+    {
+        return $this->hasMany(PermohonanDana::class, 'tim_kerja_id');
     }
 
     public function scopeActive($query)

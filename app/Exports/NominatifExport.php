@@ -90,9 +90,9 @@ class NominatifExport
     public function __construct(PermohonanDana $pd)
     {
         $this->pd = $pd;
-        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy']);
+        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy', 'dicairkanBy']);
         $this->ppk = $this->pd->ppkApprovedBy;
-        $this->bendahara = User::where('role', 'bendahara')->where('is_active', true)->first();
+        $this->bendahara = $this->pd->dicairkanBy;
         $this->tglNominatif = $this->pd->tgl_nominatif
             ? $this->pd->tgl_nominatif->locale('id')->isoFormat('D MMMM YYYY')
             : now()->locale('id')->isoFormat('D MMMM YYYY');
@@ -489,21 +489,18 @@ class NominatifExport
         }
         $sheet->setCellValue("{$jakartaCol}{$jakartaRow}", "Jakarta,    {$this->tglNominatif}");
 
-        // PPK name & NIP - get active PPK from system (fallback to approver)
-        $activePpk = User::where('role', 'pimpinan')
-            ->where('pimpinan_type', 'ppk')
-            ->where('is_active', true)
-            ->first();
-        $ppk = $activePpk ?: $this->ppk;
+        // PPK name & NIP — pakai snapshot dari permohonan_dana, fallback ke relasi untuk data lama
+        $ppkName = $this->pd->ppk_approved_by_name ?? $this->ppk?->nama_lengkap;
+        $ppkNip  = $this->pd->ppk_approved_by_nip  ?? $this->ppk?->nip  ?? $this->lookupNipFromRefNama($ppkName);
 
-        // NIP fallback: kalau user.nip kosong, cari di RefNama by name
-        $ppkNip = $ppk?->nip ?: $this->lookupNipFromRefNama($ppk?->nama_lengkap);
-        $bendNip = $this->bendahara?->nip ?: $this->lookupNipFromRefNama($this->bendahara?->nama_lengkap);
+        // Bendahara name & NIP — pakai snapshot, fallback ke relasi untuk data lama
+        $bendName = $this->pd->dicairkan_by_name ?? $this->bendahara?->nama_lengkap;
+        $bendNip  = $this->pd->dicairkan_by_nip  ?? $this->bendahara?->nip  ?? $this->lookupNipFromRefNama($bendName);
 
-        $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppkName ?? '___________________________');
         $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
 
-        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $bendName ?? '___________________________');
         $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
     }
 

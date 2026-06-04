@@ -3,7 +3,6 @@ import {
     Pencil, Trash2, Power, Plus, Upload, Database,
 } from 'lucide-react';
 import { useState, useRef } from 'react';
-import { usePaginatedTable } from '@/hooks/use-paginated-table';
 import { DataTableControls } from '@/components/data-table-controls';
 import { DataTablePagination } from '@/components/data-table-pagination';
 import {
@@ -17,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePaginatedTable } from '@/hooks/use-paginated-table';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 

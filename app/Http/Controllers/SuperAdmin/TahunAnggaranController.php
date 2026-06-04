@@ -42,6 +42,10 @@ class TahunAnggaranController extends Controller
 
     public function destroy(TahunAnggaran $tahunAnggaran): RedirectResponse
     {
+        if ($tahunAnggaran->permohonanDana()->exists()) {
+            return back()->withErrors(['delete' => 'Tahun anggaran tidak dapat dihapus karena masih memiliki histori permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $tahunAnggaran->delete();
 
         return back()->with('success', 'Tahun anggaran berhasil dihapus.');

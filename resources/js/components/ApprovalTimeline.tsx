@@ -9,6 +9,7 @@ import {
   XCircle,
   UserCircle2,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,14 +22,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 import {
   buildTimeline,
   fmtDateTime,
   stateMeta,
   type PermohonanDanaData,
 } from "@/lib/permohonan-dana-timeline"
+import { cn } from "@/lib/utils"
 
 // ── StatusIcon ───────────────────────────────────────────────────────────────
 

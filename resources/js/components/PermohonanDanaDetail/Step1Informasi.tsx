@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ClipboardList, FileText, Hash, User, FolderTree,
     Target, Layers, Boxes, Workflow, Activity,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DjaCode {
     kode?: string;

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export default function InfoRow({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
     return (

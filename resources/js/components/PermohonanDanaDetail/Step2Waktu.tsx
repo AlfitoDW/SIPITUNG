@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Calendar, Clock, MapPin, User, Briefcase,
     CalendarCheck, CalendarRange,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const fmtDate = (s?: string | null) =>
     s ? new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : null;

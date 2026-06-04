@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Pumk\DashboardController;
+use App\Http\Controllers\Pumk\FastTrackController;
 use App\Http\Controllers\Pumk\NominatifController;
 use App\Http\Controllers\Pumk\PermohonanDanaController;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,7 @@ Route::prefix('pumk')->middleware('role:pumk')->name('pumk.')->group(function ()
         Route::post('/', [PermohonanDanaController::class, 'store'])->name('store');
         Route::delete('/{pd}', [PermohonanDanaController::class, 'destroy'])->name('destroy');
         Route::patch('/{pd}/submit', [PermohonanDanaController::class, 'submit'])->name('submit');
+        Route::post('/{pd}/fast-track', [FastTrackController::class, 'approveToPic'])->name('fast-track');
 
         // Wizard
         Route::get('/{pd}/wizard', [PermohonanDanaController::class, 'wizard'])->name('wizard');
@@ -42,4 +44,6 @@ Route::prefix('pumk')->middleware('role:pumk')->name('pumk.')->group(function ()
     // Ref Pegawai
     Route::get('/ref-pegawai/search', [NominatifController::class, 'searchPegawai'])->name('ref-pegawai.search');
     Route::post('/ref-pegawai', [NominatifController::class, 'storeRefNama'])->name('ref-pegawai.store');
+    Route::put('/ref-pegawai/{refNama}', [NominatifController::class, 'updateRefNama'])->name('ref-pegawai.update');
+    Route::patch('/ref-pegawai/{refNama}/toggle-status', [NominatifController::class, 'toggleStatusRefNama'])->name('ref-pegawai.toggle-status');
 });

@@ -13,16 +13,18 @@ interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
+    title?: string;
+    description?: string;
 }
 
-export function DeleteConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
+export function DeleteConfirmDialog({ open, onOpenChange, onConfirm, title, description }: Props) {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Hapus Data?</AlertDialogTitle>
+                    <AlertDialogTitle>{title ?? 'Hapus Data?'}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.
+                        {description ?? 'Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

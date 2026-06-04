@@ -165,6 +165,8 @@ export function TahunAnggaranTab({ data }: { data: TahunAnggaran[] }) {
             <DeleteConfirmDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
+                title="Hapus Tahun Anggaran?"
+                description={`Tahun anggaran ${deletingItem?.tahun} akan dihapus permanen. Tahun anggaran yang masih memiliki histori permohonan dana tidak dapat dihapus. Nonaktifkan saja jika tidak lagi digunakan.`}
                 onConfirm={() => {
                     if (deletingItem) {
                         router.delete(`/super-admin/data-master/tahun-anggaran/${deletingItem.id}`, {

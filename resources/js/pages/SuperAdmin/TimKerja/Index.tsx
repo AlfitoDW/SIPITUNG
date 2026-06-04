@@ -295,9 +295,9 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Hapus Tim Kerja?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            <strong>{deleteTarget?.nama}</strong> akan dihapus permanen. Tim kerja yang masih memiliki anggota tidak dapat dihapus.
-                        </AlertDialogDescription>
+                    <AlertDialogDescription>
+                        <strong>{deleteTarget?.nama}</strong> akan dihapus permanen. Tim kerja yang masih memiliki anggota atau histori permohonan dana tidak dapat dihapus. Nonaktifkan saja jika tidak lagi digunakan.
+                    </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>

@@ -1,7 +1,8 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { toast } from 'sonner';
 import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
+import DocPreviewModal from '@/components/DocPreviewModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import DocPreviewModal from '@/components/DocPreviewModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

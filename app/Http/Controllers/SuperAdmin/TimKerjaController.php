@@ -52,6 +52,10 @@ class TimKerjaController extends Controller
             return back()->withErrors(['delete' => 'Tim kerja tidak dapat dihapus karena masih memiliki anggota.']);
         }
 
+        if ($timKerja->permohonanDana()->exists()) {
+            return back()->withErrors(['delete' => 'Tim kerja tidak dapat dihapus karena masih memiliki histori permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $timKerja->delete();
 
         return back()->with('success', 'Tim kerja berhasil dihapus.');

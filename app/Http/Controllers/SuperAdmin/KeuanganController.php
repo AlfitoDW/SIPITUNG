@@ -37,11 +37,11 @@ class KeuanganController extends Controller
             return array_merge($pd->toArray(), [
                 'status_label' => $pd->status_label,
                 'created_by_name' => $pd->createdBy?->nama_lengkap,
-                'katim_approved_by_name' => $pd->katimApprovedBy?->nama_lengkap,
-                'kabag_approved_by_name' => $pd->kabagApprovedBy?->nama_lengkap,
-                'ppk_approved_by_name' => $pd->ppkApprovedBy?->nama_lengkap,
-                'pic_approved_by_name' => $pd->picApprovedBy?->nama_lengkap,
-                'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
+                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap,
+                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap,
+                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
                     'katim_approved' => 'Kabag Umum',

@@ -1,27 +1,27 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { toast } from 'sonner';
 import {
     ArrowLeft, FileText, Calendar, User, MapPin, ClipboardList,
     Banknote, Eye, Printer, XCircle, CheckCircle2,
     Unlock,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import DocPreviewModal from '@/components/DocPreviewModal';
+import InfoRow from '@/components/InfoRow';
+import StepBar from '@/components/StepBar';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import DocPreviewModal from '@/components/DocPreviewModal';
-import InfoRow from '@/components/InfoRow';
-import StepBar from '@/components/StepBar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

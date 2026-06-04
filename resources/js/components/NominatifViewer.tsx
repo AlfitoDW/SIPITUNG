@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Users } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 

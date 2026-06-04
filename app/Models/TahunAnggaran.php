@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TahunAnggaran extends Model
 {
@@ -35,6 +36,11 @@ class TahunAnggaran extends Model
     public function scopeDefault(Builder $query): Builder
     {
         return $query->where('is_default', true);
+    }
+
+    public function permohonanDana(): HasMany
+    {
+        return $this->hasMany(PermohonanDana::class, 'tahun_anggaran_id');
     }
 
     public static function forSession(): ?self

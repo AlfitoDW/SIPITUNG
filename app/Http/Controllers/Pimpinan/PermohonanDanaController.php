@@ -69,6 +69,20 @@ class PermohonanDanaController extends Controller
         return auth()->user()->isPimpinanKabagUmum() ? 'kabag' : 'ppk';
     }
 
+    private function approvalNameField(): string
+    {
+        return auth()->user()->isPimpinanKabagUmum()
+            ? 'kabag_approved_by_name'
+            : 'ppk_approved_by_name';
+    }
+
+    private function approvalNipField(): string
+    {
+        return auth()->user()->isPimpinanKabagUmum()
+            ? 'kabag_approved_by_nip'
+            : 'ppk_approved_by_nip';
+    }
+
     public function index(): Response
     {
         $tahun = TahunAnggaran::forSession();
@@ -186,19 +200,11 @@ class PermohonanDanaController extends Controller
                 'tim_kerja_nama' => $pd->timKerja?->nama,
                 'katim_approved_by' => $pd->katim_approved_by,
                 'katim_approved_at' => $pd->katim_approved_at?->toIso8601String(),
-                'katim_approved_by_name' => $pd->katimApprovedBy?->nama_lengkap,
-                'kabag_approved_by' => $pd->kabag_approved_by,
-                'kabag_approved_at' => $pd->kabag_approved_at?->toIso8601String(),
-                'kabag_approved_by_name' => $pd->kabagApprovedBy?->nama_lengkap,
-                'ppk_approved_by' => $pd->ppk_approved_by,
-                'ppk_approved_at' => $pd->ppk_approved_at?->toIso8601String(),
-                'ppk_approved_by_name' => $pd->ppkApprovedBy?->nama_lengkap,
-                'pic_approved_by' => $pd->pic_approved_by,
-                'pic_approved_at' => $pd->pic_approved_at?->toIso8601String(),
-                'pic_approved_by_name' => $pd->picApprovedBy?->nama_lengkap,
-                'dicairkan_by' => $pd->dicairkan_by,
-                'dicairkan_at' => $pd->dicairkan_at?->toIso8601String(),
-                'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
+                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap,
+                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap,
+                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap,
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'rejected_at_step' => $pd->rejected_at_step,
                 'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
@@ -271,6 +277,8 @@ class PermohonanDanaController extends Controller
             $fresh->update([
                 'status' => $this->nextStatus(),
                 $this->approvalField() => $user->id,
+                $this->approvalNameField() => $user->nama_lengkap,
+                $this->approvalNipField() => $user->nip,
                 $this->catatanField() => $request->catatan,
                 $this->approvalAtField() => now(),
             ]);

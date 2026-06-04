@@ -1,11 +1,14 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { toast } from 'sonner';
 import {
     ArrowLeft, CheckCircle2, XCircle, FileText, Calendar,
     User, MapPin, ClipboardList, Banknote, Eye,
     Printer,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import DocPreviewModal from '@/components/DocPreviewModal';
+import InfoRow from '@/components/InfoRow';
+import StepBar from '@/components/StepBar';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,9 +23,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
-import DocPreviewModal from '@/components/DocPreviewModal';
-import InfoRow from '@/components/InfoRow';
-import StepBar from '@/components/StepBar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

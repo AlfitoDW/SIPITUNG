@@ -318,4 +318,49 @@ class NominatifController extends Controller
             'nama_rekening', 'no_rekening', 'nama_bank', 'email', 'pph21_persen',
         ]));
     }
+
+    // ─── Update Ref Nama — edit pegawai dari halaman nominatif ───────────────
+
+    public function updateRefNama(Request $request, RefNama $refNama): JsonResponse
+    {
+        $validated = $request->validate([
+            'nama' => 'required|string|max:150',
+            'nip' => 'nullable|string|max:30|unique:ref_nama,nip,'.$refNama->id,
+            'nik' => 'nullable|string|max:20',
+            'npwp' => 'nullable|string|max:25',
+            'gol_ruang' => 'nullable|string|max:10',
+            'status_kepegawaian' => 'required|in:PNS,Non-PNS',
+            'nama_rekening' => 'nullable|string|max:150',
+            'no_rekening' => 'nullable|string|max:30',
+            'nama_bank' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:150',
+        ]);
+
+        $pph21 = RefNama::hitungPph21(
+            $validated['status_kepegawaian'],
+            $validated['gol_ruang'] ?? null,
+            $validated['npwp'] ?? null,
+        );
+
+        $refNama->update(array_merge($validated, [
+            'pph21_persen' => $pph21,
+        ]));
+
+        return response()->json($refNama->only([
+            'id', 'nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian',
+            'nama_rekening', 'no_rekening', 'nama_bank', 'email', 'pph21_persen',
+        ]));
+    }
+
+    // ─── Toggle Status Ref Nama — nonaktifkan/aktifkan pegawai ────────────────
+
+    public function toggleStatusRefNama(RefNama $refNama): JsonResponse
+    {
+        $refNama->update(['is_aktif' => ! $refNama->is_aktif]);
+
+        return response()->json([
+            'id' => $refNama->id,
+            'is_aktif' => $refNama->is_aktif,
+        ]);
+    }
 }

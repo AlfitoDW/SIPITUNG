@@ -1,5 +1,5 @@
-import { useState, Fragment } from 'react';
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Users } from 'lucide-react';
+import { useState, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

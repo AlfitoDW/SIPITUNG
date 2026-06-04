@@ -72,19 +72,11 @@ class PermohonanDanaController extends Controller
             'tim_kerja_nama' => $pd->timKerja?->nama,
             'katim_approved_by' => $pd->katim_approved_by,
             'katim_approved_at' => $pd->katim_approved_at?->toIso8601String(),
-            'katim_approved_by_name' => $pd->katimApprovedBy?->nama_lengkap,
-            'kabag_approved_by' => $pd->kabag_approved_by,
-            'kabag_approved_at' => $pd->kabag_approved_at?->toIso8601String(),
-            'kabag_approved_by_name' => $pd->kabagApprovedBy?->nama_lengkap,
-            'ppk_approved_by' => $pd->ppk_approved_by,
-            'ppk_approved_at' => $pd->ppk_approved_at?->toIso8601String(),
-            'ppk_approved_by_name' => $pd->ppkApprovedBy?->nama_lengkap,
-            'pic_approved_by' => $pd->pic_approved_by,
-            'pic_approved_at' => $pd->pic_approved_at?->toIso8601String(),
-            'pic_approved_by_name' => $pd->picApprovedBy?->nama_lengkap,
-            'dicairkan_by' => $pd->dicairkan_by,
-            'dicairkan_at' => $pd->dicairkan_at?->toIso8601String(),
-            'dicairkan_by_name' => $pd->dicairkanBy?->nama_lengkap,
+                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap,
+                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap,
+                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap,
             'rejected_at' => $pd->rejected_at?->toIso8601String(),
             'rejected_at_step' => $pd->rejected_at_step,
             'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
@@ -282,9 +274,12 @@ class PermohonanDanaController extends Controller
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
         \DB::transaction(function () use ($pd, $request) {
-            $pd->lockForUpdate()->update([
+            $user = $request->user();
+            $pd->update([
                 'status' => 'katim_approved',
-                'katim_approved_by' => $request->user()->id,
+                'katim_approved_by' => $user->id,
+                'katim_approved_by_name' => $user->nama_lengkap,
+                'katim_approved_by_nip' => $user->nip,
                 'catatan_katim' => $request->catatan,
                 'katim_approved_at' => now(),
             ]);
@@ -301,7 +296,7 @@ class PermohonanDanaController extends Controller
         $request->validate(['catatan' => 'required|string|max:1000']);
 
         \DB::transaction(function () use ($pd, $request) {
-            $pd->lockForUpdate()->update([
+            $pd->update([
                 'status' => 'rejected',
                 'rejected_at_step' => 'katim',
                 'catatan_penolakan' => $request->catatan,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\PermohonanDana;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -85,6 +86,17 @@ class UserController extends Controller
     {
         if ($user->id === auth()->id()) {
             return redirect()->back()->withErrors(['error' => 'Tidak dapat menghapus akun sendiri.']);
+        }
+
+        $hasApprovalHistory = PermohonanDana::where('katim_approved_by', $user->id)
+            ->orWhere('kabag_approved_by', $user->id)
+            ->orWhere('ppk_approved_by', $user->id)
+            ->orWhere('pic_approved_by', $user->id)
+            ->orWhere('dicairkan_by', $user->id)
+            ->exists();
+
+        if ($hasApprovalHistory) {
+            return redirect()->back()->withErrors(['error' => 'User tidak dapat dihapus karena pernah melakukan approval pada permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
         }
 
         $user->delete();

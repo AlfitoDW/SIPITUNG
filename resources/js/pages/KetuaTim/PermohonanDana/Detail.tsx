@@ -5,6 +5,12 @@ import {
     Printer,
 } from 'lucide-react';
 import { useState } from 'react';
+import DocPreviewModal from '@/components/DocPreviewModal';
+import Step1Informasi from '@/components/PermohonanDanaDetail/Step1Informasi';
+import Step2Waktu from '@/components/PermohonanDanaDetail/Step2Waktu';
+import Step3Dokumen from '@/components/PermohonanDanaDetail/Step3Dokumen';
+import RincianBiayaTable from '@/components/RincianBiayaTable';
+import StepBar from '@/components/StepBar';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,12 +25,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
-import DocPreviewModal from '@/components/DocPreviewModal';
-import StepBar from '@/components/StepBar';
-import RincianBiayaTable from '@/components/RincianBiayaTable';
-import Step1Informasi from '@/components/PermohonanDanaDetail/Step1Informasi';
-import Step2Waktu from '@/components/PermohonanDanaDetail/Step2Waktu';
-import Step3Dokumen from '@/components/PermohonanDanaDetail/Step3Dokumen';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

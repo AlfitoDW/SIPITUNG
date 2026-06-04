@@ -22,7 +22,7 @@ class PermohonanDanaService
         abort_if($pd->status === 'dicairkan' && $pd->bukti_bayar_path, 403, 'Permohonan sudah ditransfer. Tidak dapat dibuka kunci.');
 
         DB::transaction(function () use ($pd, $actor, $alasan) {
-            $pd->lockForUpdate()->update([
+            $pd->update([
                 'status' => 'rejected',
                 'rejected_at_step' => 'dibuka_kunci',
                 'rejected_at' => now(),
