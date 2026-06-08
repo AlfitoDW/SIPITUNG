@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\RefNama;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class RefNamaSeeder extends Seeder
 {
@@ -147,6 +149,38 @@ class RefNamaSeeder extends Seeder
             RefNama::updateOrCreate(
                 ['nik' => $data['nik']],
                 array_merge($data, ['pph21_persen' => $pph21, 'is_aktif' => true]),
+            );
+        }
+
+        // ─── PIC Keuangan Global — diambil dari data ref_nama ───────────────────
+        $picKeuanganList = [
+            ['nik' => '3275085508860013', 'username' => 'pic.elih'],
+            ['nik' => '3174082203800005', 'username' => 'pic.prayitno'],
+            ['nik' => '3175014204840007', 'username' => 'pic.yeni'],
+            ['nik' => '1672015009860004', 'username' => 'pic.tantri'],
+        ];
+
+        foreach ($picKeuanganList as $pic) {
+            $ref = RefNama::where('nik', $pic['nik'])->first();
+            if (! $ref) {
+                $this->command->warn("RefNamaSeeder: ref_nama dengan NIK {$pic['nik']} tidak ditemukan, PIC Keuangan {$pic['username']} dilewati.");
+
+                continue;
+            }
+
+            User::updateOrCreate(
+                ['username' => $pic['username']],
+                [
+                    'nama_lengkap' => $ref->nama,
+                    'nip' => $ref->nip,
+                    'username' => $pic['username'],
+                    'email' => null,
+                    'password' => Hash::make('@lldikti3!'),
+                    'role' => 'pic_keuangan',
+                    'tim_kerja_id' => null,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
             );
         }
     }

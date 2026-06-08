@@ -159,12 +159,20 @@ const GOL_PNS = ['II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV
 
 // ── Empty Row Factories ─────────────────────────────────────────────────────────
 
-function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number): NominatifRow {
+function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number, kodeAkun: string, rowIndex: number = 0): NominatifRow {
+    const jabatanOptions = getJabatanOptions(kodeAkun);
+    let defaultJabatan = '';
+    if (kodeAkun === '521213') {
+        if (rowIndex === 0) defaultJabatan = jabatanOptions[1] ?? ''; // Honorarium Ketua
+        else if (rowIndex === 1) defaultJabatan = jabatanOptions[2] ?? ''; // Honorarium Wakil Ketua
+    } else if (kodeAkun === '522151') {
+        defaultJabatan = jabatanOptions[0] ?? ''; // Honorarium Narasumber (Pejabat Eselon II)
+    }
     return {
         item_id: itemId, ref_nama_id: null,
         nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
         nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
-        jabatan: '', volume: '1', satuan: satuan, harga_satuan: String(hargaDefault),
+        jabatan: defaultJabatan, volume: '1', satuan: satuan, harga_satuan: String(hargaDefault),
         transport: '0', uang_harian_vol: '0', uang_harian_satuan: '0',
         fullboard_vol: '0', fullboard_satuan: '0', fullday_vol: '0', fullday_satuan: '0',
         representasi: '0', taksi_pp: '0', tiket_pesawat: '0', hotel: '0',
@@ -606,6 +614,7 @@ function HonorNominatifTable({
     itemTotal,
     defaultSatuan,
     defaultHargaSatuan,
+    kodeAkun,
 }: {
     itemId: number;
     rows: NominatifRow[];
@@ -618,6 +627,7 @@ function HonorNominatifTable({
     itemTotal: number;
     defaultSatuan: string;
     defaultHargaSatuan: number;
+    kodeAkun: string;
 }) {
     const fillFromPegawai = (idx: number, nama: string, peg: RefNama | null) => {
         onChange(idx, 'nama', nama);
@@ -641,6 +651,7 @@ function HonorNominatifTable({
     }, 0);
 
     const isMatch = Math.abs(totalNominatif - itemTotal) <= 0.01;
+    const jabatanOptions = getJabatanOptions(kodeAkun);
 
     return (
         <div className="mt-3 rounded-lg border border-orange-200 overflow-hidden shadow-sm">
@@ -649,6 +660,7 @@ function HonorNominatifTable({
                     <thead>
                         <tr className="border-b bg-orange-100 text-[10px] font-semibold text-amber-800 uppercase tracking-wider shadow-sm">
                             <th className="text-left px-2 py-1.5 w-48 border-r border-orange-200/60 last:border-r-0">Nama</th>
+                            <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60 last:border-r-0">Jabatan</th>
                             <th className="text-left px-2 py-1.5 w-40 border-r border-orange-200/60 last:border-r-0">Detail Identitas</th>
                             <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60 last:border-r-0">Rekening</th>
                             <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">Vol</th>
@@ -674,6 +686,20 @@ function HonorNominatifTable({
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
                                             onOpenEditDialog={onOpenEditDialog}
                                         />
+                                    </td>
+                                    <td className="px-2 py-1.5 align-top border-r border-slate-100 last:border-r-0">
+                                        {jabatanOptions.length > 0 ? (
+                                            <Select value={row.jabatan} onValueChange={v => onChange(idx, 'jabatan', v)}>
+                                                <SelectTrigger className="h-7 text-xs w-full">
+                                                    <SelectValue placeholder="Pilih jabatan..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {jabatanOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">-</span>
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5 align-top text-[10px] text-gray-600 leading-snug border-r border-slate-100 last:border-r-0">
                                         <div className="flex items-start justify-between">
@@ -727,7 +753,7 @@ function HonorNominatifTable({
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-t-orange-200 bg-orange-50/60">
-                            <td colSpan={6} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
+                            <td colSpan={7} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">
                                 Total Nominatif:
                             </td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700">
@@ -1037,7 +1063,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
             if (item.nominatif.length > 0) {
                 m[item.id] = item.nominatif.map(n => rowFromExisting(n, item.id));
             } else if (item.tipe_nominatif === 'honor' && item.volume > 0) {
-                m[item.id] = [makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual)];
+                m[item.id] = [makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual, item.kode_akun)];
             } else if (item.tipe_nominatif === 'perjadin' && item.volume > 0) {
                 m[item.id] = [makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual)];
             } else {
@@ -1070,7 +1096,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
         setNominatifRows(prev => {
             const rows = [...(prev[item.id] ?? [])];
             if (item.tipe_nominatif === 'honor') {
-                rows.push(makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual));
+                rows.push(makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual, item.kode_akun, rows.length));
             } else {
                 rows.push(makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual));
             }
@@ -1354,23 +1380,6 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                         <div className="px-4 pb-4">
                                                             {item.tipe_nominatif === 'honor' ? (
                                                                 <>
-                                                                    {item.kode_akun !== '521115' && (
-                                                                        <div className="mb-2 flex items-center gap-2">
-                                                                            <Select
-                                                                                value={rows[0]?.jabatan ?? ''}
-                                                                                onValueChange={v => {
-                                                                                    rows.forEach((_, idx) => setRow(item.id, idx, 'jabatan', v));
-                                                                                }}
-                                                                            >
-                                                                                <SelectTrigger className="h-7 text-xs w-64">
-                                                                                    <SelectValue placeholder="Pilih Rincian / Jabatan" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {getJabatanOptions(item.kode_akun).map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>
-                                                                    )}
                                                                     <HonorNominatifTable
                                                                         itemId={item.id}
                                                                         rows={rows}
@@ -1383,6 +1392,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                                         itemTotal={item.total}
                                                                         defaultSatuan={item.satuan}
                                                                         defaultHargaSatuan={item.harga_satuan_aktual}
+                                                                        kodeAkun={item.kode_akun}
                                                                     />
                                                                 </>
                                                             ) : (

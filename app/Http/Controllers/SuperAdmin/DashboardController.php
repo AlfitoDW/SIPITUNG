@@ -18,7 +18,7 @@ class DashboardController extends Controller
     public function index(): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $timKerjaTotal = TimKerja::count();
+        $timKerjaTotal = $tahun ? TimKerja::where('tahun_anggaran_id', $tahun->id)->count() : 0;
 
         $makeStats = fn ($data, array $statuses) => collect($statuses)->mapWithKeys(fn ($s) => [$s => $data->get($s, 0)]);
 

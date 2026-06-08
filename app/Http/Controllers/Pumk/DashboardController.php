@@ -62,7 +62,7 @@ class DashboardController extends Controller
         }
 
         $tugasHariIni = $tugasHariIni->map(function ($pd) {
-            $pd->hari_menunggu = $pd->updated_at ? Carbon::parse($pd->updated_at)->diffInDays(now()) : 0;
+            $pd->hari_menunggu = $pd->updated_at ? round(Carbon::parse($pd->updated_at)->diffInDays(now())) : 0;
             $pd->rejected_step = $pd->rejected_at_step ?? null;
             return $pd;
         });

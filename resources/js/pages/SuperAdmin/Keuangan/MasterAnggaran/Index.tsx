@@ -313,7 +313,7 @@ function ImportPreviewDialog({ preview, importKey, open, onClose }: {
           <div className="bg-blue-50 border border-blue-300 rounded-lg px-4 py-2 shrink-0">
             <p className="text-xs text-blue-700">
               Impor parsial terdeteksi. {summary.skipped ?? 0} item yang tidak muncul di Excel tidak akan dihapus.
-              Untuk menghapus item, gunakan menu edit manual atau impor file lengkap (&ge;80% data).
+              Untuk menghapus item, gunakan menu edit manual atau impor file lengkap (≥80% data).
             </p>
           </div>
         )}

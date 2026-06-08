@@ -308,9 +308,59 @@ class DjaImportService
             }
         }
 
-        // Hapus — hanya diproses jika user eksplisit menghapus via UI,
-        // atau jika impor adalah full-replace (excelMap >= 80% dbMap).
-        // Untuk impor parsial, item yang tidak muncul di Excel di-skip.
+        // ── Second pass: fallback matching untuk rincian biaya ──────────────────
+        // Excel item dengan kode_akun X mungkin match dengan DB item yang
+        // kode_akun-nya kosong (tapi nama_item dan parent_path sama).
+        // Ini menangani kasus DB punya kode_akun empty sementara Excel ada.
+        $fallbackMatched = [];
+        $removedNew = $removed;
+
+        foreach ($added as $idx => $key) {
+            $excelNode = $excelMap[$key];
+            if (($excelNode['level'] ?? '') !== 'rincian_biaya') continue;
+
+            $parentPath = $excelNode['parent_path'] ?? '';
+            $namaItem = $excelNode['nama'] ?? '';
+
+            // Cari DB item dengan parent_path sama + nama_item sama + kode_akun kosong
+            foreach ($dbMap as $dbKey => $dbNode) {
+                if (($dbNode['level'] ?? '') !== 'rincian_biaya') continue;
+                if ($dbNode['nama'] !== $namaItem) continue;
+                if (($dbNode['parent_path'] ?? '') !== $parentPath) continue;
+
+                // DB item punya kode_akun kosong → fallback match
+                $dbKodeAkun = $dbNode['kode_akun'] ?? $dbNode['kode'] ?? '';
+                $dbKodeAkun = explode(':', $dbKodeAkun)[0] ?? '';
+                if ($dbKodeAkun !== '') continue;
+
+                // Match ditemukan! Konversi dari tambah → ubah
+                $excelNode['jenis'] = 'ubah';
+                $excelNode['pagu_lama'] = $dbNode['pagu'];
+                $excelNode['pagu_baru'] = $excelNode['pagu'];
+                $excelNode['dbId'] = $dbNode['id'] ?? null;
+                $excelNode['status_eksekusi'] = 'sukses';
+
+                // Proyeksi overbudget
+                if ((float) $excelNode['pagu'] < (float) ($dbNode['pagu'] ?? 0)) {
+                    $terpakai = $dbNode['terpakai'] ?? 0;
+                    if ($terpakai > (float) $excelNode['pagu']) {
+                        $excelNode['overbudget'] = (float) $terpakai - (float) $excelNode['pagu'];
+                        $excelNode['overbudget_label'] = 'Overbudget: Rp ' . number_format($excelNode['overbudget'], 0, ',', '.');
+                        $overbudgetCount++;
+                        $overbudgetTotal += $excelNode['overbudget'];
+                    }
+                }
+
+                $result[$key] = $excelNode;
+                $changedCount++;
+                $addedCount--;
+                $fallbackMatched[] = $dbKey;
+                continue 2; // lanjut ke added item berikutnya
+            }
+        }
+
+        // Hapus DB items yang sudah di-fallback-match dari list removed
+        $removed = array_diff($removed, $fallbackMatched);
         $excelCount = count($excelMap);
         $dbCount = count($dbMap);
         $isFullReplace = $dbCount > 0 && $excelCount >= ($dbCount * 0.8);
@@ -385,20 +435,34 @@ class DjaImportService
         // State cache untuk lookup parent ID setelah upsert
         $parentIdCache = [];
 
+        // Pre-populate cache dari DB untuk parent yang tidak diproses (skip/ubah tanpa perubahan)
+        $dbMap = $this->buildDatabaseMap($tahunStr);
+
         foreach ($ordered as $key => $node) {
             $jenis = $node['jenis'] ?? null;
-            if (! in_array($jenis, ['tambah', 'ubah'])) {
-                continue;
-            }
-
             $level = $node['level'];
             $kode = $node['kode'];
             $parentPath = $node['parent_path'] ?? null;
 
-            // Dapatkan parent ID dari cache atau DB
+            // Dapatkan parent ID dari cache, atau lookup dari DB map
             $parentId = null;
-            if ($parentPath && isset($parentIdCache[$parentPath])) {
-                $parentId = $parentIdCache[$parentPath];
+            if ($parentPath) {
+                if (isset($parentIdCache[$parentPath])) {
+                    $parentId = $parentIdCache[$parentPath];
+                } elseif (isset($dbMap[$parentPath])) {
+                    $parentId = $dbMap[$parentPath]['id'] ?? null;
+                }
+            }
+
+            // Hanya proses item yang perlu diubah (tambah/ubah)
+            if (! in_array($jenis, ['tambah', 'ubah'])) {
+                // Cache ID untuk child items yang mungkin perlu lookup
+                if ($parentId === null && $level === 'program' && isset($dbMap[$key])) {
+                    $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
+                } elseif ($parentId && in_array($level, ['sasaran','kro','ro','komponen','kegiatan','rincian_biaya']) && isset($dbMap[$key])) {
+                    $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
+                }
+                continue;
             }
 
             if ($level === 'program') {
@@ -445,19 +509,51 @@ class DjaImportService
                 $this->logDetail($revisi, $node, 'sukses');
             } elseif ($level === 'rincian_biaya' && $parentId) {
                 $extra = $node['extra'] ?? [];
-                $model = DjaRincianBiaya::updateOrCreate(
-                    ['kegiatan_id' => $parentId, 'nama_item' => $node['nama']],
-                    [
-                        'kode_akun' => $extra['kode_akun'] ?? '',
-                        'nama_akun' => $extra['nama_akun'] ?? '',
-                        'volume_default' => $extra['volume_default'] ?? 0,
-                        'satuan' => $extra['satuan'] ?? 'OK',
-                        'harga_satuan' => $extra['harga_satuan'] ?? 0,
-                        'pagu_total' => $node['pagu'] ?? 0,
-                        'urutan' => $extra['urutan'] ?? 0,
-                        'is_aktif' => true,
-                    ]
-                );
+
+                // Jika dari fallback match (dbId diset), update record existing langsung
+                $dbId = $node['dbId'] ?? null;
+                if ($dbId && ($node['status_eksekusi'] ?? '') === 'sukses') {
+                    $record = DjaRincianBiaya::find($dbId);
+                    if ($record && $record->kegiatan_id == $parentId) {
+                        $record->update([
+                            'kode_akun' => $extra['kode_akun'] ?? '',
+                            'nama_akun' => $extra['nama_akun'] ?? '',
+                            'volume_default' => $extra['volume_default'] ?? 0,
+                            'satuan' => $extra['satuan'] ?? 'OK',
+                            'harga_satuan' => $extra['harga_satuan'] ?? 0,
+                            'pagu_total' => $node['pagu'] ?? 0,
+                            'urutan' => $extra['urutan'] ?? 0,
+                            'is_aktif' => true,
+                        ]);
+                        $model = $record;
+                    } else {
+                        $model = DjaRincianBiaya::updateOrCreate(
+                            ['kegiatan_id' => $parentId, 'kode_akun' => $extra['kode_akun'] ?? '', 'nama_item' => $node['nama']],
+                            [
+                                'nama_akun' => $extra['nama_akun'] ?? '',
+                                'volume_default' => $extra['volume_default'] ?? 0,
+                                'satuan' => $extra['satuan'] ?? 'OK',
+                                'harga_satuan' => $extra['harga_satuan'] ?? 0,
+                                'pagu_total' => $node['pagu'] ?? 0,
+                                'urutan' => $extra['urutan'] ?? 0,
+                                'is_aktif' => true,
+                            ]
+                        );
+                    }
+                } else {
+                    $model = DjaRincianBiaya::updateOrCreate(
+                        ['kegiatan_id' => $parentId, 'kode_akun' => $extra['kode_akun'] ?? '', 'nama_item' => $node['nama']],
+                        [
+                            'nama_akun' => $extra['nama_akun'] ?? '',
+                            'volume_default' => $extra['volume_default'] ?? 0,
+                            'satuan' => $extra['satuan'] ?? 'OK',
+                            'harga_satuan' => $extra['harga_satuan'] ?? 0,
+                            'pagu_total' => $node['pagu'] ?? 0,
+                            'urutan' => $extra['urutan'] ?? 0,
+                            'is_aktif' => true,
+                        ]
+                    );
+                }
                 $parentIdCache[$key] = $model->id;
                 $terpengaruh[] = $model->id;
                 $this->logDetail($revisi, $node, 'sukses');
@@ -523,6 +619,7 @@ class DjaImportService
             'parent_path' => $parentPath,
             'nama' => $nama,
             'pagu' => (float) $pagu,
+            'extra' => $extra,
         ], $extra);
     }
 

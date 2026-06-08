@@ -178,14 +178,16 @@ class PermohonanDanaController extends Controller
 
         $pd->load([
             'items.djaRincianBiaya', 'dokumens',
+            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
+            'kapokja', 'picKeuangan',
         ]);
 
-        // Kapokja bisa semua user aktif kecuali bendahara — sertakan tim_kerja agar frontend tahu dari tim mana
+        // Kapokja: hanya Ketua Tim Kerja yang aktif
         $kapokjaList = User::with('timkerja:id,kode,nama')
-            ->whereNotIn('role', ['bendahara'])
+            ->where('role', 'ketua_tim_kerja')
             ->where('is_active', true)
             ->orderBy('nama_lengkap')
-            ->get(['id', 'nama_lengkap', 'role', 'pimpinan_type', 'tim_kerja_id'])
+            ->get(['id', 'nama_lengkap', 'role', 'tim_kerja_id'])
             ->map(fn ($u) => [
                 'id' => $u->id,
                 'nama_lengkap' => $u->nama_lengkap,
@@ -600,6 +602,8 @@ class PermohonanDanaController extends Controller
 
         $pd->load([
             'items', 'dokumens',
+            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
+            'kapokja', 'picKeuangan',
         ]);
 
         return Inertia::render('Pumk/PermohonanDana/PrintPreview', [

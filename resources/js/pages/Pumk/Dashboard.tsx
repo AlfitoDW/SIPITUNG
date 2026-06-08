@@ -161,7 +161,7 @@ function TugasCard({ item }: { item: TugasItem }) {
                     </span>
                 </div>
             </div>
-            <Link href={`/pumk/permohonan-dana/${item.id}/edit`}>
+            <Link href={`/pumk/permohonan-dana/${item.id}/wizard`}>
                 <Button size="sm" variant="outline" className="shrink-0 gap-1.5 text-xs h-8">
                     {isRejected ? 'Perbaiki' : 'Lanjutkan'}
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -403,9 +403,9 @@ export default function Dashboard({
                             <div className="h-1 w-full bg-emerald-500" />
                             <div className="divide-y">
                                 {riwayatCair.map((item) => (
-                                    <Link
+                                        <Link
                                         key={item.id}
-                                        href={`/pumk/permohonan-dana/${item.id}`}
+                                        href={`/pumk/permohonan-dana/${item.id}/wizard`}
                                         className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors group"
                                     >
                                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/20">

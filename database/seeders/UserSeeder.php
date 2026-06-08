@@ -136,21 +136,8 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            // PIC Keuangan
-            User::updateOrCreate(
-                ['role' => 'pic_keuangan', 'tim_kerja_id' => $tim->id],
-                [
-                    'nama_lengkap' => 'PIC Keuangan '.$tim->nama,
-                    'nip' => null,
-                    'username' => "pic.{$kodeLower}",
-                    'email' => "pic.{$kodeLower}@lldikti3.go.id",
-                    'password' => $password,
-                    'role' => 'pic_keuangan',
-                    'tim_kerja_id' => $tim->id,
-                    'is_active' => true,
-                    'email_verified_at' => now(),
-                ]
-            );
+            // PIC Keuangan — dihapus dari sini, dipindahkan ke RefNamaSeeder
+            // (4 PIC Keuangan global dari data ref_nama, tidak per tim)
         }
     }
 }
