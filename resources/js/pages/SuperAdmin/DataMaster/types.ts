@@ -45,6 +45,21 @@ export interface TahunAnggaran {
     label: string;
     is_active: boolean;
     is_default: boolean;
+    has_user_assignments: boolean;
+}
+
+export interface UserAssignment {
+    id: number;
+    user_id: number;
+    tahun_anggaran_id: number;
+    tim_kerja_id: number | null;
+    role: 'super_admin' | 'pimpinan' | 'bendahara' | 'ketua_tim_kerja' | 'pumk' | 'pic_keuangan';
+    pimpinan_type: 'kabag_umum' | 'ppk' | null;
+    is_active: boolean;
+    nama_lengkap: string;
+    nip: string | null;
+    username: string;
+    email: string;
 }
 
 export interface TemplateDokumen {

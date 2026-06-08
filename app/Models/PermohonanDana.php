@@ -53,13 +53,22 @@ class PermohonanDana extends Model
         'pic_approved_by_name', 'pic_approved_by_nip',
         'dicairkan_by',      'catatan_pencairan', 'dicairkan_at', 'tgl_nominatif',
         'dicairkan_by_name', 'dicairkan_by_nip',
+        'kapokja_name', 'kapokja_nip',
+        'pic_keuangan_name', 'pic_keuangan_nip',
+        'tim_kerja_nama', 'tim_kerja_kode', 'tim_kerja_ketua_name', 'tim_kerja_ketua_nip',
+        'dja_program_nama', 'dja_sasaran_nama',
+        'dja_kro_nama', 'dja_kro_kode',
+        'dja_ro_nama', 'dja_komponen_nama',
+        'dja_kegiatan_nama', 'dja_kegiatan_kode',
         'rejected_at_step',  'catatan_penolakan', 'rejected_at',
         'submitted_at',
         'created_by',
+        'created_by_name',
+        'created_by_nip',
         // Bukti bayar
-        'bukti_bayar_path', 'bukti_bayar_nama_file', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by',
+        'bukti_bayar_path', 'bukti_bayar_nama_file', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by', 'bukti_bayar_uploaded_by_name',
         // Pembukaan kunci
-        'dibuka_kunci_by', 'dibuka_kunci_at', 'alasan_pembukaan_kunci',
+        'dibuka_kunci_by', 'dibuka_kunci_at', 'dibuka_kunci_by_name', 'alasan_pembukaan_kunci',
     ];
 
     protected $casts = [

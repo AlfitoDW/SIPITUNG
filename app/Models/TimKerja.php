@@ -18,6 +18,7 @@ class TimKerja extends Model
         'nama_singkat',
         'deskripsi',
         'is_active',
+        'tahun_anggaran_id',
     ];
 
     protected function casts(): array
@@ -51,8 +52,18 @@ class TimKerja extends Model
         return $this->hasMany(PermohonanDana::class, 'tim_kerja_id');
     }
 
+    public function tahunAnggaran(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(TahunAnggaran::class, 'tahun_anggaran_id');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeByTahun($query, ?int $tahunAnggaranId)
+    {
+        return $query->when($tahunAnggaranId, fn ($q) => $q->where('tahun_anggaran_id', $tahunAnggaranId));
     }
 }

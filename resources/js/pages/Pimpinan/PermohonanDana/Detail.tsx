@@ -395,7 +395,7 @@ export default function Detail({ pd, role }: Props) {
                                                     <td className="px-3 py-2.5 text-right tabular-nums">{fmt(item.harga_satuan)}</td>
                                                     <td className="px-3 py-2.5 text-right tabular-nums text-orange-600">{fmt(item.terpakai ?? 0)}</td>
                                                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-blue-700">{fmt(item.total)}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600">{fmt(Math.max(0, Number(item.sisa_anggaran ?? 0)))}</td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600">{fmt(Math.max(0, Number(item.sisa_anggaran ?? 0) - Number(item.total ?? 0)))}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

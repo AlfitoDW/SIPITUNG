@@ -3,7 +3,7 @@
 > **Tanggal Audit:** 2026-06-04  
 > **Scope:** Backend (Laravel), Frontend (React/TypeScript), Database, Export Excel  
 > **Status:** Batch 1 (C1-C3-H2-H3) sudah fix ✅ — Batch 2 (18 bug baru) menunggu eksekusi  
-> **Total Bug Ditemukan:** 23 (5 sudah fix, 18 menunggu)
+> **Total Bug Ditemukan:** 23 (6 sudah fix, 17 menunggu)
 
 ---
 
@@ -18,6 +18,32 @@
 | **H3** | 🔴 High | Race condition: dua PUMK submit bersamaan → budget overdraw | 1 file |
 
 **Test Result Batch 1:** 70 test passed, 226 assertions, 1.16 detik
+
+---
+
+## ✅ SUDAH FIX (Batch 1.5 — Multi-Year DJA Support — 2026-06-04)
+
+| Bug | Severity | Deskripsi | File Diubah |
+|-----|----------|-----------|-------------|
+| **Multi-Year** | 🔴 Critical | `dja_program.kode` unique global → import tahun baru gagal dengan SQL error. Tidak bisa punya DJA untuk tahun berbeda dengan kode program sama. | 3 file |
+
+**Detail Fix:**
+- **Migration:** `2026_06_04_300001_alter_dja_program_unique_kode_tahun.php`
+  - Drop unique constraint `kode` (global)
+  - Add composite unique `['kode', 'tahun_anggaran']`
+- **Controller:** `DjaController.php`
+  - `programStore()`: validasi `Rule::unique(...)->where('tahun_anggaran', $tahun->tahun)`
+  - `programUpdate()`: validasi scoped ke tahun aktif
+- **Import:** `importExcel()` sudah pakai `updateOrCreate(['kode', 'tahun_anggaran'], ...)` — tidak perlu ubah
+
+**Test:** `tests/Feature/Keuangan/DjaMultiYearSupportTest.php` (5 test)
+- Kode program sama boleh di tahun berbeda ✅
+- Kode program sama ditolak dalam tahun yang sama ❌
+- Update kode ke yang sudah ada di tahun lain → sukses ✅
+- Update kode ke duplicate dalam tahun sama → ditolak ❌
+- Index scope ke tahun_anggaran session → tidak bercampur ✅
+
+**Test Result Batch 1.5:** 75 test passed (253 assertions), 1.22 detik — no regression
 
 ---
 

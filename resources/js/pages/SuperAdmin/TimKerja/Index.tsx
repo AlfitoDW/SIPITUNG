@@ -1,6 +1,7 @@
 import { Head, useForm, router } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Copy, Calendar, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { PulseLoader } from 'react-spinners';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
@@ -32,6 +34,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Tim Kerja', href: '/super-admin/master/tim-kerja' },
 ];
 
+type TahunAnggaran = {
+    id: number;
+    tahun: number;
+    label: string;
+    is_default: boolean;
+};
+
 type TimKerja = {
     id: number;
     kode: string;
@@ -39,9 +48,10 @@ type TimKerja = {
     nama_singkat: string | null;
     deskripsi: string | null;
     is_active: boolean;
+    tahun_anggaran_id: number | null;
 };
 
-type Props = { timKerjas: TimKerja[] };
+type Props = { timKerjas: TimKerja[]; tahunAnggaran: TahunAnggaran[] };
 
 type FormFields = {
     kode: string;
@@ -50,13 +60,30 @@ type FormFields = {
     deskripsi: string;
 };
 
-export default function TimKerjaIndex({ timKerjas }: Props) {
-    const [addOpen, setAddOpen]     = useState(false);
+export default function TimKerjaIndex({ timKerjas, tahunAnggaran }: Props) {
+    const [selectedTahun, setSelectedTahun] = useState<string>(() => {
+        const defaultTahun = tahunAnggaran.find(t => t.is_default);
+        return String(defaultTahun?.id ?? tahunAnggaran[0]?.id ?? '');
+    });
+    const [addOpen, setAddOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<TimKerja | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<TimKerja | null>(null);
 
+    // Clone dialog
+    const [showCloneDialog, setShowCloneDialog] = useState(false);
+    const [sourceTahunId, setSourceTahunId] = useState<string>('');
+    const [cloneLoading, setCloneLoading] = useState(false);
+
     const addForm = useForm<FormFields>({ kode: '', nama: '', nama_singkat: '', deskripsi: '' });
     const editForm = useForm<FormFields>({ kode: '', nama: '', nama_singkat: '', deskripsi: '' });
+
+    const selectedTahunObj = tahunAnggaran.find(t => String(t.id) === selectedTahun);
+    const filteredTimKerjas = timKerjas.filter(tim => tim.tahun_anggaran_id === Number(selectedTahun));
+    const isEmpty = filteredTimKerjas.length === 0;
+    const sourceOptions = tahunAnggaran.filter(t =>
+        String(t.id) !== selectedTahun &&
+        timKerjas.some(tim => tim.tahun_anggaran_id === t.id)
+    );
 
     function openEdit(tim: TimKerja) {
         editForm.setData({
@@ -94,18 +121,70 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
         router.patch(`/super-admin/master/tim-kerja/${tim.id}/toggle-active`);
     }
 
+    function handleClone() {
+        if (!selectedTahun || !sourceTahunId) return;
+        setCloneLoading(true);
+        router.post(`/super-admin/master/tim-kerja/clone/${selectedTahun}`, {
+            source_tahun_anggaran_id: sourceTahunId,
+        }, {
+            onSuccess: () => {
+                setCloneLoading(false);
+                setShowCloneDialog(false);
+                setSourceTahunId('');
+            },
+            onError: () => {
+                setCloneLoading(false);
+            },
+        });
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Master Tim Kerja" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-2xl font-bold tracking-tight">Master Tim Kerja</h1>
                         <p className="text-muted-foreground">Kelola daftar divisi / tim kerja dalam organisasi</p>
                     </div>
-                    <Button size="sm" onClick={() => setAddOpen(true)}>
-                        <Plus className="mr-1.5 h-4 w-4" /> Tambah Tim Kerja
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>Tahun:</span>
+                        </div>
+                        <Select value={selectedTahun} onValueChange={setSelectedTahun}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {tahunAnggaran.map(t => (
+                                    <SelectItem key={t.id} value={String(t.id)}>
+                                        {t.tahun} — {t.label} {t.is_default && '(Default)'}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button size="sm" onClick={() => setAddOpen(true)}>
+                            <Plus className="mr-1.5 h-4 w-4" /> Tambah
+                        </Button>
+                        {isEmpty && sourceOptions.length > 0 && (
+                            <Button size="sm" variant="outline" onClick={() => setShowCloneDialog(true)}>
+                                <Copy className="mr-1.5 h-4 w-4" /> Tarik dari Tahun Lain
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Info Badge */}
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                        {selectedTahunObj?.tahun ?? '-'} — {filteredTimKerjas.length} tim kerja
+                    </Badge>
+                    {isEmpty && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" /> Kosong
+                        </Badge>
+                    )}
                 </div>
 
                 <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -121,14 +200,23 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {timKerjas.length === 0 && (
+                            {filteredTimKerjas.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                        Belum ada data tim kerja.
+                                        {isEmpty ? (
+                                            <div className="flex flex-col items-center gap-3">
+                                                <p>Belum ada data tim kerja untuk tahun {selectedTahunObj?.tahun ?? 'ini'}</p>
+                                                {sourceOptions.length > 0 && (
+                                                    <Button variant="outline" size="sm" onClick={() => setShowCloneDialog(true)}>
+                                                        <Copy className="mr-1.5 h-4 w-4" /> Tarik dari Tahun Lain
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ) : 'Belum ada data tim kerja.'}
                                     </TableCell>
                                 </TableRow>
                             )}
-                            {timKerjas.map(tim => (
+                            {filteredTimKerjas.map(tim => (
                                 <TableRow key={tim.id} className="align-top">
                                     <TableCell className="text-center font-mono text-sm font-semibold">{tim.kode}</TableCell>
                                     <TableCell className="text-sm">{tim.nama}</TableCell>
@@ -179,6 +267,63 @@ export default function TimKerjaIndex({ timKerjas }: Props) {
                     </Table>
                 </div>
             </div>
+
+            {/* Clone Dialog */}
+            <Dialog open={showCloneDialog} onOpenChange={setShowCloneDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Copy className="h-5 w-5" />
+                            Tarik Tim Kerja dari Tahun Lain
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {cloneLoading ? (
+                        <div className="flex flex-col items-center gap-3 py-8">
+                            <PulseLoader color="#003580" size={12} />
+                            <p className="text-sm text-muted-foreground">Sedang meng-clone tim kerja...</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4 pt-2">
+                            <div className="space-y-2">
+                                <Label>Tahun Sumber <span className="text-red-500">*</span></Label>
+                                <Select value={sourceTahunId} onValueChange={setSourceTahunId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih tahun sumber..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sourceOptions.map(t => (
+                                            <SelectItem key={t.id} value={String(t.id)}>
+                                                {t.tahun} — {t.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="font-medium">Catatan:</p>
+                                        <ul className="mt-1 space-y-1 text-xs list-disc list-inside">
+                                            <li>Semua tim kerja dari tahun sumber akan disalin ke tahun target</li>
+                                            <li>Status aktif/nonaktif akan disalin persis</li>
+                                            <li>Clone hanya bisa dilakukan sekali per tahun</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCloneDialog(false)} disabled={cloneLoading}>Batal</Button>
+                        <Button onClick={handleClone} disabled={cloneLoading || !sourceTahunId}>
+                            {cloneLoading ? 'Meng-clone...' : 'Clone Tim Kerja'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Add Dialog */}
             <Dialog open={addOpen} onOpenChange={setAddOpen}>

@@ -127,12 +127,25 @@ class DjaController extends Controller
             ->orderBy('kode')
             ->get(['id', 'ro_id', 'kode', 'nama', 'jenis', 'pagu', 'is_aktif']);
 
-        $kegiatans = DjaKegiatan::with('komponen:id,kode,nama')
+        $kegiatans = DjaKegiatan::with([
+            'komponen:id,kode,nama,ro_id',
+            'komponen.ro:id,kode,nama,kro_id',
+            'komponen.ro.kro:id,kode,nama,sasaran_id',
+            'komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
             ->whereHas('komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('kode')
             ->get(['id', 'komponen_id', 'kode', 'nama', 'pagu', 'is_aktif']);
 
-        $rincians = DjaRincianBiaya::with('kegiatan:id,kode,nama')
+        $rincians = DjaRincianBiaya::with([
+            'kegiatan:id,kode,nama,komponen_id',
+            'kegiatan.komponen:id,kode,nama,ro_id',
+            'kegiatan.komponen.ro:id,kode,nama,kro_id',
+            'kegiatan.komponen.ro.kro:id,kode,nama,sasaran_id',
+            'kegiatan.komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'kegiatan.komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
             ->whereHas('kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('kode_akun')
             ->orderBy('urutan')
@@ -156,7 +169,7 @@ class DjaController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
         $request->validate([
-            'kode' => ['required', 'string', 'max:20', Rule::unique('dja_program', 'kode')],
+            'kode' => ['required', 'string', 'max:20', Rule::unique('dja_program', 'kode')->where('tahun_anggaran', $tahun->tahun)],
             'nama' => 'required|string|max:250',
             'pagu' => 'required|integer|min:0',
         ]);
@@ -173,8 +186,9 @@ class DjaController extends Controller
 
     public function programUpdate(Request $request, DjaProgram $program): RedirectResponse
     {
+        $tahun = TahunAnggaran::forSession();
         $request->validate([
-            'kode' => ['required', 'string', 'max:20', Rule::unique('dja_program', 'kode')->ignore($program->id)],
+            'kode' => ['required', 'string', 'max:20', Rule::unique('dja_program', 'kode')->where('tahun_anggaran', $tahun->tahun)->ignore($program->id)],
             'nama' => 'required|string|max:250',
             'pagu' => 'required|integer|min:0',
         ]);

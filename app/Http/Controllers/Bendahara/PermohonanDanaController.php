@@ -26,15 +26,16 @@ class PermohonanDanaController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        $baseQuery = PermohonanDana::with([
-            'items', 'timKerja.ketua', 'createdBy', 'picApprovedBy', 'dicairkanBy', 'buktiBayarUploadedBy', 'picKeuangan', 'dibukaKunciOleh',
-        ])
+        $baseQuery = PermohonanDana::with(['items'])
             ->where('tahun_anggaran_id', $tahun->id)
             ->orderByDesc('created_at');
 
         $mapFn = function ($pd) {
             return array_merge($pd->toArray(), [
                 'status_label' => $pd->status_label,
+                // snapshot only
+                'kapokja_name' => $pd->kapokja_name,
+                'pic_keuangan_name' => $pd->pic_keuangan_name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
                     'katim_approved' => 'Kabag Umum',
@@ -44,14 +45,14 @@ class PermohonanDanaController extends Controller
                     default => null,
                 },
                 'next_approver_name' => match ($pd->status) {
-                    'submitted' => $pd->timKerja?->ketua?->nama_lengkap,
+                    'submitted' => $pd->kapokja_name,
                     'katim_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
                     'kabag_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => $pd->picKeuangan?->nama_lengkap,
+                    'ppk_approved' => $pd->pic_keuangan_name,
                     'pic_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
-                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
+                'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
             ]);
         };
 
@@ -92,9 +93,7 @@ class PermohonanDanaController extends Controller
     public function show(PermohonanDana $pd): Response
     {
         $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'dokumens', 'createdBy',
-            'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy', 'dibukaKunciOleh',
+            'dokumens', 'timKerja',
         ]);
 
         $items = \App\Models\PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
@@ -132,34 +131,34 @@ class PermohonanDanaController extends Controller
                 'catatan_penolakan' => $pd->catatan_penolakan,
                 'created_at' => $pd->created_at?->toIso8601String(),
                 'submitted_at' => $pd->submitted_at?->toIso8601String(),
-                'created_by_name' => $pd->createdBy?->nama_lengkap,
+                'created_by_name' => $pd->created_by_name,
                 'kapokja_id' => $pd->kapokja_id,
-                'kapokja_name' => $pd->kapokja?->nama_lengkap,
-                'tim_kerja_kode' => $pd->timKerja?->kode,
-                'tim_kerja_nama' => $pd->timKerja?->nama,
-                // Approval timestamps
+                'kapokja_name' => $pd->kapokja_name,
+                'tim_kerja_kode' => $pd->tim_kerja_kode,
+                'tim_kerja_nama' => $pd->tim_kerja_nama,
+                // Approval timestamps — snapshot only
                 'katim_approved_by' => $pd->katim_approved_by,
                 'katim_approved_at' => $pd->katim_approved_at?->toIso8601String(),
-                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap,
-                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap,
-                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap,
-                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap,
-                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap,
+                'katim_approved_by_name' => $pd->katim_approved_by_name,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name,
+                'pic_approved_by_name' => $pd->pic_approved_by_name,
+                'dicairkan_by_name' => $pd->dicairkan_by_name,
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'rejected_at_step' => $pd->rejected_at_step,
                 'dibuka_kunci_by' => $pd->dibuka_kunci_by,
                 'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
-                'dibuka_kunci_by_name' => $pd->dibukaKunciOleh?->nama_lengkap,
+                'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
                 'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
                 // DJA
-                'dja_program' => $pd->djaProgram ? ['nama' => $pd->djaProgram->nama] : null,
-                'dja_sasaran' => $pd->djaSasaran ? ['nama' => $pd->djaSasaran->nama] : null,
-                'dja_kro' => $pd->djaKro ? ['kode' => $pd->djaKro->kode, 'nama' => $pd->djaKro->nama] : null,
-                'dja_ro' => $pd->djaRo ? ['nama' => $pd->djaRo->nama] : null,
-                'dja_komponen' => $pd->djaKomponen ? ['nama' => $pd->djaKomponen->nama] : null,
-                'dja_kegiatan' => $pd->djaKegiatan ? ['kode' => $pd->djaKegiatan->kode, 'nama' => $pd->djaKegiatan->nama] : null,
-                'kapokja' => $pd->kapokja ? ['id' => $pd->kapokja->id, 'nama_lengkap' => $pd->kapokja->nama_lengkap] : null,
-                'pic_keuangan' => $pd->picKeuangan ? ['id' => $pd->picKeuangan->id, 'nama_lengkap' => $pd->picKeuangan->nama_lengkap] : null,
+                'dja_program' => ['nama' => $pd->dja_program_nama],
+                'dja_sasaran' => ['nama' => $pd->dja_sasaran_nama],
+                'dja_kro' => ['kode' => $pd->dja_kro_kode, 'nama' => $pd->dja_kro_nama],
+                'dja_ro' => ['nama' => $pd->dja_ro_nama],
+                'dja_komponen' => ['nama' => $pd->dja_komponen_nama],
+                'dja_kegiatan' => ['kode' => $pd->dja_kegiatan_kode, 'nama' => $pd->dja_kegiatan_nama],
+                'kapokja' => ['id' => $pd->kapokja_id, 'nama_lengkap' => $pd->kapokja_name],
+                'pic_keuangan' => ['id' => $pd->pic_keuangan_id, 'nama_lengkap' => $pd->pic_keuangan_name],
                 'items' => $items->map(fn ($i) => [
                     'id' => $i->id,
                     'kode_akun' => $i->kode_akun,
@@ -194,7 +193,7 @@ class PermohonanDanaController extends Controller
                 // Bukti bayar
                 'bukti_bayar_path' => $pd->bukti_bayar_path,
                 'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
-                'bukti_bayar_uploaded_by_name' => $pd->buktiBayarUploadedBy?->nama_lengkap,
+                'bukti_bayar_uploaded_by_name' => $pd->bukti_bayar_uploaded_by_name,
             ],
         ]);
     }
@@ -203,8 +202,7 @@ class PermohonanDanaController extends Controller
     {
         $pd->load([
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'items', 'dokumens',
-            'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy',
+            'items', 'dokumens',
         ]);
 
         return Inertia::render('Bendahara/PermohonanDana/PrintPreview', [
@@ -248,11 +246,13 @@ class PermohonanDanaController extends Controller
         $path = $file->store('bukti-bayar/'.date('Y/m'), 'local');
 
         \DB::transaction(function () use ($pd, $path, $file, $request) {
+            $user = $request->user();
             $pd->update([
                 'bukti_bayar_path' => $path,
                 'bukti_bayar_nama_file' => $file->getClientOriginalName(),
                 'bukti_bayar_uploaded_at' => now(),
-                'bukti_bayar_uploaded_by' => $request->user()->id,
+                'bukti_bayar_uploaded_by' => $user->id,
+                'bukti_bayar_uploaded_by_name' => $user->nama_lengkap,
             ]);
         });
 

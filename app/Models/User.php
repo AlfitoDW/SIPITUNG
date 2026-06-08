@@ -64,6 +64,25 @@ class User extends Authenticatable
         return $this->belongsTo(TimKerja::class, 'tim_kerja_id');
     }
 
+    public function tahunAnggaranAssignments()
+    {
+        return $this->hasMany(UserTahunAnggaran::class);
+    }
+
+    public function currentAssignment(?int $tahunAnggaranId = null): ?UserTahunAnggaran
+    {
+        $tahunId = $tahunAnggaranId ?? session('tahun_anggaran_id')
+            ?? TahunAnggaran::where('is_default', true)->value('id');
+
+        if (! $tahunId) {
+            return null;
+        }
+
+        return $this->tahunAnggaranAssignments()
+            ->where('tahun_anggaran_id', $tahunId)
+            ->first();
+    }
+
     // ─── Role Helpers ─────────────────────────────────────────────────────────────
 
     public function isSuperAdmin(): bool

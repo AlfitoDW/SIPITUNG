@@ -148,13 +148,17 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::put('/{timKerja}', [TimKerjaController::class, 'update'])->name('update');
         Route::delete('/{timKerja}', [TimKerjaController::class, 'destroy'])->name('destroy');
         Route::patch('/{timKerja}/toggle-active', [TimKerjaController::class, 'toggleActive'])->name('toggle-active');
+        Route::post('/clone/{tahunAnggaran}', [TimKerjaController::class, 'clone'])->name('clone');
     });
     Route::apiResource('data-master/users', UserController::class)
         ->only(['store', 'update', 'destroy']);
     Route::patch('/data-master/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('data-master.users.toggle-status');
     Route::patch('/data-master/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('data-master.users.reset-password');
+    Route::patch('/data-master/users/{user}/toggle-status/{tahunAnggaran}', [UserController::class, 'toggleStatusByTahun'])->name('data-master.users.toggle-status-by-tahun');
     Route::apiResource('data-master/tahun-anggaran', TahunAnggaranController::class)
         ->only(['store', 'update', 'destroy']);
     Route::patch('/data-master/tahun-anggaran/{tahunAnggaran}/toggle-default', [TahunAnggaranController::class, 'toggleDefault'])
         ->name('data-master.tahun-anggaran.toggle-default');
+    Route::post('/data-master/tahun-anggaran/{tahunAnggaran}/clone-users', [TahunAnggaranController::class, 'cloneUsers'])
+        ->name('data-master.tahun-anggaran.clone-users');
 });

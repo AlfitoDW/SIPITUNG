@@ -16,6 +16,7 @@ import type {
     TimKerja,
     TahunAnggaran,
     TemplateDokumen,
+    UserAssignment,
 } from './types';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Data Master', href: '#' }];
@@ -23,6 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Data Master', href: '#' }];
 interface DataMasterProps {
     kategoriKegiatan: KategoriKegiatan[];
     managementAccount: ManagementAccount[];
+    userAssignments: Record<string, UserAssignment[]>;
     timKerja: TimKerja[];
     tahunAnggaran: TahunAnggaran[];
     templateDokumen: TemplateDokumen[];
@@ -31,6 +33,7 @@ interface DataMasterProps {
 export default function DataMaster({
     kategoriKegiatan = [],
     managementAccount = [],
+    userAssignments = {},
     timKerja = [],
     tahunAnggaran = [],
     templateDokumen = [],
@@ -68,10 +71,10 @@ export default function DataMaster({
                         <KategoriTab data={kategoriKegiatan} />
                     </TabsContent>
                     <TabsContent value="account" className="space-y-4">
-                        <ManagementAccountTab accounts={managementAccount} timKerja={timKerja} />
+                        <ManagementAccountTab accounts={managementAccount} userAssignments={userAssignments} timKerja={timKerja} tahunAnggaran={tahunAnggaran} />
                     </TabsContent>
                     <TabsContent value="tahun" className="space-y-4">
-                        <TahunAnggaranTab data={tahunAnggaran} />
+                        <TahunAnggaranTab data={tahunAnggaran} userAssignments={userAssignments} />
                     </TabsContent>
                     <TabsContent value="template" className="space-y-4">
                         <TemplateDokumenTab data={templateDokumen} />

@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
-import { Search, Plus, Edit, Trash2, MoreVertical, KeyRound, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, MoreVertical, KeyRound, Filter, Calendar, Copy, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { PulseLoader } from 'react-spinners';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { StatusBadge } from '../components/StatusBadge';
-import type { ManagementAccount, TimKerja } from '../types';
+import type { ManagementAccount, TimKerja, TahunAnggaran, UserAssignment } from '../types';
 
 interface Props {
     accounts: ManagementAccount[];
+    userAssignments: Record<string, UserAssignment[]>;
     timKerja: TimKerja[];
+    tahunAnggaran: TahunAnggaran[];
 }
 
 const defaultFormData = {
@@ -25,14 +28,14 @@ const defaultFormData = {
     password: '', role: '', pimpinan_type: '', tim_kerja_id: '',
 };
 
-const roleLabel = (item: ManagementAccount): string => {
-    if (item.role === 'super_admin') return 'Super Admin';
-    if (item.role === 'bendahara') return 'Bendahara';
-    if (item.role === 'ketua_tim_kerja') return 'Ketua Tim Kerja';
-    if (item.role === 'pimpinan') return item.pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
-    if (item.role === 'pumk') return 'PUMK';
-    if (item.role === 'pic_keuangan') return 'PIC Keuangan';
-    return item.role;
+const roleLabel = (role: string, pimpinan_type?: string | null): string => {
+    if (role === 'super_admin') return 'Super Admin';
+    if (role === 'bendahara') return 'Bendahara';
+    if (role === 'ketua_tim_kerja') return 'Ketua Tim Kerja';
+    if (role === 'pimpinan') return pimpinan_type === 'kabag_umum' ? 'Kabag Umum' : 'PPK';
+    if (role === 'pumk') return 'PUMK';
+    if (role === 'pic_keuangan') return 'PIC Keuangan';
+    return role;
 };
 
 const ROLE_FILTERS = [
@@ -45,9 +48,13 @@ const ROLE_FILTERS = [
     { value: 'pic_keuangan', label: 'PIC Keuangan' },
 ] as const;
 
-export function ManagementAccountTab({ accounts, timKerja }: Props) {
+export function ManagementAccountTab({ accounts, userAssignments, timKerja, tahunAnggaran }: Props) {
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState<string>('all');
+    const [selectedTahunId, setSelectedTahunId] = useState<string>(() => {
+        const defaultTahun = tahunAnggaran.find((t) => t.is_default);
+        return String(defaultTahun?.id ?? tahunAnggaran[0]?.id ?? '');
+    });
     const [perPage, setPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [showDialog, setShowDialog] = useState(false);
@@ -57,12 +64,45 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
     const [showResetDialog, setShowResetDialog] = useState(false);
     const [itemToReset, setItemToReset] = useState<ManagementAccount | null>(null);
 
+    // Clone dialog state
+    const [showCloneDialog, setShowCloneDialog] = useState(false);
+    const [sourceTahunId, setSourceTahunId] = useState<string>('');
+    const [cloneLoading, setCloneLoading] = useState(false);
+
     const { data, setData, post, put, patch, processing, errors, reset, clearErrors } = useForm(defaultFormData);
     const { data: resetData, setData: setResetData, patch: patchReset, processing: resetProcessing, errors: resetErrors, reset: resetPasswordForm } = useForm({
         password: '', password_confirmation: '',
     });
 
-    const filtered = accounts.filter((item) => {
+    // Build display list: merge global accounts with pivot for selected tahun
+    // Super_admin: always from global accounts (no pivot)
+    // Others: from pivot for selected tahun. If not in pivot, they don't show for that tahun.
+    const buildDisplayList = (): ManagementAccount[] => {
+        const pivot = userAssignments[selectedTahunId] ?? [];
+        const pivotUserIds = new Set(pivot.map((p) => p.user_id));
+
+        // Super_admin dari global accounts (selalu tampil)
+        const superAdmins = accounts.filter((a) => a.role === 'super_admin');
+
+        // Non-super_admin dari pivot
+        const pivotUsers = pivot.map((p) => {
+            const global = accounts.find((a) => a.id === p.user_id);
+            return {
+                ...global,
+                id: p.user_id, // use global id for routing
+                role: p.role,
+                pimpinan_type: p.pimpinan_type,
+                tim_kerja_id: p.tim_kerja_id,
+                is_active: p.is_active,
+            } as ManagementAccount;
+        }).filter(Boolean) as ManagementAccount[];
+
+        return [...superAdmins, ...pivotUsers];
+    };
+
+    const displayList = buildDisplayList();
+
+    const filtered = displayList.filter((item) => {
         const matchSearch = [item.nama_lengkap, item.nip, item.username, item.email, item.role].some((v) =>
             v?.toLowerCase().includes(search.toLowerCase())
         );
@@ -73,6 +113,8 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
     const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
     const safePage = Math.min(currentPage, totalPages);
     const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
+
+    const selectedTahun = tahunAnggaran.find((t) => String(t.id) === selectedTahunId);
 
     const openAdd = () => {
         setEditingItem(null);
@@ -113,7 +155,13 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
     };
 
     const handleToggleStatus = (item: ManagementAccount) => {
-        router.patch(`/super-admin/data-master/users/${item.id}/toggle-status`, {});
+        if (item.role === 'super_admin') {
+            // Global toggle untuk super_admin
+            router.patch(`/super-admin/data-master/users/${item.id}/toggle-status`, {});
+        } else {
+            // Per-tahun toggle untuk non-super_admin
+            router.patch(`/super-admin/data-master/users/${item.id}/toggle-status/${selectedTahunId}`, {});
+        }
     };
 
     const handleResetPassword = () => {
@@ -138,6 +186,36 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
         });
     };
 
+    const getTimKerjaName = (timKerjaId: number | null) => {
+        if (!timKerjaId) return '-';
+        const tk = timKerja.find((t) => t.id === timKerjaId);
+        return tk ? `${tk.kode} — ${tk.nama}` : '-';
+    };
+
+    const handleClone = () => {
+        if (!selectedTahunId || !sourceTahunId) return;
+        setCloneLoading(true);
+        router.post(`/super-admin/data-master/tahun-anggaran/${selectedTahunId}/clone-users`, {
+            source_tahun_anggaran_id: sourceTahunId,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setCloneLoading(false);
+                setShowCloneDialog(false);
+                setSourceTahunId('');
+            },
+            onError: () => {
+                setCloneLoading(false);
+            },
+        });
+    };
+
+    const isEmpty = (userAssignments[selectedTahunId] ?? []).length === 0;
+    const sourceOptions = tahunAnggaran.filter((t) =>
+        String(t.id) !== selectedTahunId &&
+        (userAssignments[String(t.id)]?.length ?? 0) > 0
+    );
+
     return (
         <>
             <Card>
@@ -145,14 +223,39 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <CardTitle>Management Account</CardTitle>
-                            <CardDescription>Kelola akun pengguna sistem</CardDescription>
+                            <CardDescription>Kelola akun pengguna sistem per tahun anggaran</CardDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button size="sm" onClick={openAdd}><Plus className="mr-2 h-4 w-4" />Tambah</Button>
+                            {isEmpty && sourceOptions.length > 0 && (
+                                <Button size="sm" variant="outline" onClick={() => setShowCloneDialog(true)}>
+                                    <Copy className="mr-2 h-4 w-4" /> Tarik dari Tahun Lain
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {/* Tahun Filter */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>Tahun Anggaran</span>
+                        </div>
+                        <Select value={selectedTahunId} onValueChange={(val) => { setSelectedTahunId(val); setCurrentPage(1); }}>
+                            <SelectTrigger className="w-[280px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {tahunAnggaran.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)}>
+                                        {t.tahun} — {t.label} {t.is_default && '(Default)'}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {/* Role Filter */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -162,8 +265,8 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                         <div className="flex flex-wrap gap-2">
                             {ROLE_FILTERS.map((rf) => {
                                 const count = rf.value === 'all'
-                                    ? accounts.length
-                                    : accounts.filter((a) => a.role === rf.value).length;
+                                    ? displayList.length
+                                    : displayList.filter((a) => a.role === rf.value).length;
                                 const isActive = roleFilter === rf.value;
                                 return (
                                     <button
@@ -220,7 +323,12 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                             </Select>
                             <span>entri</span>
                         </div>
-                        <span className="text-sm text-muted-foreground">Total {filtered.length} akun</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Total {filtered.length} akun</span>
+                            <Badge variant="outline" className="text-xs">
+                                {selectedTahun?.tahun ?? '-'}
+                            </Badge>
+                        </div>
                     </div>
 
                     <div className="rounded-md border">
@@ -232,6 +340,7 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                     <TableHead>Username</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Role</TableHead>
+                                    <TableHead>Tim Kerja</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-center">Aksi</TableHead>
                                 </TableRow>
@@ -244,7 +353,10 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                         <TableCell className="text-muted-foreground">{item.username}</TableCell>
                                         <TableCell>{item.email}</TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">{roleLabel(item)}</Badge>
+                                            <Badge variant="outline">{roleLabel(item.role, item.pimpinan_type)}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                            {getTimKerjaName(item.tim_kerja_id)}
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadge status={item.is_active ? 'active' : 'inactive'} />
@@ -279,8 +391,8 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
-                                            Tidak ada data akun
+                                        <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
+                                            Tidak ada data akun untuk tahun {selectedTahun?.tahun ?? 'ini'}
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -478,6 +590,70 @@ export function ManagementAccountTab({ accounts, timKerja }: Props) {
                         <Button variant="outline" onClick={() => setShowResetDialog(false)}>Batal</Button>
                         <Button onClick={handleResetPassword} disabled={resetProcessing}>
                             {resetProcessing ? 'Mereset...' : 'Reset Password'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Clone Dialog */}
+            <Dialog open={showCloneDialog} onOpenChange={setShowCloneDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Copy className="h-5 w-5" />
+                            Tarik User dari Tahun Lain
+                        </DialogTitle>
+                        <DialogDescription>
+                            Clone user assignment dari tahun sumber ke tahun <strong>{selectedTahun?.tahun}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {cloneLoading ? (
+                        <div className="flex flex-col items-center gap-3 py-8">
+                            <PulseLoader color="#003580" size={12} />
+                            <p className="text-sm text-muted-foreground">Sedang meng-clone user assignments...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Tahun Sumber <span className="text-red-500">*</span></Label>
+                                <Select value={sourceTahunId} onValueChange={setSourceTahunId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih tahun sumber..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sourceOptions.map((t) => {
+                                            const count = userAssignments[String(t.id)]?.length ?? 0;
+                                            return (
+                                                <SelectItem key={t.id} value={String(t.id)}>
+                                                    {t.tahun} — {t.label} ({count} user)
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="font-medium">Catatan:</p>
+                                        <ul className="mt-1 space-y-1 text-xs list-disc list-inside">
+                                            <li>Hanya user non-super_admin yang akan di-clone</li>
+                                            <li>Role, tim kerja, dan status aktif akan disalin persis</li>
+                                            <li>Clone hanya bisa dilakukan sekali per tahun</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCloneDialog(false)} disabled={cloneLoading}>Batal</Button>
+                        <Button onClick={handleClone} disabled={cloneLoading || !sourceTahunId}>
+                            {cloneLoading ? 'Meng-clone...' : 'Clone User'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

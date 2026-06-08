@@ -4,7 +4,9 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
+use App\Models\TahunAnggaran;
 use App\Models\User;
+use App\Models\UserTahunAnggaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -34,7 +36,7 @@ class UserController extends Controller
             ],
         ]);
 
-        User::create([
+        $user = User::create([
             'nama_lengkap' => $validated['nama_lengkap'],
             'nip' => $validated['nip'] ?? null,
             'username' => $validated['username'],
@@ -45,6 +47,21 @@ class UserController extends Controller
             'tim_kerja_id' => $validated['tim_kerja_id'] ?? null,
             'is_active' => true,
         ]);
+
+        // Sync pivot untuk default tahun (kecuali super_admin)
+        if ($user->role !== 'super_admin') {
+            $defaultTahun = TahunAnggaran::where('is_default', true)->first();
+            if ($defaultTahun) {
+                UserTahunAnggaran::create([
+                    'user_id' => $user->id,
+                    'tahun_anggaran_id' => $defaultTahun->id,
+                    'tim_kerja_id' => $user->tim_kerja_id,
+                    'role' => $user->role,
+                    'pimpinan_type' => $user->pimpinan_type,
+                    'is_active' => $user->is_active,
+                ]);
+            }
+        }
 
         return redirect()->back()->with('success', 'Akun berhasil ditambahkan.');
     }
@@ -79,6 +96,22 @@ class UserController extends Controller
             'tim_kerja_id' => $validated['tim_kerja_id'] ?? null,
         ]);
 
+        // Sync pivot untuk default tahun (kecuali super_admin)
+        if ($user->role !== 'super_admin') {
+            $defaultTahun = TahunAnggaran::where('is_default', true)->first();
+            if ($defaultTahun) {
+                UserTahunAnggaran::updateOrCreate(
+                    ['user_id' => $user->id, 'tahun_anggaran_id' => $defaultTahun->id],
+                    [
+                        'tim_kerja_id' => $user->tim_kerja_id,
+                        'role' => $user->role,
+                        'pimpinan_type' => $user->pimpinan_type,
+                        'is_active' => $user->is_active,
+                    ]
+                );
+            }
+        }
+
         return redirect()->back()->with('success', 'Akun berhasil diperbarui.');
     }
 
@@ -99,6 +132,12 @@ class UserController extends Controller
             return redirect()->back()->withErrors(['error' => 'User tidak dapat dihapus karena pernah melakukan approval pada permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
         }
 
+        $hasCreatedPermohonan = PermohonanDana::where('created_by', $user->id)->exists();
+
+        if ($hasCreatedPermohonan) {
+            return redirect()->back()->withErrors(['error' => 'User tidak dapat dihapus karena pernah membuat permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
         $user->delete();
 
         return redirect()->back()->with('success', 'Akun berhasil dihapus.');
@@ -111,6 +150,16 @@ class UserController extends Controller
         }
 
         $user->update(['is_active' => ! $user->is_active]);
+
+        // Sync pivot status untuk default tahun
+        if ($user->role !== 'super_admin') {
+            $defaultTahun = TahunAnggaran::where('is_default', true)->first();
+            if ($defaultTahun) {
+                UserTahunAnggaran::where('user_id', $user->id)
+                    ->where('tahun_anggaran_id', $defaultTahun->id)
+                    ->update(['is_active' => $user->is_active]);
+            }
+        }
 
         $status = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
 
@@ -128,5 +177,29 @@ class UserController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Password akun {$user->nama_lengkap} berhasil direset.");
+    }
+
+    public function toggleStatusByTahun(User $user, TahunAnggaran $tahunAnggaran)
+    {
+        if ($user->id === auth()->id()) {
+            return redirect()->back()->withErrors(['error' => 'Tidak dapat menonaktifkan akun sendiri.']);
+        }
+
+        $assignment = UserTahunAnggaran::where('user_id', $user->id)
+            ->where('tahun_anggaran_id', $tahunAnggaran->id)
+            ->first();
+
+        if (! $assignment) {
+            return redirect()->back()->withErrors(['error' => 'User tidak memiliki assignment untuk tahun ini.']);
+        }
+
+        $assignment->update(['is_active' => ! $assignment->is_active]);
+
+        // Sync global user status juga (optional, tapi keep consistent)
+        $user->update(['is_active' => $assignment->is_active]);
+
+        $status = $assignment->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->back()->with('success', "Assignment berhasil {$status}.");
     }
 }

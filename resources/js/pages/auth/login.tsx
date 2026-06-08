@@ -1,5 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
         defaultTahunAnggaranId ? String(defaultTahunAnggaranId) : ''
     );
     const [showPassword, setShowPassword] = useState(false);
+    const page = usePage();
+    const flashError = (page.props as any).flash?.error;
 
     return (
         <div className="min-h-screen flex">
@@ -146,6 +148,15 @@ export default function Login({ status, tahunAnggaranList, defaultTahunAnggaranI
                         {status && (
                             <div className="mb-6 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
                                 {status}
+                            </div>
+                        )}
+
+                        {flashError && (
+                            <div className="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{flashError}</span>
+                                </div>
                             </div>
                         )}
 

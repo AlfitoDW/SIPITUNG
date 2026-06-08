@@ -29,9 +29,7 @@ class PermohonanDanaController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $permohonan = PermohonanDana::with([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'items', 'dokumens',
-            'createdBy', 'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy',
+            'items', 'dokumens',
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('created_by', $request->user()->id)
@@ -48,13 +46,16 @@ class PermohonanDanaController extends Controller
                 'dicairkan_at' => $pd->dicairkan_at?->toIso8601String(),
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
-                // actor names
-                'created_by_name' => $pd->createdBy?->nama_lengkap ?? $pd->createdBy?->name,
-                'katim_approved_by_name' => $pd->katim_approved_by_name ?? $pd->katimApprovedBy?->nama_lengkap ?? $pd->katimApprovedBy?->name,
-                'kabag_approved_by_name' => $pd->kabag_approved_by_name ?? $pd->kabagApprovedBy?->nama_lengkap ?? $pd->kabagApprovedBy?->name,
-                'ppk_approved_by_name' => $pd->ppk_approved_by_name ?? $pd->ppkApprovedBy?->nama_lengkap ?? $pd->ppkApprovedBy?->name,
-                'pic_approved_by_name' => $pd->pic_approved_by_name ?? $pd->picApprovedBy?->nama_lengkap ?? $pd->picApprovedBy?->name,
-                'dicairkan_by_name' => $pd->dicairkan_by_name ?? $pd->dicairkanBy?->nama_lengkap ?? $pd->dicairkanBy?->name,
+                // actor names — snapshot only, no fallback live
+                'created_by_name' => $pd->created_by_name,
+                'katim_approved_by_name' => $pd->katim_approved_by_name,
+                'kabag_approved_by_name' => $pd->kabag_approved_by_name,
+                'ppk_approved_by_name' => $pd->ppk_approved_by_name,
+                'pic_approved_by_name' => $pd->pic_approved_by_name,
+                'dicairkan_by_name' => $pd->dicairkan_by_name,
+                // kapokja / pic — snapshot only
+                'kapokja_name' => $pd->kapokja_name,
+                'pic_keuangan_name' => $pd->pic_keuangan_name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
                     'katim_approved' => 'Kabag Umum',
@@ -64,10 +65,10 @@ class PermohonanDanaController extends Controller
                     default => null,
                 },
                 'next_approver_name' => match ($pd->status) {
-                    'submitted' => $pd->kapokja?->nama_lengkap,
+                    'submitted' => $pd->kapokja_name,
                     'katim_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
                     'kabag_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => $pd->picKeuangan?->nama_lengkap,
+                    'ppk_approved' => $pd->pic_keuangan_name,
                     'pic_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
@@ -133,6 +134,16 @@ class PermohonanDanaController extends Controller
         $tahun = TahunAnggaran::forSession();
         $nomor = PermohonanDana::generateNomor($tahun->id, $tahun->tahun);
 
+        $timKerja = \App\Models\TimKerja::find($request->user()->tim_kerja_id);
+
+        // Load DJA data untuk snapshot
+        $program = \App\Models\DjaProgram::find($validated['dja_program_id']);
+        $sasaran = \App\Models\DjaSasaran::find($validated['dja_sasaran_id']);
+        $kro = \App\Models\DjaKro::find($validated['dja_kro_id']);
+        $ro = \App\Models\DjaRo::find($validated['dja_ro_id']);
+        $komponen = \App\Models\DjaKomponen::find($validated['dja_komponen_id']);
+        $kegiatan = \App\Models\DjaKegiatan::find($validated['dja_kegiatan_id']);
+
         $pd = PermohonanDana::create(array_merge($validated, [
             'tahun_anggaran_id' => $tahun->id,
             'tim_kerja_id' => $request->user()->tim_kerja_id,
@@ -141,6 +152,18 @@ class PermohonanDanaController extends Controller
             'status' => 'draft',
             'wizard_step' => 1,
             'created_by' => $request->user()->id,
+            'tim_kerja_nama' => $timKerja?->nama,
+            'tim_kerja_kode' => $timKerja?->kode,
+            'tim_kerja_ketua_name' => $timKerja?->ketua?->nama_lengkap,
+            'tim_kerja_ketua_nip' => $timKerja?->ketua?->nip,
+            'dja_program_nama' => $program?->nama,
+            'dja_sasaran_nama' => $sasaran?->nama,
+            'dja_kro_nama' => $kro?->nama,
+            'dja_kro_kode' => $kro?->kode,
+            'dja_ro_nama' => $ro?->nama,
+            'dja_komponen_nama' => $komponen?->nama,
+            'dja_kegiatan_nama' => $kegiatan?->nama,
+            'dja_kegiatan_kode' => $kegiatan?->kode,
         ]));
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
@@ -154,8 +177,7 @@ class PermohonanDanaController extends Controller
         abort_if($pd->created_by !== $request->user()->id, 403);
 
         $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'items.djaRincianBiaya', 'dokumens',
+            'items.djaRincianBiaya', 'dokumens',
         ]);
 
         // Kapokja bisa semua user aktif kecuali bendahara — sertakan tim_kerja agar frontend tahu dari tim mana
@@ -250,7 +272,16 @@ class PermohonanDanaController extends Controller
             'pic_keuangan_id' => 'required|exists:users,id',
         ]);
 
-        $pd->update(array_merge($validated, ['wizard_step' => 3]));  // advance to step 3
+        $kapokja = User::find($validated['kapokja_id']);
+        $pic = User::find($validated['pic_keuangan_id']);
+
+        $pd->update(array_merge($validated, [
+            'wizard_step' => 3,
+            'kapokja_name' => $kapokja?->nama_lengkap,
+            'kapokja_nip' => $kapokja?->nip,
+            'pic_keuangan_name' => $pic?->nama_lengkap,
+            'pic_keuangan_nip' => $pic?->nip,
+        ]));  // advance to step 3
 
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Data waktu & penanggung jawab disimpan.')
@@ -538,10 +569,13 @@ class PermohonanDanaController extends Controller
                     }
                 }
 
+                $user = auth()->user();
                 $pd->update([
                     'status' => 'submitted',
                     'wizard_step' => 4,
                     'submitted_at' => now(),
+                    'created_by_name' => $user->nama_lengkap,
+                    'created_by_nip' => $user->nip,
                 ]);
             });
         } catch (\Exception $e) {
@@ -563,9 +597,7 @@ class PermohonanDanaController extends Controller
         abort_if($pd->created_by !== $request->user()->id, 403);
 
         $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan', 'items', 'dokumens',
-            'katimApprovedBy', 'kabagApprovedBy', 'ppkApprovedBy', 'picApprovedBy', 'dicairkanBy',
+            'items', 'dokumens',
         ]);
 
         return Inertia::render('Pumk/PermohonanDana/PrintPreview', [

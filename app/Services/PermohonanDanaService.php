@@ -29,6 +29,7 @@ class PermohonanDanaService
                 'catatan_penolakan' => $alasan,
                 'dibuka_kunci_by' => $actor->id,
                 'dibuka_kunci_at' => now(),
+                'dibuka_kunci_by_name' => $actor->nama_lengkap,
                 'alasan_pembukaan_kunci' => $alasan,
             ]);
 

@@ -6,6 +6,7 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Models\TahunAnggaran;
 use App\Models\User;
+use App\Models\UserTahunAnggaran;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -57,25 +58,42 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::authenticateUsing(function (Request $request) {
             $user = User::where('username', $request->username)->first();
 
-            if ($user && Hash::check($request->password, $user->password) && $user->is_active) {
-                $tahunAnggaranId = $request->tahun_anggaran_id;
+            // Basic guard: password + global active
+            if (! $user || ! Hash::check($request->password, $user->password) || ! $user->is_active) {
+                return null;
+            }
 
-                // Validate tahun_anggaran_id; jika tidak valid, fallback ke yang is_default
-                if ($tahunAnggaranId) {
-                    $valid = TahunAnggaran::where('id', $tahunAnggaranId)->where('is_active', true)->exists();
-                    if (! $valid) {
-                        $tahunAnggaranId = null;
-                    }
+            // 1. Resolve tahun anggaran ID (strict — no fallback)
+            $tahunAnggaranId = $request->tahun_anggaran_id;
+            if ($tahunAnggaranId) {
+                $valid = TahunAnggaran::where('id', $tahunAnggaranId)->where('is_active', true)->exists();
+                if (! $valid) {
+                    $request->session()->flash('error', 'Tahun anggaran tidak valid atau nonaktif.');
+                    return null;
                 }
+            } else {
+                $tahunAnggaranId = TahunAnggaran::where('is_default', true)->where('is_active', true)->value('id');
+            }
 
-                if (! $tahunAnggaranId) {
-                    $tahunAnggaranId = TahunAnggaran::where('is_default', true)->where('is_active', true)->value('id');
-                }
-
+            // 2. Super_admin: always allowed
+            if ($user->isSuperAdmin()) {
                 $request->session()->put('tahun_anggaran_id', $tahunAnggaranId);
-
                 return $user;
             }
+
+            // 3. Non-super_admin: MUST have active assignment in this tahun
+            $hasAssignment = UserTahunAnggaran::where('user_id', $user->id)
+                ->where('tahun_anggaran_id', $tahunAnggaranId)
+                ->where('is_active', true)
+                ->exists();
+
+            if (! $hasAssignment) {
+                $request->session()->flash('error', 'Akun tidak terdaftar untuk tahun anggaran ini.');
+                return null;
+            }
+
+            $request->session()->put('tahun_anggaran_id', $tahunAnggaranId);
+            return $user;
         });
     }
 

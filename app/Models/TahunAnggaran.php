@@ -43,6 +43,16 @@ class TahunAnggaran extends Model
         return $this->hasMany(PermohonanDana::class, 'tahun_anggaran_id');
     }
 
+    public function userAssignments(): HasMany
+    {
+        return $this->hasMany(UserTahunAnggaran::class, 'tahun_anggaran_id');
+    }
+
+    public function hasUserAssignments(): bool
+    {
+        return $this->userAssignments()->exists();
+    }
+
     public static function forSession(): ?self
     {
         $id = session('tahun_anggaran_id');
