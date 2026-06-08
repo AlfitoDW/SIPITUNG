@@ -227,6 +227,8 @@ class PermohonanDanaController extends Controller
                         'pagu_total' => $item->pagu_total,
                         'terpakai' => $terpakai,
                         'sisa_anggaran' => max(0, $item->pagu_total - $terpakai),
+                        'overbudget_amount' => max(0, $terpakai - $item->pagu_total),
+                        'status_anggaran' => $terpakai > $item->pagu_total ? 'overbudget' : ($terpakai == $item->pagu_total ? 'habis' : ($terpakai > 0 ? 'tersedia' : 'belum_terpakai')),
                         'volume_diminta' => $existing?->volume ?? 0,
                         'jumlah_permintaan' => $existing?->jumlah_permintaan ?? 0,
                         // Nominatif info — tipe & jumlah peserta yang sudah diisi

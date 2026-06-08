@@ -15,9 +15,9 @@ import {
     ArrowRight,
     Inbox,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
 type TimKerja = { nama: string; kode: string } | null;

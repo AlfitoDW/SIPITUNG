@@ -20,6 +20,7 @@ class PermohonanDanaItem extends Model
         'harga_satuan',
         'total',
         'jumlah_permintaan',
+        'pagu_rincian_snapshot',
         'keterangan',
         'tipe_nominatif',
         'urutan',
@@ -30,6 +31,7 @@ class PermohonanDanaItem extends Model
         'harga_satuan' => 'decimal:2',
         'total' => 'decimal:2',
         'jumlah_permintaan' => 'decimal:2',
+        'pagu_rincian_snapshot' => 'decimal:2',
     ];
 
     // ─── Kode akun honor & perjadin ───────────────────────────────────────────

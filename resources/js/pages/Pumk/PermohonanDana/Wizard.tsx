@@ -42,6 +42,8 @@ interface RincianItem {
     id:number; kode_akun:string; nama_akun:string; nama_item:string;
     satuan:string; harga_satuan:number; harga_satuan_aktual:number;
     pagu_total:number; terpakai:number; sisa_anggaran:number;
+    overbudget_amount?: number;
+    status_anggaran?: 'overbudget' | 'habis' | 'tersedia' | 'belum_terpakai';
     volume_diminta:number; jumlah_permintaan:number;
     tipe_nominatif: 'honor' | 'perjadin' | 'non_nominatif';
     nominatif_count: number;   // jumlah baris nominatif yang sudah diisi
@@ -645,6 +647,25 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                 </p>
             </CardHeader>
             <CardContent className="space-y-6">
+                {/* Overbudget Warning */}
+                {(() => {
+                    const allItems = rincianBiaya.flat();
+                    const overbudgetCount = allItems.filter(i => i.status_anggaran === 'overbudget').length;
+                    if (overbudgetCount === 0) return null;
+                    const totalOverbudget = allItems
+                        .filter(i => i.status_anggaran === 'overbudget')
+                        .reduce((s, i) => s + (i.overbudget_amount ?? 0), 0);
+                    return (
+                        <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-3">
+                            <p className="text-sm font-semibold text-red-700">
+                                {overbudgetCount} rincian biaya overbudget (total Rp {fmt(totalOverbudget)})
+                            </p>
+                            <p className="text-xs text-red-600 mt-0.5">
+                                Pagu revisi lebih kecil dari dana yang sudah terpakai. Tidak dapat mengajukan permohonan baru untuk item ini.
+                            </p>
+                        </div>
+                    );
+                })()}
                 {rincianBiaya.length === 0 ? (
                     <p className="text-sm text-gray-400 text-center py-8">Tidak ada rincian biaya untuk kegiatan ini.</p>
                 ) : (
@@ -684,12 +705,22 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                                 const harga = getHarga(item);
                                                 const req   = vol * harga;
                                                 const sisa  = sisaDinamis(item);
-                                                const over  = req > item.sisa_anggaran;
+                                                const over  = req > item.sisa_anggaran || item.status_anggaran === 'overbudget';
                                                 const hargaBeda = harga < item.harga_satuan; // di bawah SBM
+                                                const isOverbudget = item.status_anggaran === 'overbudget';
+                                                const isHabis = item.status_anggaran === 'habis';
                                                 return (
-                                                    <tr key={item.id} className={cn('border-b last:border-0 align-top', over ? 'bg-red-50' : '')}>
+                                                    <tr key={item.id} className={cn('border-b last:border-0 align-top', over ? 'bg-red-50' : '', isOverbudget && 'bg-red-100')}>
                                                         <td className="px-3 py-2 text-gray-700 leading-snug">
-                                                            {item.nama_item}
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span>{item.nama_item}</span>
+                                                                {isOverbudget && (
+                                                                    <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold">Overbudget</span>
+                                                                )}
+                                                                {isHabis && (
+                                                                    <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded font-semibold">Habis</span>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         {/* Pagu Anggaran */}
                                                         <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">

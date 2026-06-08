@@ -27,6 +27,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::prefix('master-anggaran')->name('master-anggaran.')->group(function () {
             Route::get('/', [DjaController::class, 'index'])->name('index');
             Route::post('/import', [DjaController::class, 'importExcel'])->name('import');
+            Route::post('/import/confirm', [DjaController::class, 'confirmImport'])->name('import.confirm');
 
             // Program
             Route::post('/program', [DjaController::class, 'programStore'])->name('program.store');

@@ -45,6 +45,37 @@ interface Rincian {
 
 interface Tahun { id: number; tahun: string; label: string; }
 
+interface ImportPreviewItem {
+  level: string;
+  kode: string;
+  nama: string;
+  pagu: number;
+  jenis?: string;
+  pagu_lama?: number;
+  pagu_baru?: number;
+  status_eksekusi?: string;
+  keterangan?: string;
+  overbudget?: number;
+  overbudget_label?: string;
+  children: ImportPreviewItem[];
+}
+
+interface ImportPreview {
+  is_revisi: boolean;
+  is_full_replace?: boolean;
+  summary: {
+    added: number;
+    changed: number;
+    removed: number;
+    skipped?: number;
+    blocked: number;
+    overbudget_count: number;
+    overbudget_total: number;
+    overbudget_total_formatted: string;
+  };
+  hierarchical: ImportPreviewItem[];
+}
+
 interface Props {
   tahun: Tahun;
   programs: Program[];
@@ -54,6 +85,8 @@ interface Props {
   komponens: Komponen[];
   kegiatans: Kegiatan[];
   rincians: Rincian[];
+  importPreview?: ImportPreview;
+  importKey?: string;
 }
 
 const fmt = (n: number) => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
@@ -83,10 +116,13 @@ function buildKegiatanLabel(k: Kegiatan): string {
 
 // ── Import Excel Dialog ─────────────────────────────────────────────────────
 
-function ImportDialog() {
+function ImportDialog({ preview, importKey }: { preview?: ImportPreview; importKey?: string }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Perbarui state open berdasarkan ada tidaknya preview
+  const isPreviewOpen = !!preview && !!importKey;
 
   const doImport = () => {
     if (!file) return;
@@ -94,7 +130,7 @@ function ImportDialog() {
     const form = new FormData();
     form.append('file', file);
     router.post('/super-admin/keuangan/master-anggaran/import', form, {
-      onFinish: () => { setUploading(false); setOpen(false); setFile(null); },
+      onFinish: () => { setUploading(false); },
     });
   };
 
@@ -103,16 +139,15 @@ function ImportDialog() {
       <Button variant="outline" size="sm" className="gap-2" onClick={() => setOpen(true)}>
         <Upload className="w-4 h-4" /> Import Excel
       </Button>
-      <AlertDialog open={open} onOpenChange={setOpen}>
+
+      {/* Dialog upload file */}
+      <AlertDialog open={open && !isPreviewOpen} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Import Data DJA dari Excel</AlertDialogTitle>
             <AlertDialogDescription>
               Upload file Excel (.xlsx) dengan format kolom:
-              A=Kode Program, B=Nama, C=Pagu; D=Kode Sasaran, E=Nama, F=Pagu;
-              G=Kode KRO, H=Nama, I=Pagu; J=Kode RO, K=Nama, L=Pagu;
-              M=Kode Komp, N=Nama, O=Jenis, P=Pagu; Q=Kode Keg, R=Nama, S=Pagu;
-              T=Kode Akun, U=Nama Akun, V=Nama Item, W=Satuan, X=Harga, Y=Pagu, Z=Urutan
+              A=Kode, B=Nama, F=Pagu.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
@@ -121,11 +156,22 @@ function ImportDialog() {
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction onClick={doImport} disabled={uploading || !file}>
-              {uploading ? 'Mengimport...' : 'Import'}
+              {uploading ? 'Memproses...' : 'Pratinjau'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog preview perubahan */}
+      <ImportPreviewDialog
+        preview={preview}
+        importKey={importKey}
+        open={isPreviewOpen}
+        onClose={() => {
+          // Reload halaman tanpa preview
+          router.get('/super-admin/keuangan/master-anggaran');
+        }}
+      />
     </>
   );
 }
@@ -148,6 +194,253 @@ function DeleteConfirm({ open, onClose, onConfirm }: { open: boolean; onClose: (
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+// ── Import Preview Dialog ───────────────────────────────────────────────────
+
+const LEVEL_LABELS: Record<string, string> = {
+  program: 'Program',
+  sasaran: 'Sasaran',
+  kro: 'KRO',
+  ro: 'RO',
+  komponen: 'Komponen',
+  kegiatan: 'Kegiatan',
+  rincian_biaya: 'Rincian Biaya',
+};
+
+const JENIS_COLORS: Record<string, string> = {
+  tambah: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+  ubah: 'text-amber-600 bg-amber-50 border-amber-200',
+  hapus: 'text-red-600 bg-red-50 border-red-200',
+  skip: 'text-blue-600 bg-blue-50 border-blue-200',
+};
+
+const JENIS_LABELS: Record<string, string> = {
+  tambah: 'Baru',
+  ubah: 'Berubah',
+  hapus: 'Dihapus',
+  skip: 'Dilewati',
+};
+
+function ImportPreviewDialog({ preview, importKey, open, onClose }: {
+  preview?: ImportPreview;
+  importKey?: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [catatan, setCatatan] = useState('');
+
+  if (!preview) return null;
+
+  const doConfirm = (e: React.MouseEvent) => {
+    e.preventDefault(); // cegah AlertDialogAction auto-close
+    setConfirming(true);
+    router.post('/super-admin/keuangan/master-anggaran/import/confirm', {
+      import_key: importKey,
+      catatan,
+    }, {
+      onSuccess: () => {
+        setConfirming(false);
+        // onSuccess sudah redirect via Inertia, tidak perlu onClose
+      },
+      onError: () => {
+        setConfirming(false);
+      },
+      onFinish: () => {
+        // fallback kalau onSuccess tidak trigger
+        setConfirming(false);
+      },
+    });
+  };
+
+  const { summary, hierarchical, is_revisi } = preview;
+
+  return (
+    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen && !confirming) onClose(); }}>
+      <AlertDialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <AlertDialogHeader className="shrink-0">
+          <AlertDialogTitle className="flex items-center gap-2">
+            {is_revisi ? 'Pratinjau Revisi Anggaran' : 'Pratinjau Impor Anggaran'}
+            {summary.overbudget_count > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                ⚠️ {summary.overbudget_count} Overbudget
+              </Badge>
+            )}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-xs">
+            Tinjau perubahan di bawah sebelum konfirmasi.
+            {is_revisi && ' Perubahan akan tercatat sebagai revisi baru.'}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="grid grid-cols-5 gap-2 shrink-0 py-2">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-center">
+            <p className="text-lg font-bold text-emerald-700">{summary.added}</p>
+            <p className="text-xs text-emerald-600">Tambah</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
+            <p className="text-lg font-bold text-amber-700">{summary.changed}</p>
+            <p className="text-xs text-amber-600">Berubah</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
+            <p className="text-lg font-bold text-red-700">{summary.removed}</p>
+            <p className="text-xs text-red-600">Dihapus</p>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-center">
+            <p className="text-lg font-bold text-blue-700">{summary.skipped ?? 0}</p>
+            <p className="text-xs text-blue-600">Dilewati</p>
+          </div>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-center">
+            <p className="text-lg font-bold text-orange-700">{summary.blocked}</p>
+            <p className="text-xs text-orange-600">Diblokir</p>
+          </div>
+        </div>
+
+        {summary.overbudget_count > 0 && (
+          <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-2 shrink-0">
+            <p className="text-sm font-semibold text-red-700">
+              Potensi Overbudget: {summary.overbudget_total_formatted}
+            </p>
+            <p className="text-xs text-red-600">
+              {summary.overbudget_count} rincian biaya pagu turun di bawah realisasi. Perlu diselesaikan manual oleh keuangan.
+            </p>
+          </div>
+        )}
+
+        {preview.is_revisi && !preview.is_full_replace && (summary.skipped ?? 0) > 0 && (
+          <div className="bg-blue-50 border border-blue-300 rounded-lg px-4 py-2 shrink-0">
+            <p className="text-xs text-blue-700">
+              Impor parsial terdeteksi. {summary.skipped ?? 0} item yang tidak muncul di Excel tidak akan dihapus.
+              Untuk menghapus item, gunakan menu edit manual atau impor file lengkap (&ge;80% data).
+            </p>
+          </div>
+        )}
+        {summary.blocked > 0 && (
+          <div className="bg-orange-50 border border-orange-300 rounded-lg px-4 py-2 shrink-0">
+            <p className="text-xs text-orange-700">
+              {summary.blocked} item gagal dihapus karena masih terikat permohonan dana aktif.
+            </p>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto border rounded-lg bg-white mt-2">
+          <div className="p-3">
+            {hierarchical?.length > 0 ? (
+              <PreviewTree items={hierarchical} depth={0} />
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-8">Tidak ada perubahan terdeteksi.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 py-2">
+          <Label className="text-xs">Catatan Revisi (opsional)</Label>
+          <Input
+            className="mt-1 h-8 text-sm"
+            value={catatan}
+            onChange={e => setCatatan(e.target.value)}
+            placeholder="Alasan revisi..."
+            maxLength={500}
+          />
+        </div>
+
+        <AlertDialogFooter className="shrink-0">
+          <AlertDialogCancel onClick={onClose}>Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={doConfirm} disabled={confirming}>
+            {confirming ? 'Menerapkan...' : 'Konfirmasi & Terapkan'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function PreviewTree({ items, depth }: { items: ImportPreviewItem[]; depth: number }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (key: string) => {
+    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  return (
+    <ul className={depth === 0 ? 'space-y-1' : 'ml-4 mt-0.5 space-y-0.5'}>
+      {items.map((item, idx) => {
+        const key = `${item.level}:${item.kode}:${idx}`;
+        const hasChildren = item.children && item.children.length > 0;
+        const isExpanded = expanded[key] ?? true;
+        const jenis = item.jenis;
+        const isBlocked = item.status_eksekusi === 'gagal_hapus_terikat';
+
+        return (
+          <li key={key} className="text-xs">
+            <div
+              className={`flex items-start gap-1.5 px-2 py-1 rounded border ${
+                jenis ? JENIS_COLORS[jenis] ?? 'border-gray-100' : 'border-gray-100'
+              } ${isBlocked ? 'border-orange-300 bg-orange-50' : ''}`}
+            >
+              {hasChildren ? (
+                <button
+                  onClick={() => toggleExpand(key)}
+                  className="shrink-0 mt-0.5 text-gray-400 hover:text-gray-600"
+                >
+                  {isExpanded ? (
+                    <svg className="w-3 h-3 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                  ) : (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                  )}
+                </button>
+              ) : (
+                <span className="w-3 shrink-0" />
+              )}
+
+              <span className="shrink-0 text-[10px] text-gray-400 uppercase w-14 font-mono">
+                {LEVEL_LABELS[item.level] ?? item.level}
+              </span>
+
+              <span className="shrink-0 font-mono text-blue-700">{item.kode}</span>
+
+              <span className={`flex-1 min-w-0 truncate ${jenis === 'hapus' ? 'line-through text-red-400' : ''}`}>
+                {item.nama || '-'}
+              </span>
+
+              {jenis === 'ubah' && item.pagu_lama !== undefined && item.pagu_baru !== undefined && (
+                <span className="shrink-0 text-amber-700">
+                  {fmt(item.pagu_lama)} → {fmt(item.pagu_baru)}
+                </span>
+              )}
+              {jenis === 'tambah' && (
+                <span className="shrink-0 text-emerald-700">{fmt(item.pagu)}</span>
+              )}
+              {jenis === 'hapus' && (
+                <span className="shrink-0 text-red-400 line-through">{fmt(item.pagu_lama ?? 0)}</span>
+              )}
+
+              {jenis && (
+                <Badge variant="outline" className={`shrink-0 text-[10px] h-4 px-1 ${JENIS_COLORS[jenis]}`}>
+                  {JENIS_LABELS[jenis] ?? jenis}
+                </Badge>
+              )}
+
+              {item.overbudget && (
+                <Badge variant="destructive" className="shrink-0 text-[10px] h-4 px-1">
+                  {item.overbudget_label}
+                </Badge>
+              )}
+
+              {isBlocked && item.keterangan && (
+                <span className="shrink-0 text-[10px] text-orange-600 italic">{item.keterangan}</span>
+              )}
+            </div>
+
+            {hasChildren && isExpanded && (
+              <PreviewTree items={item.children} depth={depth + 1} />
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -753,7 +1046,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, ros, komponens, kegiatans, rincians }: Props) {
+export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, ros, komponens, kegiatans, rincians, importPreview, importKey }: Props) {
   return (
     <AppLayout>
       <Head title="Master Anggaran DJA" />
@@ -769,7 +1062,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
               <p className="text-sm text-muted-foreground">Tahun Anggaran {tahun.tahun} — Kelola hierarki program dan rincian biaya</p>
             </div>
           </div>
-          <ImportDialog />
+          <ImportDialog preview={importPreview} importKey={importKey} />
         </div>
 
         <div className="grid grid-cols-7 gap-3">

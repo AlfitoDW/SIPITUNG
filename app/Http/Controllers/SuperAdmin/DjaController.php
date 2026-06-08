@@ -17,7 +17,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class DjaController extends Controller
 {
@@ -504,21 +503,10 @@ class DjaController extends Controller
     // ─── Import Excel DJA ─────────────────────────────────────────────────────────
 
     /**
-     * Import hierarki DJA dari file Excel.
-     *
-     * Format sheet yang diharapkan:
-     * Kolom A=Kode Program, B=Nama Program, C=Pagu Program
-     *       D=Kode Sasaran, E=Nama Sasaran, F=Pagu Sasaran
-     *       G=Kode KRO,    H=Nama KRO,    I=Pagu KRO
-     *       J=Kode RO,     K=Nama RO,     L=Pagu RO
-     *       M=Kode Komp,   N=Nama Komp,   O=Jenis Komp, P=Pagu Komp
-     *       Q=Kode Keg,    R=Nama Keg,    S=Pagu Keg
-     *       T=Kode Akun,   U=Nama Akun,   V=Nama Item, W=Satuan, X=Harga, Y=Pagu Item, Z=Urutan
-     *
-     * Data sheet yang lebih sederhana (terserah mapping-nya per baris).
-     * Implementasi ini membaca baris per baris dan upsert tiap level.
+     * Parse file Excel dan tampilkan preview perubahan sebelum commit.
+     * Menghasilkan preview yang ditampilkan di halaman Master Anggaran.
      */
-    public function importExcel(Request $request): RedirectResponse
+    public function importExcel(Request $request): RedirectResponse|Response
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls|max:10240',
@@ -526,139 +514,124 @@ class DjaController extends Controller
 
         $tahun = TahunAnggaran::forSession();
 
-        $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
-        $sheet = $spreadsheet->getActiveSheet();
-        $rows = $sheet->toArray(null, true, true, true); // keyed by column letter
+        try {
+            $service = new \App\Services\DjaImportService();
+            $preview = $service->preview($request->file('file')->getRealPath(), $tahun);
 
-        // ── State tracker (hierarki vertikal) ────────────────────────────────
-        $currentProgram = null;
-        $currentSasaran = null;
-        $currentKro = null;
-        $currentRo = null;
-        $currentKomponen = null;
-        $currentKegiatan = null;
-        $currentKodeAkun = null;
-        $currentNamaAkun = null;
-        $urutan = 0;
-        $imported = 0;
+            $importKey = 'import_preview_' . $request->user()->id . '_' . $tahun->id;
+            cache()->put($importKey, $preview, now()->addHour());
 
-        $paguInt = fn ($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
-        $parseDecimal = fn ($v) => (float) preg_replace('/[^\d.]/', '', str_replace(',', '', (string) ($v ?? 0)));
+            return $this->indexWithPreview($tahun, $preview, $importKey);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
+        }
+    }
 
-        foreach ($rows as $rowNum => $row) {
-            $a = trim((string) ($row['A'] ?? ''));
-            $b = trim((string) ($row['B'] ?? ''));
-            $c = trim((string) ($row['C'] ?? ''));
-            $d = trim((string) ($row['D'] ?? ''));
-            $e = trim((string) ($row['E'] ?? ''));
-            $f = trim((string) ($row['F'] ?? ''));
+    /**
+     * Konfirmasi dan commit revisi anggaran dari preview yang telah disetujui.
+     */
+    public function confirmImport(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'import_key' => 'required|string',
+            'catatan' => 'nullable|string|max:500',
+        ]);
 
-            if ($a === '' && $b === '') {
-                continue;
-            } // baris kosong
+        $tahun = TahunAnggaran::forSession();
 
-            // ── Program  e.g. "139.03.DK" ────────────────────────────────────
-            if (preg_match('/^\d{3}\.\d{2}\.[A-Z]{2,3}$/', $a)) {
-                $currentProgram = DjaProgram::updateOrCreate(
-                    ['kode' => $a, 'tahun_anggaran' => $tahun->tahun],
-                    ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentSasaran = $currentKro = $currentRo = $currentKomponen = $currentKegiatan = null;
-                $imported++;
+        $previewData = cache()->get($request->import_key);
 
-                continue;
-            }
-
-            // ── Sasaran  e.g. "4472" (4-digit) ──────────────────────────────
-            if (preg_match('/^\d{4}$/', $a) && $currentProgram) {
-                $currentSasaran = DjaSasaran::updateOrCreate(
-                    ['program_id' => $currentProgram->id, 'kode' => $a],
-                    ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentKro = $currentRo = $currentKomponen = $currentKegiatan = null;
-                $imported++;
-
-                continue;
-            }
-
-            // ── KRO  e.g. "4472.BDB" ─────────────────────────────────────────
-            if (preg_match('/^\d{4}\.[A-Z]{3}$/', $a) && $currentSasaran) {
-                $currentKro = DjaKro::updateOrCreate(
-                    ['sasaran_id' => $currentSasaran->id, 'kode' => $a],
-                    ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentRo = $currentKomponen = $currentKegiatan = null;
-                $imported++;
-
-                continue;
-            }
-
-            // ── RO  e.g. "4472.BDB.001" ──────────────────────────────────────
-            if (preg_match('/^\d{4}\.[A-Z]{3}\.\d{3}$/', $a) && $currentKro) {
-                $currentRo = DjaRo::updateOrCreate(
-                    ['kro_id' => $currentKro->id, 'kode' => $a],
-                    ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentKomponen = $currentKegiatan = null;
-                $imported++;
-
-                continue;
-            }
-
-            // ── Komponen  e.g. "051" (3-digit) ───────────────────────────────
-            if (preg_match('/^\d{3}$/', $a) && $currentRo) {
-                $currentKomponen = DjaKomponen::updateOrCreate(
-                    ['ro_id' => $currentRo->id, 'kode' => $a],
-                    ['nama' => $b, 'jenis' => 'Utama', 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentKegiatan = null;
-                $imported++;
-
-                continue;
-            }
-
-            // ── Kegiatan  e.g. "A", "B" (single uppercase letter) ────────────
-            if (preg_match('/^[A-Z]$/', $a) && $currentKomponen) {
-                $currentKegiatan = DjaKegiatan::updateOrCreate(
-                    ['komponen_id' => $currentKomponen->id, 'kode' => $a],
-                    ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
-                );
-                $currentKodeAkun = $currentNamaAkun = null;
-                $urutan = 0;
-                $imported++;
-
-                continue;
-            }
-
-            // ── Kode Akun  e.g. "521211" (6-digit) ───────────────────────────
-            if (preg_match('/^\d{6}$/', $a)) {
-                $currentKodeAkun = $a;
-                $currentNamaAkun = $b;
-                $urutan = 0;
-
-                continue;
-            }
-
-            // ── Rincian Biaya  (A kosong, B adalah nama item "- 01 ...") ──────
-            if ($a === '' && $b !== '' && $currentKegiatan && $currentKodeAkun) {
-                $urutan++;
-                DjaRincianBiaya::updateOrCreate(
-                    ['kegiatan_id' => $currentKegiatan->id, 'nama_item' => $b],
-                    [
-                        'kode_akun' => $currentKodeAkun,
-                        'nama_akun' => $currentNamaAkun ?? '',
-                        'volume_default' => is_numeric(str_replace(['.', ','], ['', '.'], $c)) ? (float) str_replace(['.', ','], ['', '.'], $c) : 0,
-                        'satuan' => $d ?: 'OK',
-                        'harga_satuan' => $parseDecimal($e),
-                        'pagu_total' => $parseDecimal($f),
-                        'urutan' => $urutan,
-                        'is_aktif' => true,
-                    ]
-                );
-                $imported++;
-            }
+        if (! $previewData) {
+            return back()->with('error', 'Sesi impor sudah kadaluarsa. Silakan upload ulang.');
         }
 
-        return back()->with('success', "Import selesai. {$imported} baris diproses.");
+        try {
+            $previewData['catatan'] = $request->input('catatan');
+            $service = new \App\Services\DjaImportService();
+            $revisi = $service->commit($previewData, $request->user()->id, $tahun);
+
+            cache()->forget($request->import_key);
+
+            $msg = $previewData['is_revisi']
+                ? "Revisi #{$revisi->nomor_revisi} berhasil diterapkan."
+                : 'Impor anggaran berhasil.';
+
+            $notif = '';
+            $overbudgetCount = $previewData['summary']['overbudget_count'] ?? 0;
+            if ($overbudgetCount > 0) {
+                $total = $previewData['summary']['overbudget_total_formatted'] ?? '';
+                $notif = " {$overbudgetCount} rincian biaya overbudget (total {$total}). Segera lakukan penyesuaian.";
+            }
+
+            return redirect()->route('super-admin.keuangan.master-anggaran.index')
+                ->with('success', $msg . $notif);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal menerapkan revisi: ' . $e->getMessage());
+        }
+    }
+
+    /** Render halaman index dengan data preview */
+    private function indexWithPreview(TahunAnggaran $tahun, array $preview, string $importKey): Response
+    {
+        $programs = DjaProgram::where('tahun_anggaran', $tahun->tahun)
+            ->orderBy('kode')
+            ->get(['id', 'kode', 'nama', 'pagu', 'is_aktif']);
+
+        $sasarans = DjaSasaran::with('program:id,kode,nama')
+            ->whereHas('program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode')
+            ->get(['id', 'program_id', 'kode', 'nama', 'pagu', 'is_aktif']);
+
+        $kros = DjaKro::with('sasaran:id,kode,nama')
+            ->whereHas('sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode')
+            ->get(['id', 'sasaran_id', 'kode', 'nama', 'pagu', 'is_aktif']);
+
+        $ros = DjaRo::with('kro:id,kode,nama')
+            ->whereHas('kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode')
+            ->get(['id', 'kro_id', 'kode', 'nama', 'pagu', 'is_aktif']);
+
+        $komponens = DjaKomponen::with('ro:id,kode,nama')
+            ->whereHas('ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode')
+            ->get(['id', 'ro_id', 'kode', 'nama', 'jenis', 'pagu', 'is_aktif']);
+
+        $kegiatans = DjaKegiatan::with([
+            'komponen:id,kode,nama,ro_id',
+            'komponen.ro:id,kode,nama,kro_id',
+            'komponen.ro.kro:id,kode,nama,sasaran_id',
+            'komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
+            ->whereHas('komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode')
+            ->get(['id', 'komponen_id', 'kode', 'nama', 'pagu', 'is_aktif']);
+
+        $rincians = DjaRincianBiaya::with([
+            'kegiatan:id,kode,nama,komponen_id',
+            'kegiatan.komponen:id,kode,nama,ro_id',
+            'kegiatan.komponen.ro:id,kode,nama,kro_id',
+            'kegiatan.komponen.ro.kro:id,kode,nama,sasaran_id',
+            'kegiatan.komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'kegiatan.komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
+            ->whereHas('kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
+            ->orderBy('kode_akun')
+            ->orderBy('urutan')
+            ->get();
+
+        return Inertia::render('SuperAdmin/Keuangan/MasterAnggaran/Index', [
+            'tahun' => $tahun,
+            'programs' => $programs,
+            'sasarans' => $sasarans,
+            'kros' => $kros,
+            'ros' => $ros,
+            'komponens' => $komponens,
+            'kegiatans' => $kegiatans,
+            'rincians' => $rincians,
+            'importPreview' => $preview,
+            'importKey' => $importKey,
+        ]);
     }
 }
