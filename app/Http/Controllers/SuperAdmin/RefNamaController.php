@@ -96,14 +96,15 @@ class RefNamaController extends Controller
 
     /**
      * Download template Excel kosong untuk import pegawai.
+     * Format sesuai dengan template LLDIKTI: no, nama, nip, nik, npwp, status, gol. ruang, nama rek, no rek, Bank, PPh 21, Email
      */
     public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Header row
-        $headers = ['nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian', 'nama_rekening', 'no_rekening', 'nama_bank', 'email'];
+        // Header row - sesuai template Excel LLDIKTI
+        $headers = ['no', 'nama', 'nip', 'nik', 'npwp', 'status', 'gol. ruang', 'nama rek', 'no rek', 'Bank', 'PPh 21', 'Email'];
         foreach ($headers as $idx => $header) {
             $col = chr(65 + $idx); // A, B, C, ...
             $sheet->setCellValue($col.'1', $header);
@@ -113,17 +114,21 @@ class RefNamaController extends Controller
 
         // Sample data rows (contoh, user bisa hapus)
         $samples = [
-            ['Budi Santoso', '198501012010011001', '3273010101850001', '123456789012345', 'III/a', 'PNS', 'Budi Santoso', '0012345678', 'BNI', 'budi@contoh.com'],
-            ['Ani Wijaya', '-', '3273010202860002', '', '', 'Non-PNS', 'Ani Wijaya', '0087654321', 'BRI', 'ani@contoh.com'],
-            ['Citra Lestari', '197803152003122002', '3273011503780003', '987654321098765', 'IV/b', 'PNS', 'Citra Lestari', '0022334455', 'Mandiri', 'citra@contoh.com'],
+            [1, 'Budi Santoso', '198501012010011001', '3273010101850001', '123456789012345', 'PNS', 'III/a', 'Budi Santoso', '0012345678', 'BNI', '=(IF(LEFT(G2,3)="III","5%",IF(LEFT(G2,3)="NON","2,5%",IF(LEFT(G2,3)="IV/","15%","0%"))))', 'budi@contoh.com'],
+            [2, 'Ani Wijaya', null, '3273010202860002', null, 'Non-PNS', null, 'Ani Wijaya', '0087654321', 'BRI', '=(IF(LEFT(G3,3)="III","5%",IF(LEFT(G3,3)="NON","2,5%",IF(LEFT(G3,3)="IV/","15%","0%"))))', 'ani@contoh.com'],
+            [3, 'Citra Lestari', '197803152003122002', '3273011503780003', '987654321098765', 'PNS', 'IV/b', 'Citra Lestari', '0022334455', 'Mandiri', '=(IF(LEFT(G4,3)="III","5%",IF(LEFT(G4,3)="NON","2,5%",IF(LEFT(G4,3)="IV/","15%","0%"))))', 'citra@contoh.com'],
         ];
         foreach ($samples as $r => $row) {
             foreach ($row as $c => $val) {
-                $sheet->setCellValue(chr(65 + $c).($r + 2), $val);
+                if ($c === 10) { // Column K (PPh 21) - set as formula
+                    $sheet->setCellValue(chr(65 + $c).($r + 2), $val);
+                } else {
+                    $sheet->setCellValue(chr(65 + $c).($r + 2), $val);
+                }
             }
         }
 
-        // Dropdown validation for status_kepegawaian (column F)
+        // Dropdown validation for status (column F)
         $statusValidation = new DataValidation;
         $statusValidation->setType(DataValidation::TYPE_LIST);
         $statusValidation->setErrorStyle(DataValidation::STYLE_STOP);
@@ -134,7 +139,7 @@ class RefNamaController extends Controller
             $sheet->getCell('F'.$row)->setDataValidation($statusValidation);
         }
 
-        // Dropdown validation for gol_ruang (column E)
+        // Dropdown validation for gol. ruang (column G)
         $golOptions = ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'];
         $golValidation = new DataValidation;
         $golValidation->setType(DataValidation::TYPE_LIST);
@@ -143,11 +148,11 @@ class RefNamaController extends Controller
         $golValidation->setShowDropDown(true);
         $golValidation->setFormula1('"'.implode(',', $golOptions).'"');
         for ($row = 2; $row <= 1000; $row++) {
-            $sheet->getCell('E'.$row)->setDataValidation($golValidation);
+            $sheet->getCell('G'.$row)->setDataValidation($golValidation);
         }
 
         // Column widths
-        foreach (range('A', 'J') as $col) {
+        foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -165,7 +170,7 @@ class RefNamaController extends Controller
 
     /**
      * Import pegawai dari Excel template.
-     * Wajib pakai header: nama, nip, nik, npwp, gol_ruang, status_kepegawaian, nama_rekening, no_rekening, nama_bank, email
+     * Format sesuai template LLDIKTI: no, nama, nip, nik, npwp, status, gol. ruang, nama rek, no rek, Bank, PPh 21, Email
      */
     public function importExcel(Request $request): RedirectResponse
     {
@@ -181,11 +186,11 @@ class RefNamaController extends Controller
             return back()->with('error', 'File Excel kosong.');
         }
 
-        // Validasi header
-        $expected = ['nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian', 'nama_rekening', 'no_rekening', 'nama_bank', 'email'];
-        $actual = array_values(array_map(fn ($v) => strtolower(trim((string) $v)), array_slice($rows[1], 0, 10)));
+        // Validasi header - sesuai template Excel LLDIKTI
+        $expected = ['no', 'nama', 'nip', 'nik', 'npwp', 'status', 'gol. ruang', 'nama rek', 'no rek', 'bank', 'pph 21', 'email'];
+        $actual = array_values(array_map(fn ($v) => strtolower(trim((string) $v)), array_slice($rows[1], 0, 12)));
         if ($actual !== $expected) {
-            return back()->with('error', 'Format file tidak sesuai template. Pastikan baris pertama berisi header: '.implode(', ', $expected).'. Silakan download template dan isi ulang.');
+            return back()->with('error', 'Format file tidak sesuai template. Pastikan baris pertama berisi header: no, nama, nip, nik, npwp, status, gol. ruang, nama rek, no rek, Bank, PPh 21, Email. Silakan download template dan isi ulang.');
         }
 
         $imported = 0;
@@ -197,21 +202,22 @@ class RefNamaController extends Controller
             if ($rowNum <= 1) {
                 continue;
             } // skip header
-            if (empty($row['A']) || trim((string) $row['A']) === '') {
+            if (empty($row['B']) || trim((string) $row['B']) === '') {
                 continue;
-            } // skip baris kosong
+            } // skip baris kosong (kolom B = nama)
 
-            $nama = trim((string) $row['A']);
-            $nip = $this->nullableString($row['B']);
-            $nik = $this->nullableString($row['C']);
-            $npwp = $this->nullableString($row['D']);
-            $golRuang = $this->nullableString($row['E']);
+            $nama = trim((string) $row['B']);
+            $nip = $this->nullableString($row['C']);
+            $nik = $this->nullableString($row['D']);
+            $npwp = $this->nullableString($row['E']);
             $statusRaw = trim((string) ($row['F'] ?? ''));
             $status = in_array($statusRaw, ['PNS', 'Non-PNS']) ? $statusRaw : 'PNS';
-            $namaRekening = $this->nullableString($row['G']);
-            $noRekening = $this->nullableString($row['H']);
-            $namaBank = $this->nullableString($row['I']);
-            $email = $this->nullableString($row['J']);
+            $golRuang = $this->nullableString($row['G']);
+            $namaRekening = $this->nullableString($row['H']);
+            $noRekening = $this->nullableString($row['I']);
+            $namaBank = $this->nullableString($row['J']);
+            // Skip kolom K (PPh 21) - akan dihitung otomatis
+            $email = $this->nullableString($row['L']);
 
             $pph = RefNama::hitungPph21($status, $golRuang, $npwp);
 

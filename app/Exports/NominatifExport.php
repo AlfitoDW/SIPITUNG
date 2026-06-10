@@ -4,18 +4,12 @@ namespace App\Exports;
 
 use App\Models\PermohonanDana;
 use App\Models\User;
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Export Daftar Nominatif menggunakan template Excel dari LLDIKTI.
- * Template: storage/app/templates/nominatif_template.xlsx
- * Per kode akun ada sheet sendiri dengan styling lengkap.
- * Logic ini hanya isi data + header dinamis + footer signature.
+ * Export Daftar Nominatif menggunakan Direct-ZIP manipulation.
+ * Tidak menggunakan PhpSpreadsheet untuk write — hanya untuk read metadata.
+ * Struktur XML 100% original dari template.
  */
 class NominatifExport
 {
@@ -29,13 +23,6 @@ class NominatifExport
     private const PERJADIN_DALAM_AKUN = ['524113', '524114'];
     private const ALL_AKUN = ['521115', '521213', '522151', '524111', '524113', '524114', '524119'];
 
-    /**
-     * Config per kode akun: posisi data, jumlah row, footer.
-     * dataStartRow = baris pertama data (di template)
-     * dataEndRow = baris terakhir placeholder data (di template)
-     * jumlahRow = baris "Jumlah" (di template)
-     * jakartaRow = baris "Jakarta, ..." (di template)
-     */
     private const CONFIG = [
         '521115' => [
             'dataStartRow' => 12, 'dataEndRow' => 14, 'jumlahRow' => 16, 'terbilangRow' => 17,
@@ -100,21 +87,29 @@ class NominatifExport
 
     public function download(): StreamedResponse
     {
-        $templatePath = storage_path('app/templates/nominatif_template.xlsx');
+        $templatePath = storage_path('app/templates/nominatif_template_clean.xlsx');
         if (! file_exists($templatePath)) {
             abort(500, 'Template nominatif tidak ditemukan.');
         }
 
-        $spreadsheet = IOFactory::load($templatePath);
-
-        // Group nominatif by kode_akun
         $grouped = $this->pd->items->filter(fn ($i) => in_array($i->kode_akun, self::ALL_AKUN))->groupBy('kode_akun');
 
+        // Copy template to temp file
+        $tempFile = tempnam(sys_get_temp_dir(), 'nominatif_');
+        copy($templatePath, $tempFile);
+
+        // Open ZIP
+        $zip = new \ZipArchive();
+        $zip->open($tempFile);
+
+        // Process each sheet
         $usedSheets = [];
         foreach ($grouped as $kodeAkun => $items) {
             $kodeAkun = (string) $kodeAkun;
-            $sheet = $spreadsheet->getSheetByName($kodeAkun);
-            if (! $sheet) continue;
+            
+            // Find sheet file for this kodeAkun
+            $sheetFile = $this->findSheetFile($zip, $kodeAkun);
+            if (! $sheetFile) continue;
 
             $allNominatif = collect();
             foreach ($items as $item) {
@@ -122,61 +117,539 @@ class NominatifExport
                     $allNominatif->push($nom);
                 }
             }
+            
             // Merge per orang untuk perjadin
             if (! in_array($kodeAkun, self::HONOR_AKUN)) {
                 $allNominatif = $this->mergePerjadinPerOrang($allNominatif);
             }
 
             $namaItem = $items->first()->djaRincianBiaya?->nama_item ?? $items->first()->uraian ?? '';
-            $this->fillSheet($sheet, $kodeAkun, $allNominatif, $namaItem);
+            
+            // Process sheet XML
+            $this->processSheet($zip, $sheetFile, $kodeAkun, $allNominatif, $namaItem);
+            
             $usedSheets[] = $kodeAkun;
         }
 
-        // Hapus sheet yang tidak dipakai
-        foreach ($spreadsheet->getSheetNames() as $name) {
-            if (! in_array($name, $usedSheets)) {
-                $idx = $spreadsheet->getIndex($spreadsheet->getSheetByName($name));
-                $spreadsheet->removeSheetByIndex($idx);
-            }
-        }
+        // Remove unused sheets
+        $this->removeUnusedSheets($zip, $usedSheets);
 
-        if (count($spreadsheet->getAllSheets()) === 0) {
-            $sheet = $spreadsheet->createSheet();
-            $sheet->setTitle('Nominatif');
-            $sheet->setCellValue('A1', 'Belum ada data nominatif untuk permohonan ini.');
-        }
+        // Update workbook.xml
+        $this->updateWorkbook($zip, $usedSheets);
 
-        // Hapus semua defined names yang punya external references
-        // untuk menghindari warning "external links" saat buka file
-        $reflection = new \ReflectionClass($spreadsheet);
-        if ($reflection->hasProperty('definedNames')) {
-            $prop = $reflection->getProperty('definedNames');
-            $prop->setValue($spreadsheet, []);
-        }
+        // Update workbook rels
+        $this->updateWorkbookRels($zip, $usedSheets);
 
-        // Hapus data validations dari semua sheet (template punya validation yang reference sheet lain)
-        foreach ($spreadsheet->getAllSheets() as $s) {
-            // Clear all data validations by iterating cells
-            $reflectSheet = new \ReflectionClass($s);
-            if ($reflectSheet->hasProperty('dataValidationCollection')) {
-                $dvProp = $reflectSheet->getProperty('dataValidationCollection');
-                $dvProp->setValue($s, []);
-            }
-        }
+        // Update Content_Types
+        $this->updateContentTypes($zip, $usedSheets);
 
-        $spreadsheet->setActiveSheetIndex(0);
+        $zip->close();
+
         $nomor = str_replace('/', '-', $this->pd->nomor_permohonan);
         $filename = "Nominatif_{$nomor}.xlsx";
-        $writer = new Xlsx($spreadsheet);
 
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
+        return response()->streamDownload(function () use ($tempFile) {
+            readfile($tempFile);
+            @unlink($tempFile);
         }, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
             'Cache-Control' => 'max-age=0',
         ]);
     }
+
+    /**
+     * Find the sheet file for a given kodeAkun by reading workbook.xml
+     */
+    private function findSheetFile(\ZipArchive $zip, string $kodeAkun): ?string
+    {
+        $wb = $zip->getFromName('xl/workbook.xml');
+        $wbXml = new \SimpleXMLElement($wb);
+
+        foreach ($wbXml->sheets->sheet as $sheet) {
+            if ((string)$sheet['name'] === $kodeAkun) {
+                $rid = (string)$sheet['r:id'];
+                
+                // Find file from rels
+                $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+                $relsXml = new \SimpleXMLElement($rels);
+                
+                foreach ($relsXml->Relationship as $rel) {
+                    if ((string)$rel['Id'] === $rid) {
+                        return 'xl/' . (string)$rel['Target'];
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Process a single sheet: replace data, update header/footer
+     */
+    private function processSheet(\ZipArchive $zip, string $sheetFile, string $kodeAkun, $rows, string $namaItem): void
+    {
+        $cfg = self::CONFIG[$kodeAkun];
+        $content = $zip->getFromName($sheetFile);
+        
+        // Update header
+        $content = $this->updateHeader($content, $kodeAkun, $cfg, $namaItem);
+        
+        // Replace data rows
+        $content = $this->replaceDataRows($content, $kodeAkun, $cfg, $rows);
+        
+        // Update footer
+        $totalDiterima = $this->calculateTotalDiterima($kodeAkun, $rows);
+        $content = $this->updateFooter($content, $kodeAkun, $cfg, $rows->count(), $totalDiterima);
+        
+        // Save back to ZIP
+        $zip->deleteName($sheetFile);
+        $zip->addFromString($sheetFile, $content);
+    }
+
+    /**
+     * Update header text in sheet XML
+     */
+    private function updateHeader(string $content, string $kodeAkun, array $cfg, string $namaItem): string
+    {
+        $isHonor = in_array($kodeAkun, self::HONOR_AKUN);
+        
+        $noSk = $this->pd->no_sk ?? 'XXX/LL3/KP.04.01';
+        $tglSk = $this->pd->tgl_sk ? $this->fmtTgl($this->pd->tgl_sk) : '-';
+        $noSt = $this->pd->no_st ?? 'XXXXXXXXXXXXXX';
+        $tglSt = $this->pd->tgl_st ? $this->fmtTgl($this->pd->tgl_st) : '-';
+        
+        // Update row 3 (nomor)
+        if ($isHonor) {
+            $content = $this->updateCellValue($content, 'A3', "Nomor : {$noSk} Tgl {$tglSk}");
+        } else {
+            $content = $this->updateCellValue($content, 'B3', "Nomor : {$noSt}  Tgl {$tglSt}");
+        }
+        
+        // Update kegiatan/lingkungan/tanggal
+        if ($kodeAkun === '521115') {
+            $bulan = $this->pd->tanggal_mulai
+                ? strtoupper($this->fmtBulanTahun($this->pd->tanggal_mulai))
+                : 'XXXX ' . now()->year;
+            $content = $this->updateCellValue($content, "A{$cfg['subtitleRow']}", "BULAN {$bulan}");
+            $content = $this->updateCellValue($content, "A{$cfg['kodeAkunRow']}", "{$kodeAkun} " . ($namaItem ?: 'Belanja Honor Operasional Satuan Kerja'));
+        } else {
+            $kegiatan = strtoupper($this->pd->keperluan ?? '');
+            $content = $this->updateCellValue($content, "B{$cfg['kegiatanRow']}", "KEGIATAN  {$kegiatan}");
+            
+            $tahun = $this->pd->tanggal_mulai ? substr((string)$this->pd->tanggal_mulai, 0, 4) : now()->year;
+            $content = $this->updateCellValue($content, "B{$cfg['lingkunganRow']}", "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
+            
+            $tempat = strtoupper($this->pd->tempat ?? 'JAKARTA');
+            $tglPel = $this->getTglPelaksanaan();
+            $content = $this->updateCellValue($content, "B{$cfg['tanggalRow']}", "DI {$tempat}  TANGGAL {$tglPel}");
+            
+            $namaAkun = match ($kodeAkun) {
+                '521213' => 'Belanja Honor Output Kegiatan',
+                '522151' => 'Belanja Jasa Profesi',
+                '524111' => 'Belanja Perjalanan Dinas Biasa',
+                '524119' => 'Belanja Perjalanan Dinas Paket Meeting Luar Kota',
+                '524113' => 'Belanja Perjalanan Dinas Dalam Kota',
+                '524114' => 'Belanja Perjalanan Dinas Paket Meeting Dalam Kota',
+                default => '',
+            };
+            $content = $this->updateCellValue($content, "B{$cfg['kodeAkunRow']}", "{$kodeAkun} {$namaAkun}");
+        }
+        
+        return $content;
+    }
+
+    /**
+     * Replace placeholder data rows with actual data
+     */
+    private function replaceDataRows(string $content, string $kodeAkun, array $cfg, $rows): string
+    {
+        $dataStart = $cfg['dataStartRow'];
+        $dataEnd = $cfg['dataEndRow'];
+        $placeholderCount = $dataEnd - $dataStart + 1;
+        $actualCount = $rows->count();
+        
+        // Extract placeholder rows
+        $placeholderRows = [];
+        for ($r = $dataStart; $r <= $dataEnd; $r++) {
+            if (preg_match("/<row r=\"{$r}\"[^>]*>.*?<\/row>/s", $content, $m)) {
+                $placeholderRows[$r] = $m[0];
+            }
+        }
+        
+        if ($actualCount === 0) {
+            // Clear all placeholder rows
+            foreach ($placeholderRows as $r => $rowXml) {
+                $content = str_replace($rowXml, '', $content);
+            }
+            return $content;
+        }
+        
+        // Build new data rows
+        $newRows = [];
+        $no = 1;
+        foreach ($rows as $nom) {
+            $rowXml = $placeholderRows[$dataStart]; // Use first placeholder as template
+            $newRow = $this->fillRow($rowXml, $kodeAkun, $dataStart, $no, $nom);
+            $newRows[] = $newRow;
+            $no++;
+        }
+        
+        // Replace placeholder rows with new rows
+        // First, remove all placeholder rows
+        foreach ($placeholderRows as $r => $rowXml) {
+            $content = str_replace($rowXml, '', $content);
+        }
+        
+        // Insert new rows after the row before dataStart
+        $insertPoint = $dataStart - 1;
+        // Find the row before dataStart
+        if (preg_match("/<row r=\"{$insertPoint}\"[^>]*>.*?<\/row>/s", $content, $m)) {
+            $insertAfter = $m[0];
+            $newRowsXml = implode("\n", $newRows);
+            $content = str_replace($insertAfter, $insertAfter . "\n" . $newRowsXml, $content);
+        }
+        
+        return $content;
+    }
+
+    /**
+     * Fill a single row with data
+     */
+    private function fillRow(string $rowXml, string $kodeAkun, int $rowNum, int $no, $nom): string
+    {
+        // Update row number
+        $rowXml = preg_replace("/r=\"{$rowNum}\"/", 'r="' . ($rowNum) . '"', $rowXml);
+        
+        // Update cell references
+        if ($kodeAkun === '521115') {
+            $rowXml = $this->updateCellInRow($rowXml, 'A', $no);
+            $rowXml = $this->updateCellInRow($rowXml, 'B', $nom->nama);
+            $rowXml = $this->updateCellInRow($rowXml, 'C', $nom->nik ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'D', $nom->npwp ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'E', $nom->gol_ruang);
+            $rowXml = $this->updateCellInRow($rowXml, 'F', (float) $nom->volume);
+            $rowXml = $this->updateCellInRow($rowXml, 'G', (float) $nom->harga_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'H', (float) $nom->jumlah_bruto);
+            $rowXml = $this->updateCellInRow($rowXml, 'I', (float) $nom->jumlah_bruto);
+            $rowXml = $this->updateCellInRow($rowXml, 'J', ((float) $nom->pph21_persen) / 100);
+            $rowXml = $this->updateCellInRow($rowXml, 'K', (float) $nom->jumlah_pajak);
+            $rowXml = $this->updateCellInRow($rowXml, 'L', (float) $nom->jumlah_diterima);
+            $rowXml = $this->updateCellInRow($rowXml, 'M', $nom->nama_rekening);
+            $rowXml = $this->updateCellInRow($rowXml, 'N', $nom->no_rekening ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'O', $nom->nama_bank);
+            $rowXml = $this->updateCellInRow($rowXml, 'P', $nom->email);
+        } elseif ($kodeAkun === '521213' || $kodeAkun === '522151') {
+            $rowXml = $this->updateCellInRow($rowXml, 'A', $no);
+            $rowXml = $this->updateCellInRow($rowXml, 'B', $nom->nama);
+            $rowXml = $this->updateCellInRow($rowXml, 'C', $nom->jabatan);
+            $rowXml = $this->updateCellInRow($rowXml, 'D', $nom->nik ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'E', $nom->npwp ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'F', $nom->gol_ruang);
+            $rowXml = $this->updateCellInRow($rowXml, 'G', (float) $nom->volume);
+            $rowXml = $this->updateCellInRow($rowXml, 'H', (float) $nom->harga_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'I', (float) $nom->jumlah_bruto);
+            $rowXml = $this->updateCellInRow($rowXml, 'J', (float) $nom->jumlah_bruto);
+            $rowXml = $this->updateCellInRow($rowXml, 'K', ((float) $nom->pph21_persen) / 100);
+            $rowXml = $this->updateCellInRow($rowXml, 'L', (float) $nom->jumlah_pajak);
+            $rowXml = $this->updateCellInRow($rowXml, 'M', (float) $nom->jumlah_diterima);
+            $rowXml = $this->updateCellInRow($rowXml, 'N', $nom->nama_rekening);
+            $rowXml = $this->updateCellInRow($rowXml, 'O', $nom->no_rekening ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'P', $nom->nama_bank);
+            $rowXml = $this->updateCellInRow($rowXml, 'Q', $nom->email);
+        } elseif (in_array($kodeAkun, self::PERJADIN_LUAR_AKUN)) {
+            $rowXml = $this->updateCellInRow($rowXml, 'B', $no);
+            $rowXml = $this->updateCellInRow($rowXml, 'C', $nom->nama);
+            $rowXml = $this->updateCellInRow($rowXml, 'D', (float) $nom->transport);
+            $rowXml = $this->updateCellInRow($rowXml, 'E', (float) $nom->uang_harian_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'F', (float) $nom->uang_harian_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'G', (float) $nom->uang_harian_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'H', (float) $nom->fullboard_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'I', (float) $nom->fullboard_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'J', (float) $nom->fullboard_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'K', (float) $nom->fullday_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'L', (float) $nom->fullday_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'M', (float) $nom->fullday_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'N', (float) $nom->taksi_pp);
+            $rowXml = $this->updateCellInRow($rowXml, 'O', (float) $nom->tiket_pesawat);
+            $rowXml = $this->updateCellInRow($rowXml, 'P', (float) $nom->hotel);
+            $rowXml = $this->updateCellInRow($rowXml, 'Q', (float) $nom->jumlah_perjadin);
+            $rowXml = $this->updateCellInRow($rowXml, 'R', $nom->nama_rekening);
+            $rowXml = $this->updateCellInRow($rowXml, 'S', $nom->no_rekening ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'T', $nom->nama_bank);
+            $rowXml = $this->updateCellInRow($rowXml, 'U', $nom->email);
+        } elseif (in_array($kodeAkun, self::PERJADIN_DALAM_AKUN)) {
+            $total = (float) $nom->transport + (float) $nom->uang_harian_jumlah + (float) $nom->fullboard_jumlah
+                   + (float) $nom->fullday_jumlah + (float) $nom->hotel;
+            $rowXml = $this->updateCellInRow($rowXml, 'B', $no);
+            $rowXml = $this->updateCellInRow($rowXml, 'C', $nom->nama);
+            $rowXml = $this->updateCellInRow($rowXml, 'D', (float) $nom->transport);
+            $rowXml = $this->updateCellInRow($rowXml, 'E', (float) $nom->uang_harian_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'F', (float) $nom->uang_harian_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'G', (float) $nom->uang_harian_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'H', (float) $nom->fullboard_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'I', (float) $nom->fullboard_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'J', (float) $nom->fullboard_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'K', (float) $nom->fullday_vol);
+            $rowXml = $this->updateCellInRow($rowXml, 'L', (float) $nom->fullday_satuan);
+            $rowXml = $this->updateCellInRow($rowXml, 'M', (float) $nom->fullday_jumlah);
+            $rowXml = $this->updateCellInRow($rowXml, 'N', (float) $nom->hotel);
+            $rowXml = $this->updateCellInRow($rowXml, 'O', $total);
+            $rowXml = $this->updateCellInRow($rowXml, 'P', $nom->nama_rekening);
+            $rowXml = $this->updateCellInRow($rowXml, 'Q', $nom->no_rekening ?? '', true);
+            $rowXml = $this->updateCellInRow($rowXml, 'R', $nom->nama_bank);
+            $rowXml = $this->updateCellInRow($rowXml, 'S', $nom->email);
+        }
+        
+        return $rowXml;
+    }
+
+    /**
+     * Update a single cell in a row XML
+     */
+    private function updateCellInRow(string $rowXml, string $col, $value, bool $isString = false): string
+    {
+        // Find cell in row
+        $pattern = '/<c r="' . $col . '\d+"[^>]*>.*?<\/c>/s';
+        if (preg_match($pattern, $rowXml, $m)) {
+            $cellXml = $m[0];
+            
+            // Determine value type
+            if (is_numeric($value) && !$isString) {
+                // Number value
+                $newCell = preg_replace('/<v>[^<]*<\/v>/', '<v>' . $value . '</v>', $cellXml);
+                if ($newCell === $cellXml) {
+                    // No <v> tag found, add one
+                    $newCell = preg_replace('/<\/c>/', '<v>' . $value . '</v></c>', $cellXml);
+                }
+            } else {
+                // String value
+                $newCell = preg_replace('/<v>[^<]*<\/v>/', '<v>' . htmlspecialchars($value) . '</v>', $cellXml);
+                if ($newCell === $cellXml) {
+                    $newCell = preg_replace('/<\/c>/', '<v>' . htmlspecialchars($value) . '</v></c>', $cellXml);
+                }
+                // Ensure type="s" for strings
+                if (!str_contains($newCell, 't="s"')) {
+                    $newCell = str_replace('<c ', '<c t="s" ', $newCell);
+                }
+            }
+            
+            $rowXml = str_replace($cellXml, $newCell, $rowXml);
+        }
+        
+        return $rowXml;
+    }
+
+    /**
+     * Update a cell value in sheet XML
+     */
+    private function updateCellValue(string $content, string $cellRef, string $value): string
+    {
+        $pattern = '/<c r="' . $cellRef . '"[^>]*>.*?<\/c>/s';
+        if (preg_match($pattern, $content, $m)) {
+            $cellXml = $m[0];
+            $newCell = preg_replace('/<v>[^<]*<\/v>/', '<v>' . htmlspecialchars($value) . '</v>', $cellXml);
+            if ($newCell === $cellXml) {
+                $newCell = preg_replace('/<\/c>/', '<v>' . htmlspecialchars($value) . '</v></c>', $cellXml);
+            }
+            if (!str_contains($newCell, 't="s"')) {
+                $newCell = str_replace('<c ', '<c t="s" ', $newCell);
+            }
+            $content = str_replace($cellXml, $newCell, $content);
+        }
+        return $content;
+    }
+
+    /**
+     * Update footer: jumlah, terbilang, ttd, NIP
+     */
+    private function updateFooter(string $content, string $kodeAkun, array $cfg, int $actualCount, float $totalDiterima): string
+    {
+        $offset = $actualCount - ($cfg['dataEndRow'] - $cfg['dataStartRow'] + 1);
+        
+        $jumlahRow = $cfg['jumlahRow'] + $offset;
+        $terbilangRow = $cfg['terbilangRow'] + $offset;
+        $jakartaRow = $cfg['jakartaRow'] + $offset;
+        $ppkNameRow = $cfg['ppkNameRow'] + $offset;
+        $ppkNipRow = $cfg['ppkNipRow'] + $offset;
+        
+        $jakartaCol = $cfg['jakartaCol'];
+        
+        // Terbilang
+        $terbilangText = ucwords($this->terbilang((int) $totalDiterima)).' Rupiah';
+        
+        if ($kodeAkun === '521115') {
+            $content = $this->updateCellValue($content, "D{$terbilangRow}", '"  '.$terbilangText);
+        } elseif (in_array($kodeAkun, ['521213', '522151'])) {
+            $content = $this->updateCellValue($content, "D{$terbilangRow}", '"');
+            $content = $this->updateCellValue($content, "E{$terbilangRow}", $terbilangText);
+        } else {
+            $content = $this->updateCellValue($content, "D{$terbilangRow}", '"  '.$terbilangText);
+        }
+        
+        // Jakarta date
+        $content = $this->updateCellValue($content, "{$jakartaCol}{$jakartaRow}", "Jakarta,    {$this->tglNominatif}");
+        
+        // PPK
+        $activePpk = User::where('role', 'pimpinan')
+            ->where('pimpinan_type', 'ppk')
+            ->where('is_active', true)
+            ->first();
+        $ppk = $activePpk ?: $this->ppk;
+        
+        $ppkNip = $ppk?->nip ?: $this->lookupNipFromRefNama($ppk?->nama_lengkap);
+        $bendNip = $this->bendahara?->nip ?: $this->lookupNipFromRefNama($this->bendahara?->nama_lengkap);
+        
+        // Determine column A position
+        $isHonor = in_array($kodeAkun, self::HONOR_AKUN);
+        $colA = $isHonor ? 'A' : 'B';
+        
+        $content = $this->updateCellValue($content, "{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
+        $content = $this->updateCellValue($content, "{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
+        
+        $content = $this->updateCellValue($content, "{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
+        $content = $this->updateCellValue($content, "{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
+        
+        return $content;
+    }
+
+    /**
+     * Remove unused sheets and reindex remaining sheets to sheet1, sheet2, etc.
+     */
+    private function removeUnusedSheets(\ZipArchive $zip, array $usedSheets): void
+    {
+        $wb = $zip->getFromName('xl/workbook.xml');
+        $wbXml = new \SimpleXMLElement($wb);
+        
+        // Map sheet names to their original file paths
+        $sheetMap = [];
+        foreach ($wbXml->sheets->sheet as $sheet) {
+            $name = (string)$sheet['name'];
+            $rid = (string)$sheet['r:id'];
+            
+            $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+            $relsXml = new \SimpleXMLElement($rels);
+            
+            foreach ($relsXml->Relationship as $rel) {
+                if ((string)$rel['Id'] === $rid) {
+                    $sheetMap[$name] = [
+                        'target' => (string)$rel['Target'],
+                        'rid' => $rid,
+                    ];
+                    break;
+                }
+            }
+        }
+        
+        // Delete unused sheets and rels
+        foreach ($sheetMap as $name => $info) {
+            if (!in_array($name, $usedSheets)) {
+                $zip->deleteName('xl/' . $info['target']);
+                $zip->deleteName('xl/worksheets/_rels/' . basename($info['target']) . '.rels');
+            }
+        }
+        
+        // Rename remaining sheets to sheet1, sheet2, etc.
+        $newIndex = 1;
+        foreach ($usedSheets as $name) {
+            if (isset($sheetMap[$name])) {
+                $oldPath = 'xl/' . $sheetMap[$name]['target'];
+                $newPath = 'xl/worksheets/sheet' . $newIndex . '.xml';
+                
+                if ($oldPath !== $newPath) {
+                    // Copy content to new path
+                    $content = $zip->getFromName($oldPath);
+                    $zip->addFromString($newPath, $content);
+                    $zip->deleteName($oldPath);
+                    
+                    // Also rename rels file
+                    $oldRels = 'xl/worksheets/_rels/' . basename($sheetMap[$name]['target']) . '.rels';
+                    $newRels = 'xl/worksheets/_rels/sheet' . $newIndex . '.xml.rels';
+                    if ($zip->locateName($oldRels) !== false) {
+                        $relsContent = $zip->getFromName($oldRels);
+                        $zip->addFromString($newRels, $relsContent);
+                        $zip->deleteName($oldRels);
+                    }
+                    
+                    // Update sheetMap
+                    $sheetMap[$name]['newTarget'] = 'worksheets/sheet' . $newIndex . '.xml';
+                } else {
+                    $sheetMap[$name]['newTarget'] = $sheetMap[$name]['target'];
+                }
+                $newIndex++;
+            }
+        }
+        
+        // Update workbook.xml
+        $wbXml->sheets = '';
+        $newSheets = $wbXml->addChild('sheets');
+        $sheetId = 1;
+        foreach ($usedSheets as $name) {
+            $sheet = $newSheets->addChild('sheet');
+            $sheet['name'] = $name;
+            $sheet['sheetId'] = $sheetId;
+            $sheet['r:id'] = 'rId' . ($sheetId + 3);
+            $sheetId++;
+        }
+        
+        $zip->deleteName('xl/workbook.xml');
+        $zip->addFromString('xl/workbook.xml', $wbXml->asXML());
+        
+        // Update workbook rels
+        $newRels = new \SimpleXMLElement('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+        
+        $rid = 1;
+        
+        $rel = $newRels->addChild('Relationship');
+        $rel['Id'] = 'rId' . $rid;
+        $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles';
+        $rel['Target'] = 'styles.xml';
+        $rid++;
+        
+        $rel = $newRels->addChild('Relationship');
+        $rel['Id'] = 'rId' . $rid;
+        $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
+        $rel['Target'] = 'theme/theme1.xml';
+        $rid++;
+        
+        $rel = $newRels->addChild('Relationship');
+        $rel['Id'] = 'rId' . $rid;
+        $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings';
+        $rel['Target'] = 'sharedStrings.xml';
+        $rid++;
+        
+        foreach ($usedSheets as $name) {
+            $rel = $newRels->addChild('Relationship');
+            $rel['Id'] = 'rId' . $rid;
+            $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet';
+            $rel['Target'] = $sheetMap[$name]['newTarget'] ?? 'worksheets/sheet' . ($rid - 3) . '.xml';
+            $rid++;
+        }
+        
+        $zip->deleteName('xl/_rels/workbook.xml.rels');
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $newRels->asXML());
+        
+        // Update Content_Types
+        $ct = $zip->getFromName('[Content_Types].xml');
+        $ctXml = new \SimpleXMLElement($ct);
+        
+        $overrides = $ctXml->Override;
+        for ($i = count($overrides) - 1; $i >= 0; $i--) {
+            $partName = (string)$overrides[$i]['PartName'];
+            if (preg_match('/xl\/worksheets\/sheet\d+\.xml/', $partName)) {
+                $sheetNum = (int)preg_replace('/.*sheet(\d+)\.xml/', '$1', $partName);
+                if ($sheetNum > count($usedSheets)) {
+                    unset($overrides[$i][0]);
+                }
+            }
+        }
+        
+        $zip->deleteName('[Content_Types].xml');
+        $zip->addFromString('[Content_Types].xml', $ctXml->asXML());
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private function mergePerjadinPerOrang($rows)
     {
@@ -203,15 +676,6 @@ class NominatifExport
         })->values();
     }
 
-    private function fillSheet(Worksheet $sheet, string $kodeAkun, $rows, string $namaItem): void
-    {
-        $cfg = self::CONFIG[$kodeAkun];
-        $this->updateHeader($sheet, $kodeAkun, $cfg, $namaItem);
-        $offset = $this->fillData($sheet, $kodeAkun, $cfg, $rows);
-        $totalDiterima = $this->calculateTotalDiterima($kodeAkun, $rows);
-        $this->updateFooter($sheet, $kodeAkun, $cfg, $offset, $totalDiterima);
-    }
-
     private function calculateTotalDiterima(string $kodeAkun, $rows): float
     {
         $total = 0;
@@ -229,284 +693,6 @@ class NominatifExport
         return $total;
     }
 
-    // ─── Update Header ────────────────────────────────────────────────────────
-
-    private function updateHeader(Worksheet $sheet, string $kodeAkun, array $cfg, string $namaItem): void
-    {
-        $isHonor = in_array($kodeAkun, self::HONOR_AKUN);
-
-        // Lampiran rows 1-3
-        $colA = $isHonor ? 'A' : 'B'; // 521115 pakai A, perjadin pakai B (sesuai template)
-        if ($kodeAkun === '521115' || $kodeAkun === '521213' || $kodeAkun === '522151') {
-            $colA = 'A';
-        } else {
-            $colA = 'B';
-        }
-
-        $noSk = $this->pd->no_sk ?? 'XXX/LL3/KP.04.01';
-        $tglSk = $this->pd->tgl_sk ? $this->fmtTgl($this->pd->tgl_sk) : '-';
-        $noSt = $this->pd->no_st ?? 'XXXXXXXXXXXXXX';
-        $tglSt = $this->pd->tgl_st ? $this->fmtTgl($this->pd->tgl_st) : '-';
-
-        if ($isHonor) {
-            $sheet->setCellValue("{$colA}3", "Nomor : {$noSk} Tgl {$tglSk}");
-        } else {
-            $sheet->setCellValue("{$colA}3", "Nomor : {$noSt}  Tgl {$tglSt}");
-        }
-
-        // Title row (untuk 521115: BULAN xxxx)
-        if ($kodeAkun === '521115') {
-            $bulan = $this->pd->tanggal_mulai
-                ? strtoupper($this->fmtBulanTahun($this->pd->tanggal_mulai))
-                : 'XXXX '.now()->year;
-            $sheet->setCellValue("A{$cfg['subtitleRow']}", "BULAN {$bulan}");
-            $sheet->setCellValue("A{$cfg['kodeAkunRow']}", "{$kodeAkun} ".($namaItem ?: 'Belanja Honor Operasional Satuan Kerja'));
-        } else {
-            // 521213, 522151: KEGIATAN, LINGKUNGAN, TANGGAL, kode akun
-            $kegiatan = strtoupper($this->pd->keperluan ?? '');
-            $sheet->setCellValue("{$colA}{$cfg['kegiatanRow']}", "KEGIATAN  {$kegiatan}");
-
-            $tahun = $this->pd->tanggal_mulai ? substr((string) $this->pd->tanggal_mulai, 0, 4) : now()->year;
-            $sheet->setCellValue("{$colA}{$cfg['lingkunganRow']}", "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
-
-            $tempat = strtoupper($this->pd->tempat ?? 'JAKARTA');
-            $tglPel = $this->getTglPelaksanaan();
-            $sheet->setCellValue("{$colA}{$cfg['tanggalRow']}", "DI {$tempat}  TANGGAL {$tglPel}");
-
-            // Kode akun line
-            $namaAkun = match ($kodeAkun) {
-                '521213' => 'Belanja Honor Output Kegiatan',
-                '522151' => 'Belanja Jasa Profesi',
-                '524111' => 'Belanja Perjalanan Dinas Biasa',
-                '524119' => 'Belanja Perjalanan Dinas Paket Meeting Luar Kota',
-                '524113' => 'Belanja Perjalanan Dinas Dalam Kota',
-                '524114' => 'Belanja Perjalanan Dinas Paket Meeting Dalam Kota',
-                default => '',
-            };
-            $sheet->setCellValue("{$colA}{$cfg['kodeAkunRow']}", "{$kodeAkun} {$namaAkun}");
-        }
-    }
-
-    // ─── Fill Data ────────────────────────────────────────────────────────────
-
-    private function fillData(Worksheet $sheet, string $kodeAkun, array $cfg, $rows): int
-    {
-        $dataStart = $cfg['dataStartRow'];
-        $dataEnd = $cfg['dataEndRow'];
-        $jumlahRow = $cfg['jumlahRow'];
-        $placeholderCount = $dataEnd - $dataStart + 1;
-        $actualCount = $rows->count();
-        $offset = 0;
-
-        // Clear existing placeholder data first (semua placeholder rows)
-        $lastCol = $cfg['lastCol'];
-        $cols = range('A', $lastCol);
-        for ($r = $dataStart; $r <= $dataEnd; $r++) {
-            foreach ($cols as $c) {
-                $sheet->setCellValue("{$c}{$r}", null);
-            }
-        }
-
-        // Insert/delete rows agar pas dengan jumlah data aktual
-        // Insert SEBELUM gap row (dataEnd + 1) agar data tidak terjebak di baris gap (h=6.75)
-        if ($actualCount > $placeholderCount) {
-            $offset = $actualCount - $placeholderCount;
-            $sheet->insertNewRowBefore($dataEnd + 1, $offset);
-        } elseif ($actualCount < $placeholderCount && $actualCount > 0) {
-            $offset = -($placeholderCount - $actualCount);
-            // Hapus baris yang tidak terpakai
-            $sheet->removeRow($dataStart + $actualCount, abs($offset));
-        }
-
-        if ($actualCount === 0) return $offset;
-
-        // Tinggi baris data sesuai template (honor: 48, perjadin: 45)
-        $rowHeight = in_array($kodeAkun, self::HONOR_AKUN) ? 48.0 : 45.0;
-
-        // Fill data per kode akun
-        $rowIdx = $dataStart;
-        $no = 1;
-        foreach ($rows as $nom) {
-            match (true) {
-                $kodeAkun === '521115' => $this->fillRow521115($sheet, $rowIdx, $no, $nom),
-                $kodeAkun === '521213' => $this->fillRow521213($sheet, $rowIdx, $no, $nom),
-                $kodeAkun === '522151' => $this->fillRow522151($sheet, $rowIdx, $no, $nom),
-                in_array($kodeAkun, self::PERJADIN_LUAR_AKUN) => $this->fillRowPerjadinLuar($sheet, $rowIdx, $no, $nom),
-                in_array($kodeAkun, self::PERJADIN_DALAM_AKUN) => $this->fillRowPerjadinDalam($sheet, $rowIdx, $no, $nom),
-            };
-            // Set tinggi baris konsisten dan wrap text agar nama tidak kejepit
-            $sheet->getRowDimension($rowIdx)->setRowHeight($rowHeight);
-            $sheet->getStyle("A{$rowIdx}:{$lastCol}{$rowIdx}")
-                ->getAlignment()
-                ->setWrapText(true)
-                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-            $rowIdx++;
-            $no++;
-        }
-
-        return $offset;
-    }
-
-    private function fillRow521115(Worksheet $s, int $r, int $no, $n): void
-    {
-        $bruto = (float) $n->jumlah_bruto;
-        $s->setCellValue("A{$r}", $no);
-        $s->setCellValue("B{$r}", $n->nama);
-        $s->setCellValueExplicit("C{$r}", $n->nik ?? '', DataType::TYPE_STRING);
-        $s->setCellValueExplicit("D{$r}", $n->npwp ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("E{$r}", $n->gol_ruang);
-        $s->setCellValue("F{$r}", (float) $n->volume);
-        $s->setCellValue("G{$r}", (float) $n->harga_satuan);
-        $s->setCellValue("H{$r}", $bruto);
-        $s->setCellValue("I{$r}", $bruto);
-        $s->setCellValue("J{$r}", ((float) $n->pph21_persen) / 100);
-        $s->getStyle("J{$r}")->getNumberFormat()->setFormatCode('0%');
-        $s->setCellValue("K{$r}", (float) $n->jumlah_pajak);
-        $s->setCellValue("L{$r}", (float) $n->jumlah_diterima);
-        $s->setCellValue("M{$r}", $n->nama_rekening);
-        $s->setCellValueExplicit("N{$r}", $n->no_rekening ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("O{$r}", $n->nama_bank);
-        $s->setCellValue("P{$r}", $n->email);
-    }
-
-    private function fillRow521213(Worksheet $s, int $r, int $no, $n): void
-    {
-        $bruto = (float) $n->jumlah_bruto;
-        $s->setCellValue("A{$r}", $no);
-        $s->setCellValue("B{$r}", $n->nama);
-        $s->setCellValue("C{$r}", $n->jabatan);
-        $s->setCellValueExplicit("D{$r}", $n->nik ?? '', DataType::TYPE_STRING);
-        $s->setCellValueExplicit("E{$r}", $n->npwp ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("F{$r}", $n->gol_ruang);
-        $s->setCellValue("G{$r}", (float) $n->volume);
-        $s->setCellValue("H{$r}", (float) $n->harga_satuan);
-        $s->setCellValue("I{$r}", $bruto);
-        $s->setCellValue("J{$r}", $bruto);
-        $s->setCellValue("K{$r}", ((float) $n->pph21_persen) / 100);
-        $s->getStyle("K{$r}")->getNumberFormat()->setFormatCode('0%');
-        $s->setCellValue("L{$r}", (float) $n->jumlah_pajak);
-        $s->setCellValue("M{$r}", (float) $n->jumlah_diterima);
-        $s->setCellValue("N{$r}", $n->nama_rekening);
-        $s->setCellValueExplicit("O{$r}", $n->no_rekening ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("P{$r}", $n->nama_bank);
-        $s->setCellValue("Q{$r}", $n->email);
-    }
-
-    private function fillRow522151(Worksheet $s, int $r, int $no, $n): void
-    {
-        // Format sama dengan 521213 tapi label "Jml Jam"
-        $this->fillRow521213($s, $r, $no, $n);
-    }
-
-    private function fillRowPerjadinLuar(Worksheet $s, int $r, int $no, $n): void
-    {
-        $s->setCellValue("B{$r}", $no);
-        $s->setCellValue("C{$r}", $n->nama);
-        $s->setCellValue("D{$r}", (float) $n->transport);
-        $s->setCellValue("E{$r}", (float) $n->uang_harian_vol);
-        $s->setCellValue("F{$r}", (float) $n->uang_harian_satuan);
-        $s->setCellValue("G{$r}", (float) $n->uang_harian_jumlah);
-        $s->setCellValue("H{$r}", (float) $n->fullboard_vol);
-        $s->setCellValue("I{$r}", (float) $n->fullboard_satuan);
-        $s->setCellValue("J{$r}", (float) $n->fullboard_jumlah);
-        $s->setCellValue("K{$r}", (float) $n->fullday_vol);
-        $s->setCellValue("L{$r}", (float) $n->fullday_satuan);
-        $s->setCellValue("M{$r}", (float) $n->fullday_jumlah);
-        $s->setCellValue("N{$r}", (float) $n->taksi_pp);
-        $s->setCellValue("O{$r}", (float) $n->tiket_pesawat);
-        $s->setCellValue("P{$r}", (float) $n->hotel);
-        $s->setCellValue("Q{$r}", (float) $n->jumlah_perjadin);
-        $s->setCellValue("R{$r}", $n->nama_rekening);
-        $s->setCellValueExplicit("S{$r}", $n->no_rekening ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("T{$r}", $n->nama_bank);
-        $s->setCellValue("U{$r}", $n->email);
-    }
-
-    private function fillRowPerjadinDalam(Worksheet $s, int $r, int $no, $n): void
-    {
-        $total = (float) $n->transport + (float) $n->uang_harian_jumlah + (float) $n->fullboard_jumlah
-               + (float) $n->fullday_jumlah + (float) $n->hotel;
-        $s->setCellValue("B{$r}", $no);
-        $s->setCellValue("C{$r}", $n->nama);
-        $s->setCellValue("D{$r}", (float) $n->transport);
-        $s->setCellValue("E{$r}", (float) $n->uang_harian_vol);
-        $s->setCellValue("F{$r}", (float) $n->uang_harian_satuan);
-        $s->setCellValue("G{$r}", (float) $n->uang_harian_jumlah);
-        $s->setCellValue("H{$r}", (float) $n->fullboard_vol);
-        $s->setCellValue("I{$r}", (float) $n->fullboard_satuan);
-        $s->setCellValue("J{$r}", (float) $n->fullboard_jumlah);
-        $s->setCellValue("K{$r}", (float) $n->fullday_vol);
-        $s->setCellValue("L{$r}", (float) $n->fullday_satuan);
-        $s->setCellValue("M{$r}", (float) $n->fullday_jumlah);
-        $s->setCellValue("N{$r}", (float) $n->hotel);
-        $s->setCellValue("O{$r}", $total);
-        $s->setCellValue("P{$r}", $n->nama_rekening);
-        $s->setCellValueExplicit("Q{$r}", $n->no_rekening ?? '', DataType::TYPE_STRING);
-        $s->setCellValue("R{$r}", $n->nama_bank);
-        $s->setCellValue("S{$r}", $n->email);
-    }
-
-    // ─── Update Footer ────────────────────────────────────────────────────────
-
-    private function updateFooter(Worksheet $sheet, string $kodeAkun, array $cfg, int $offset, float $totalDiterima): void
-    {
-        // Apply offset to all rows below data
-        $jumlahRow = $cfg['jumlahRow'] + $offset;
-        $terbilangRow = $cfg['terbilangRow'] + $offset;
-        $jakartaRow = $cfg['jakartaRow'] + $offset;
-        $ppkNameRow = $cfg['ppkNameRow'] + $offset;
-        $ppkNipRow = $cfg['ppkNipRow'] + $offset;
-
-        // Detect column A position (honor pakai A1, perjadin pakai B1)
-        $colA = $sheet->getCell('A1')->getValue() === 'Lampiran :' ? 'A' : 'B';
-        $jakartaCol = $cfg['jakartaCol'];
-
-        // Terbilang — tulis ke cell pertama dari merged range yang sesuai template
-        // Template merged ranges:
-        // - 521115: D{row}:O{row} merged → tulis ke D
-        // - 521213/522151: D='"', E:P merged → tulis '"' ke D, text ke E
-        // - 524111/524119: D{row}:T{row} merged → tulis ke D
-        // - 524113/524114: D{row}:R{row} merged → tulis ke D
-        $terbilangText = ucwords($this->terbilang((int) $totalDiterima)).' Rupiah';
-
-        if ($kodeAkun === '521115') {
-            // Clear merged range content first, then write to merge anchor cell D
-            $sheet->setCellValue("D{$terbilangRow}", '"  '.$terbilangText);
-        } elseif (in_array($kodeAkun, ['521213', '522151'])) {
-            // D='"', E=text (template style)
-            $sheet->setCellValue("D{$terbilangRow}", '"');
-            $sheet->setCellValue("E{$terbilangRow}", $terbilangText);
-        } else {
-            // Perjadin: D=merged with text
-            $sheet->setCellValue("D{$terbilangRow}", '"  '.$terbilangText);
-        }
-
-        // Jakarta date — clear old jakarta cell at original position first
-        $originalJakartaRow = $cfg['jakartaRow'];
-        if ($offset !== 0) {
-            // Old jakarta text might be at original row OR shifted - clear both to be safe
-            $sheet->setCellValue("{$jakartaCol}{$originalJakartaRow}", null);
-        }
-        $sheet->setCellValue("{$jakartaCol}{$jakartaRow}", "Jakarta,    {$this->tglNominatif}");
-
-        // PPK name & NIP - get active PPK from system (fallback to approver)
-        $activePpk = User::where('role', 'pimpinan')
-            ->where('pimpinan_type', 'ppk')
-            ->where('is_active', true)
-            ->first();
-        $ppk = $activePpk ?: $this->ppk;
-
-        // NIP fallback: kalau user.nip kosong, cari di RefNama by name
-        $ppkNip = $ppk?->nip ?: $this->lookupNipFromRefNama($ppk?->nama_lengkap);
-        $bendNip = $this->bendahara?->nip ?: $this->lookupNipFromRefNama($this->bendahara?->nama_lengkap);
-
-        $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
-
-        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
-    }
-
     private function lookupNipFromRefNama(?string $nama): ?string
     {
         if (! $nama) return null;
@@ -519,8 +705,6 @@ class NominatifExport
             ->first();
         return $ref?->nip;
     }
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private function getTglPelaksanaan(): string
     {
