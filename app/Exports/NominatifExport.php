@@ -90,9 +90,9 @@ class NominatifExport
     public function __construct(PermohonanDana $pd)
     {
         $this->pd = $pd;
-        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy', 'dicairkanBy']);
+        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy']);
         $this->ppk = $this->pd->ppkApprovedBy;
-        $this->bendahara = $this->pd->dicairkanBy;
+        $this->bendahara = User::where('role', 'bendahara')->where('is_active', true)->first();
         $this->tglNominatif = $this->pd->tgl_nominatif
             ? $this->pd->tgl_nominatif->locale('id')->isoFormat('D MMMM YYYY')
             : now()->locale('id')->isoFormat('D MMMM YYYY');
@@ -489,19 +489,35 @@ class NominatifExport
         }
         $sheet->setCellValue("{$jakartaCol}{$jakartaRow}", "Jakarta,    {$this->tglNominatif}");
 
-        // PPK name & NIP — snapshot only, no fallback
-        $ppkName = $this->pd->ppk_approved_by_name;
-        $ppkNip  = $this->pd->ppk_approved_by_nip;
+        // PPK name & NIP - get active PPK from system (fallback to approver)
+        $activePpk = User::where('role', 'pimpinan')
+            ->where('pimpinan_type', 'ppk')
+            ->where('is_active', true)
+            ->first();
+        $ppk = $activePpk ?: $this->ppk;
 
-        // Bendahara name & NIP — snapshot only
-        $bendName = $this->pd->dicairkan_by_name;
-        $bendNip  = $this->pd->dicairkan_by_nip;
+        // NIP fallback: kalau user.nip kosong, cari di RefNama by name
+        $ppkNip = $ppk?->nip ?: $this->lookupNipFromRefNama($ppk?->nama_lengkap);
+        $bendNip = $this->bendahara?->nip ?: $this->lookupNipFromRefNama($this->bendahara?->nama_lengkap);
 
-        $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppkName ?? '___________________________');
+        $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
         $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
 
-        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $bendName ?? '___________________________');
+        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
         $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
+    }
+
+    private function lookupNipFromRefNama(?string $nama): ?string
+    {
+        if (! $nama) return null;
+        $clean = trim(rtrim($nama, '.'));
+        $ref = \App\Models\RefNama::where('nama', $clean)
+            ->orWhere('nama', $nama)
+            ->orWhere('nama', 'LIKE', $clean.'%')
+            ->whereNotNull('nip')
+            ->where('nip', '!=', '')
+            ->first();
+        return $ref?->nip;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
