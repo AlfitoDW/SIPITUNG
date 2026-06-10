@@ -80,8 +80,8 @@ class PerencanaanController extends Controller
     private function buildFlatPkData(int $tahunId, string $jenis): array
     {
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'timKerja',
         ])
@@ -111,8 +111,6 @@ class PerencanaanController extends Controller
                 }
             }
         }
-
-        ksort($sasaranMap);
 
         // Master sasaran sebagai sumber tunggal untuk dropdown Tambah IKU
         $masterSasarans = MasterSasaran::where('tahun_anggaran_id', $tahunId)
@@ -229,7 +227,6 @@ class PerencanaanController extends Controller
 
         // Buang sasaran orphan (tanpa indikator)
         $sasaranMap = array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0);
-        ksort($sasaranMap);
 
         return Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,
@@ -339,11 +336,6 @@ class PerencanaanController extends Controller
                 }
             }
         }
-        uksort($sasaranMap, 'strnatcmp');
-        foreach ($sasaranMap as &$s) {
-            uksort($s['indikators'], 'strnatcmp');
-        }
-        unset($s);
 
         // Flatten rows
         $dataRows = [];

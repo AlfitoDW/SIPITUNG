@@ -209,7 +209,6 @@ class PerencanaanController extends Controller
 
         // Buang sasaran orphan (tanpa indikator)
         $sasaranMap = array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0);
-        ksort($sasaranMap);
 
         return Inertia::render('Pimpinan/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun'   => $tahun,

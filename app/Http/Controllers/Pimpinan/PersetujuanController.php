@@ -134,8 +134,8 @@ class PersetujuanController extends Controller
     private function buildMergedSasarans(int $tahunId, string $jenis): array
     {
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahunId)
@@ -160,8 +160,6 @@ class PersetujuanController extends Controller
                 }
             }
         }
-
-        ksort($sasaranMap);
 
         // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));

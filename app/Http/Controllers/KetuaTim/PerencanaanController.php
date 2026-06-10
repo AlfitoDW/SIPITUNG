@@ -247,7 +247,7 @@ class PerencanaanController extends Controller
         foreach ($collabGroups as $group) {
             $raInds = RencanaAksiIndikator::with(['sasaran', 'kegiatans'])
                 ->whereIn('id', $group['ra_ind_ids'])
-                ->orderBy('kode')
+                ->orderBy('urutan')
                 ->get();
 
             $sasaranMap = [];
@@ -280,7 +280,6 @@ class PerencanaanController extends Controller
                     ])->values()->all(),
                 ];
             }
-            ksort($sasaranMap);
 
             $groupsData[] = array_merge(
                 $group,
@@ -742,8 +741,8 @@ class PerencanaanController extends Controller
 
         foreach ($pks as $pk) {
             $pk->load([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
             ]);
 
@@ -774,8 +773,6 @@ class PerencanaanController extends Controller
             }
         }
 
-        ksort($sasaranMap);
-
         // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
@@ -786,8 +783,8 @@ class PerencanaanController extends Controller
     private function buildPkSasarans(PerjanjianKinerja $pk): array
     {
         $pk->load([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ]);
 

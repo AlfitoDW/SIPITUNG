@@ -125,8 +125,8 @@ class PengukuranController extends Controller
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
@@ -220,8 +220,8 @@ class PengukuranController extends Controller
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -512,14 +512,6 @@ class PengukuranController extends Controller
                 }
             }
         }
-        // Sort sasaran by kode (natural sort agar "1.10" tidak mendahului "1.2")
-        uksort($sasaranMap, 'strnatcmp');
-
-        // Sort indikator dalam tiap sasaran by kode (natural sort)
-        foreach ($sasaranMap as &$s) {
-            uksort($s['indikators'], 'strnatcmp');
-        }
-        unset($s);
 
         // Flatten ke $allKgRows
         $allKgRows = [];
@@ -668,8 +660,8 @@ class PengukuranController extends Controller
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -746,8 +738,8 @@ class PengukuranController extends Controller
         $twKey = strtolower($periode->triwulan);
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->where('periode_pengukuran_id', $periode->id),

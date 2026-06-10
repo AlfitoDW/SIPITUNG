@@ -40,10 +40,10 @@ class PengukuranController extends Controller
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators' => fn ($q) => $q->whereHas(
                     'picTimKerjas', fn ($q2) => $q2->where('tim_kerja.id', $timKerjaId)
-                )->orderBy('kode'),
+                )->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
