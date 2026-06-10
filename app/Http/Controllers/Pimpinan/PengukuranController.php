@@ -75,12 +75,17 @@ class PengukuranController extends Controller
                             'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
                             'catatan' => $r?->catatan,
                             'input_by_tim_kerja' => $r?->inputByTimKerja?->only(['id', 'nama', 'kode']),
-                        ];
-                    }
+                    ];
                 }
             }
 
-            $laporans = LaporanPengukuran::with([
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $matrix = collect($matrix)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
+        }
+
+        $laporans = LaporanPengukuran::with([
                 'timKerja:id,nama,kode,nama_singkat',
                 'peerTimKerja:id,nama,kode,nama_singkat',
             ])
@@ -225,6 +230,11 @@ class PengukuranController extends Controller
                     ];
                 }
             }
+
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $matrix = collect($matrix)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
         }
 
         $laporans = LaporanPengukuran::with('timKerja:id,nama,kode,nama_singkat')

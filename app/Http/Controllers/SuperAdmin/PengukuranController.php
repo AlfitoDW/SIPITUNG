@@ -170,6 +170,11 @@ class PengukuranController extends Controller
                     }
                 }
             }
+
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $matrix = collect($matrix)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
         }
 
         // Daftar laporan non-draft untuk panel status
@@ -271,6 +276,11 @@ class PengukuranController extends Controller
                 }
             }
         }
+
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $dataRows = collect($dataRows)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
 
         // ── Build spreadsheet ──────────────────────────────────────────────────
         $spreadsheet = new Spreadsheet;
@@ -712,6 +722,11 @@ class PengukuranController extends Controller
             }
         }
 
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $matrix = collect($matrix)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
+
         return Inertia::render('SuperAdmin/Pengukuran/ExportPdf', [
             'tahun' => $tahun,
             'matrix' => $matrix,
@@ -778,6 +793,11 @@ class PengukuranController extends Controller
                 }
             }
         }
+
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $matrix = collect($matrix)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
 
         $laporans = LaporanPengukuran::with('timKerja:id,nama,kode')
             ->where('periode_pengukuran_id', $periode->id)

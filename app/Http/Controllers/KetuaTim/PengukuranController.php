@@ -95,6 +95,11 @@ class PengukuranController extends Controller
                 }
             }
 
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $ikuList = collect($ikuList)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
+
             // Bangun kelompok kolaborasi
             $collabGroups = $this->buildCollaborationGroups($timKerjaId, $tahun->id, $periode->id, $ikuList);
         }
