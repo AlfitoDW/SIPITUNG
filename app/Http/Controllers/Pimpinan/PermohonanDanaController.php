@@ -211,12 +211,7 @@ class PermohonanDanaController extends Controller
                 'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
                 'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
-                'dja_program' => ['nama' => $pd->dja_program_nama],
-                'dja_sasaran' => ['nama' => $pd->dja_sasaran_nama],
-                'dja_kro' => ['kode' => $pd->dja_kro_kode, 'nama' => $pd->dja_kro_nama],
-                'dja_ro' => ['nama' => $pd->dja_ro_nama],
-                'dja_komponen' => ['nama' => $pd->dja_komponen_nama],
-                'dja_kegiatan' => ['kode' => $pd->dja_kegiatan_kode, 'nama' => $pd->dja_kegiatan_nama],
+                ...$pd->djaDisplayPayload(),
                 'kapokja' => ['id' => $pd->kapokja_id, 'nama_lengkap' => $pd->kapokja_name],
                 'pic_keuangan' => ['id' => $pd->pic_keuangan_id, 'nama_lengkap' => $pd->pic_keuangan_name],
                 'items' => $items->map(fn ($i) => [

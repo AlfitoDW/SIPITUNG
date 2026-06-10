@@ -150,3 +150,63 @@ it('controllers read dja snapshot not live', function () {
         ->where('permohonan.0.dja_program_nama', 'Program Audit')
     );
 });
+
+it('falls back to dja relations when display snapshots are missing', function () {
+    $pd = PermohonanDana::factory()->create([
+        'tahun_anggaran_id' => $this->tahun->id,
+        'tim_kerja_id' => $this->timKerja->id,
+        'dja_program_id' => $this->program->id,
+        'dja_sasaran_id' => $this->sasaran->id,
+        'dja_kro_id' => $this->kro->id,
+        'dja_ro_id' => $this->ro->id,
+        'dja_komponen_id' => $this->komponen->id,
+        'dja_kegiatan_id' => $this->kegiatan->id,
+        'dja_program_nama' => null,
+        'dja_sasaran_nama' => null,
+        'dja_kro_kode' => null,
+        'dja_kro_nama' => null,
+        'dja_ro_nama' => null,
+        'dja_komponen_nama' => null,
+        'dja_kegiatan_kode' => null,
+        'dja_kegiatan_nama' => null,
+    ]);
+
+    expect($pd->djaDisplayPayload())->toMatchArray([
+        'dja_program' => ['nama' => 'Program Audit'],
+        'dja_sasaran' => ['nama' => 'Sasaran Mutu'],
+        'dja_kro' => ['kode' => '01.01.01', 'nama' => 'KRO Evaluasi'],
+        'dja_ro' => ['nama' => 'RO Pemantauan'],
+        'dja_komponen' => ['nama' => 'Komponen Audit'],
+        'dja_kegiatan' => ['kode' => '01.01.01.01.01.01', 'nama' => 'Kegiatan Review'],
+    ]);
+});
+
+it('returns null dja display fields instead of empty objects', function () {
+    $pd = PermohonanDana::factory()->create([
+        'tahun_anggaran_id' => $this->tahun->id,
+        'tim_kerja_id' => $this->timKerja->id,
+        'dja_program_id' => null,
+        'dja_sasaran_id' => null,
+        'dja_kro_id' => null,
+        'dja_ro_id' => null,
+        'dja_komponen_id' => null,
+        'dja_kegiatan_id' => null,
+        'dja_program_nama' => null,
+        'dja_sasaran_nama' => null,
+        'dja_kro_kode' => null,
+        'dja_kro_nama' => null,
+        'dja_ro_nama' => null,
+        'dja_komponen_nama' => null,
+        'dja_kegiatan_kode' => null,
+        'dja_kegiatan_nama' => null,
+    ]);
+
+    expect($pd->djaDisplayPayload())->toBe([
+        'dja_program' => null,
+        'dja_sasaran' => null,
+        'dja_kro' => null,
+        'dja_ro' => null,
+        'dja_komponen' => null,
+        'dja_kegiatan' => null,
+    ]);
+});

@@ -155,12 +155,7 @@ class KeuanganController extends Controller
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
                 'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
                 // DJA
-                'dja_program' => ['nama' => $pd->dja_program_nama],
-                'dja_sasaran' => ['nama' => $pd->dja_sasaran_nama],
-                'dja_kro' => ['kode' => $pd->dja_kro_kode, 'nama' => $pd->dja_kro_nama],
-                'dja_ro' => ['nama' => $pd->dja_ro_nama],
-                'dja_komponen' => ['nama' => $pd->dja_komponen_nama],
-                'dja_kegiatan' => ['kode' => $pd->dja_kegiatan_kode, 'nama' => $pd->dja_kegiatan_nama],
+                ...$pd->djaDisplayPayload(),
                 'items' => $items->map(fn ($i) => [
                     'id' => $i->id, 'kode_akun' => $i->kode_akun, 'uraian' => $i->uraian,
                     'volume' => $i->volume, 'satuan' => $i->satuan, 'harga_satuan' => $i->harga_satuan, 'total' => $i->total,

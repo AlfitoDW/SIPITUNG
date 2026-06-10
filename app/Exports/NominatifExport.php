@@ -5,22 +5,24 @@ namespace App\Exports;
 use App\Models\PermohonanDana;
 use App\Models\User;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NominatifExport
 {
     private PermohonanDana $pd;
+
     private ?User $ppk;
+
     private ?User $bendahara;
+
     private string $tglNominatif;
 
     private const HONOR_AKUN = ['521115', '521213', '522151'];
+
     private const PERJADIN_LUAR_AKUN = ['524111', '524119'];
+
     private const PERJADIN_DALAM_AKUN = ['524113', '524114'];
+
     private const ALL_AKUN = ['521115', '521213', '522151', '524111', '524113', '524114', '524119'];
 
     private const SHEET_MAP = [
@@ -47,6 +49,10 @@ class NominatifExport
             'ppkNameRow' => 29,
             'ppkNipRow' => 30,
             'lastCol' => 'P',
+            'headerStartCol' => 'A',
+            'headerEndCol' => 'P',
+            'footerStartCol' => 'A',
+            'footerEndCol' => 'P',
         ],
         '521213' => [
             'format' => 'B',
@@ -61,6 +67,10 @@ class NominatifExport
             'ppkNameRow' => 31,
             'ppkNipRow' => 32,
             'lastCol' => 'Q',
+            'headerStartCol' => 'A',
+            'headerEndCol' => 'Q',
+            'footerStartCol' => 'A',
+            'footerEndCol' => 'Q',
         ],
         '522151' => [
             'format' => 'B',
@@ -75,6 +85,10 @@ class NominatifExport
             'ppkNameRow' => 31,
             'ppkNipRow' => 32,
             'lastCol' => 'Q',
+            'headerStartCol' => 'A',
+            'headerEndCol' => 'Q',
+            'footerStartCol' => 'A',
+            'footerEndCol' => 'Q',
         ],
         '524111' => [
             'format' => 'C',
@@ -89,6 +103,10 @@ class NominatifExport
             'ppkNameRow' => 55,
             'ppkNipRow' => 56,
             'lastCol' => 'U',
+            'headerStartCol' => 'B',
+            'headerEndCol' => 'U',
+            'footerStartCol' => 'B',
+            'footerEndCol' => 'U',
         ],
         '524114' => [
             'format' => 'C',
@@ -103,6 +121,10 @@ class NominatifExport
             'ppkNameRow' => 54,
             'ppkNipRow' => 55,
             'lastCol' => 'S',
+            'headerStartCol' => 'B',
+            'headerEndCol' => 'S',
+            'footerStartCol' => 'B',
+            'footerEndCol' => 'S',
         ],
         '524113' => [
             'format' => 'C',
@@ -117,6 +139,10 @@ class NominatifExport
             'ppkNameRow' => 54,
             'ppkNipRow' => 55,
             'lastCol' => 'S',
+            'headerStartCol' => 'B',
+            'headerEndCol' => 'S',
+            'footerStartCol' => 'B',
+            'footerEndCol' => 'S',
         ],
         '524119' => [
             'format' => 'C',
@@ -131,6 +157,10 @@ class NominatifExport
             'ppkNameRow' => 55,
             'ppkNipRow' => 56,
             'lastCol' => 'U',
+            'headerStartCol' => 'B',
+            'headerEndCol' => 'U',
+            'footerStartCol' => 'B',
+            'footerEndCol' => 'U',
         ],
     ];
 
@@ -159,10 +189,14 @@ class NominatifExport
         foreach ($grouped as $kodeAkun => $items) {
             $kodeAkun = (string) $kodeAkun;
             $sheetName = self::SHEET_MAP[$kodeAkun] ?? null;
-            if (! $sheetName) continue;
+            if (! $sheetName) {
+                continue;
+            }
 
             $sheet = $spreadsheet->getSheetByName($sheetName);
-            if (! $sheet) continue;
+            if (! $sheet) {
+                continue;
+            }
 
             $allNominatif = collect();
             foreach ($items as $item) {
@@ -194,14 +228,14 @@ class NominatifExport
 
         $nomor = str_replace('/', '-', $this->pd->nomor_permohonan);
         $filename = "Nominatif_{$nomor}.xlsx";
-        
+
         $tempFile = tempnam(sys_get_temp_dir(), 'nominatif_');
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->save($tempFile);
-        
+
         $content = file_get_contents($tempFile);
         unlink($tempFile);
-        
+
         return response($content, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
@@ -235,21 +269,9 @@ class NominatifExport
 
         // Update footer
         $totalDiterima = $this->calculateTotalDiterima($kodeAkun, $rows);
-        $this->updateFooter($sheet, $kodeAkun, $cfg, $actualCount, $totalDiterima, $offset);
-    }
+        $this->updateFooter($sheet, $kodeAkun, $cfg, $actualCount, $totalDiterima, $rows);
 
-        // Clear old data
-        $this->clearDataDummy($sheet, $cfg, $actualCount);
-
-        // Update header
-        $this->updateHeader($sheet, $kodeAkun, $cfg, $namaItem, $isHonor);
-
-        // Populate data
-        $this->populateData($sheet, $kodeAkun, $cfg, $rows);
-
-        // Update footer
-        $totalDiterima = $this->calculateTotalDiterima($kodeAkun, $rows);
-        $this->updateFooter($sheet, $kodeAkun, $cfg, $actualCount, $totalDiterima);
+        $this->prepareSheetView($sheet, $cfg);
     }
 
     private function clearDataDummy(Worksheet $sheet, array $cfg, int $actualCount): void
@@ -261,40 +283,43 @@ class NominatifExport
         $lastDataRow = $dataStartRow + $actualCount - 1;
         for ($row = $dataStartRow; $row <= $lastDataRow; $row++) {
             for ($col = 'A'; $col <= $lastCol; $col++) {
-                $sheet->setCellValue($col . $row, '');
+                $sheet->setCellValue($col.$row, '');
             }
         }
     }
 
     private function updateHeader(Worksheet $sheet, string $kodeAkun, array $cfg, string $namaItem, bool $isHonor): void
     {
+        $this->clearHeader($sheet, $cfg);
+
         $noSk = $this->pd->no_sk ?? 'XXX/LL3/KP.04.01';
         $tglSk = $this->pd->tgl_sk ? $this->fmtTgl($this->pd->tgl_sk) : '-';
         $noSt = $this->pd->no_st ?? 'XXXXXXXXXXXXXX';
         $tglSt = $this->pd->tgl_st ? $this->fmtTgl($this->pd->tgl_st) : '-';
-        $tahun = $this->pd->tanggal_mulai ? substr((string)$this->pd->tanggal_mulai, 0, 4) : now()->year;
+        $tahun = $this->pd->tanggal_mulai ? substr((string) $this->pd->tanggal_mulai, 0, 4) : now()->year;
         $kegiatan = strtoupper($this->pd->keperluan ?? '');
         $tempat = strtoupper($this->pd->tempat ?? 'JAKARTA');
         $tglPel = $this->getTglPelaksanaan();
 
         if ($kodeAkun === '521115') {
-            $bulan = $this->pd->tanggal_mulai ? strtoupper($this->fmtBulanTahun($this->pd->tanggal_mulai)) : 'XXXX ' . now()->year;
+            $bulan = $this->pd->tanggal_mulai ? strtoupper($this->fmtBulanTahun($this->pd->tanggal_mulai)) : 'XXXX '.now()->year;
             $sheet->setCellValue('A5', 'DAFTAR PEMBAYARAN HONORARIUM OPERASIONAL SATUAN KERJA');
             $sheet->setCellValue('A6', "BULAN {$bulan}");
-            $sheet->setCellValue('A7', "{$kodeAkun} " . ($namaItem ?: 'Belanja Honor Operasional Satuan Kerja'));
+            $sheet->setCellValue('A7', "{$kodeAkun} ".($namaItem ?: 'Belanja Honor Operasional Satuan Kerja'));
             $sheet->setCellValue('A3', "Nomor : {$noSk} Tgl {$tglSk}");
         } else {
-            $sheet->setCellValue('B3', $isHonor
+            $headerCol = $isHonor ? 'A' : 'B';
+            $sheet->setCellValue("{$headerCol}3", $isHonor
                 ? "Nomor : {$noSk} Tgl {$tglSk}"
                 : "Nomor : {$noSt}  Tgl {$tglSt}");
-            $sheet->setCellValue('B5', match ($kodeAkun) {
+            $sheet->setCellValue("{$headerCol}5", match ($kodeAkun) {
                 '521213' => 'DAFTAR PEMBAYARAN HONORARIUM PANITIA',
                 '522151' => 'DAFTAR PEMBAYARAN HONORARIUM NARASUMBER DAN MODERATOR',
                 default => 'DAFTAR PEMBAYARAN TRANSPORT DAN UANG HARIAN PERJALANAN DINAS',
             });
-            $sheet->setCellValue('B6', "KEGIATAN  {$kegiatan}");
-            $sheet->setCellValue('B7', "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
-            $sheet->setCellValue('B8', "DI {$tempat}  TANGGAL {$tglPel}");
+            $sheet->setCellValue("{$headerCol}6", "KEGIATAN  {$kegiatan}");
+            $sheet->setCellValue("{$headerCol}7", "DI LINGKUNGAN LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH III JAKARTA TAHUN ANGGARAN {$tahun}");
+            $sheet->setCellValue("{$headerCol}8", "DI {$tempat}  TANGGAL {$tglPel}");
 
             $namaAkun = match ($kodeAkun) {
                 '521213' => 'Belanja Honor Output Kegiatan',
@@ -305,7 +330,7 @@ class NominatifExport
                 '524119' => 'Belanja Perjalanan Dinas Paket Meeting Luar Kota',
                 default => '',
             };
-            $sheet->setCellValue('B9', "{$kodeAkun} {$namaAkun}");
+            $sheet->setCellValue("{$headerCol}9", "{$kodeAkun} {$namaAkun}");
         }
     }
 
@@ -390,10 +415,10 @@ class NominatifExport
         }
     }
 
-    private function updateFooter(Worksheet $sheet, string $kodeAkun, array $cfg, int $actualCount, float $totalDiterima): void
+    private function updateFooter(Worksheet $sheet, string $kodeAkun, array $cfg, int $actualCount, float $totalDiterima, $rows): void
     {
-        $offset = $actualCount - 3; // 3 is placeholder count
-        if ($offset < 0) $offset = 0;
+        $placeholderCount = $cfg['dataEndRow'] - $cfg['dataStartRow'] + 1;
+        $offset = max(0, $actualCount - $placeholderCount);
 
         $jumlahRow = $cfg['jumlahRow'] + $offset;
         $terbilangRow = $cfg['terbilangRow'] + $offset;
@@ -404,16 +429,24 @@ class NominatifExport
         $anKuasaRow = $cfg['anKuasaRow'] + $offset;
         $pejabatRow = $cfg['pejabatRow'] + $offset;
 
+        $this->clearFooter($sheet, $cfg, $offset);
+
         $isHonor = in_array($kodeAkun, self::HONOR_AKUN);
         $colA = $isHonor ? 'A' : 'B';
-        $jakartaCol = $isHonor ? 'M' : ($kodeAkun === '521213' || $kodeAkun === '522151' ? 'N' : ($kodeAkun === '524113' || $kodeAkun === '524114' ? 'Q' : 'S'));
+        $jakartaCol = match ($kodeAkun) {
+            '521115' => 'M',
+            '521213', '522151' => 'N',
+            '524111', '524119' => 'S',
+            '524113', '524114' => 'Q',
+            default => 'N',
+        };
 
         // Jumlah
         $sheet->setCellValue("B{$jumlahRow}", 'Jumlah');
-        $sheet->setCellValue("{$jakartaCol}{$jumlahRow}", $totalDiterima);
+        $this->updateJumlahRow($sheet, $kodeAkun, $jumlahRow, $rows, $totalDiterima);
 
         // Terbilang
-        $terbilangText = ucwords($this->terbilang((int) $totalDiterima)) . ' Rupiah';
+        $terbilangText = ucwords($this->terbilang((int) $totalDiterima)).' Rupiah';
         if ($kodeAkun === '521115') {
             $sheet->setCellValue("D{$terbilangRow}", "  {$terbilangText}");
         } elseif (in_array($kodeAkun, ['521213', '522151'])) {
@@ -448,10 +481,85 @@ class NominatifExport
         $bendNip = $this->bendahara?->nip ?: $this->lookupNipFromRefNama($this->bendahara?->nama_lengkap);
 
         $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. ' . ($ppkNip ?: '-'));
+        $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
 
         $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. ' . ($bendNip ?: '-'));
+        $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
+    }
+
+    private function updateJumlahRow(Worksheet $sheet, string $kodeAkun, int $row, $rows, float $totalDiterima): void
+    {
+        if ($kodeAkun === '521115') {
+            $sheet->setCellValue("F{$row}", $rows->sum(fn ($n) => (float) $n->volume));
+            $sheet->setCellValue("G{$row}", $rows->sum(fn ($n) => (float) $n->harga_satuan));
+            $sheet->setCellValue("H{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_bruto));
+            $sheet->setCellValue("I{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_bruto));
+            $sheet->setCellValue("K{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_pajak));
+            $sheet->setCellValue("L{$row}", $totalDiterima);
+
+            return;
+        }
+
+        if (in_array($kodeAkun, ['521213', '522151'])) {
+            $sheet->setCellValue("G{$row}", $rows->sum(fn ($n) => (float) $n->volume));
+            $sheet->setCellValue("H{$row}", $rows->sum(fn ($n) => (float) $n->harga_satuan));
+            $sheet->setCellValue("I{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_bruto));
+            $sheet->setCellValue("J{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_bruto));
+            $sheet->setCellValue("L{$row}", $rows->sum(fn ($n) => (float) $n->jumlah_pajak));
+            $sheet->setCellValue("M{$row}", $totalDiterima);
+
+            return;
+        }
+
+        $sheet->setCellValue("D{$row}", $rows->sum(fn ($n) => (float) $n->transport));
+        $sheet->setCellValue("E{$row}", $rows->sum(fn ($n) => (float) $n->uang_harian_vol));
+        $sheet->setCellValue("F{$row}", $rows->sum(fn ($n) => (float) $n->uang_harian_satuan));
+        $sheet->setCellValue("G{$row}", $rows->sum(fn ($n) => (float) $n->uang_harian_jumlah));
+        $sheet->setCellValue("H{$row}", $rows->sum(fn ($n) => (float) $n->fullboard_vol));
+        $sheet->setCellValue("I{$row}", $rows->sum(fn ($n) => (float) $n->fullboard_satuan));
+        $sheet->setCellValue("J{$row}", $rows->sum(fn ($n) => (float) $n->fullboard_jumlah));
+        $sheet->setCellValue("K{$row}", $rows->sum(fn ($n) => (float) $n->fullday_vol));
+        $sheet->setCellValue("L{$row}", $rows->sum(fn ($n) => (float) $n->fullday_satuan));
+        $sheet->setCellValue("M{$row}", $rows->sum(fn ($n) => (float) $n->fullday_jumlah));
+
+        if (in_array($kodeAkun, self::PERJADIN_LUAR_AKUN)) {
+            $sheet->setCellValue("N{$row}", $rows->sum(fn ($n) => (float) $n->taksi_pp));
+            $sheet->setCellValue("O{$row}", $rows->sum(fn ($n) => (float) $n->tiket_pesawat));
+            $sheet->setCellValue("P{$row}", $rows->sum(fn ($n) => (float) $n->hotel));
+            $sheet->setCellValue("Q{$row}", $totalDiterima);
+        } else {
+            $sheet->setCellValue("N{$row}", $rows->sum(fn ($n) => (float) $n->hotel));
+            $sheet->setCellValue("O{$row}", $totalDiterima);
+        }
+    }
+
+    private function clearHeader(Worksheet $sheet, array $cfg): void
+    {
+        $endRow = $cfg['format'] === 'A' ? 7 : 9;
+        for ($row = 3; $row <= $endRow; $row++) {
+            for ($col = $cfg['headerStartCol']; $col <= $cfg['headerEndCol']; $col++) {
+                $sheet->setCellValue("{$col}{$row}", '');
+            }
+        }
+    }
+
+    private function clearFooter(Worksheet $sheet, array $cfg, int $offset): void
+    {
+        $start = $cfg['terbilangRow'] + $offset + 1;
+        $end = $cfg['ppkNipRow'] + $offset;
+        for ($row = $start; $row <= $end; $row++) {
+            for ($col = $cfg['footerStartCol']; $col <= $cfg['footerEndCol']; $col++) {
+                $sheet->setCellValue("{$col}{$row}", '');
+            }
+        }
+    }
+
+    private function prepareSheetView(Worksheet $sheet, array $cfg): void
+    {
+        $lastCol = $cfg['lastCol'];
+        $lastRow = $sheet->getHighestDataRow($lastCol);
+        $sheet->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
+        $sheet->setSelectedCell('A1');
     }
 
     private function setCellValue(Worksheet $sheet, string $cell, $value, bool $isText = false): void
@@ -465,9 +573,12 @@ class NominatifExport
 
     private function mergePerjadinPerOrang($rows)
     {
-        $grouped = $rows->groupBy(fn ($n) => $n->ref_nama_id ? 'r' . $n->ref_nama_id : 'n' . strtolower(trim($n->nama)));
+        $grouped = $rows->groupBy(fn ($n) => $n->ref_nama_id ? 'r'.$n->ref_nama_id : 'n'.strtolower(trim($n->nama)));
+
         return $grouped->map(function ($g) {
-            if ($g->count() === 1) return $g->first();
+            if ($g->count() === 1) {
+                return $g->first();
+            }
             $b = clone $g->first();
             $b->transport = $g->sum(fn ($r) => (float) $r->transport);
             $b->uang_harian_vol = $g->max(fn ($r) => (float) $r->uang_harian_vol);
@@ -484,6 +595,7 @@ class NominatifExport
             $b->tiket_pesawat = $g->sum(fn ($r) => (float) $r->tiket_pesawat);
             $b->hotel = $g->sum(fn ($r) => (float) $r->hotel);
             $b->jumlah_perjadin = $b->transport + $b->uang_harian_jumlah + $b->fullboard_jumlah + $b->fullday_jumlah + $b->representasi + $b->taksi_pp + $b->tiket_pesawat + $b->hotel;
+
             return $b;
         })->values();
     }
@@ -502,27 +614,34 @@ class NominatifExport
                     + (float) $n->hotel;
             }
         }
+
         return $total;
     }
 
     private function lookupNipFromRefNama(?string $nama): ?string
     {
-        if (! $nama) return null;
+        if (! $nama) {
+            return null;
+        }
         $clean = trim(rtrim($nama, '.'));
         $ref = \App\Models\RefNama::where('nama', $clean)
             ->orWhere('nama', $nama)
-            ->orWhere('nama', 'LIKE', $clean . '%')
+            ->orWhere('nama', 'LIKE', $clean.'%')
             ->whereNotNull('nip')
             ->where('nip', '!=', '')
             ->first();
+
         return $ref?->nip;
     }
 
     private function getTglPelaksanaan(): string
     {
-        if (! $this->pd->tanggal_mulai || ! $this->pd->tanggal_selesai) return '';
+        if (! $this->pd->tanggal_mulai || ! $this->pd->tanggal_selesai) {
+            return '';
+        }
         $m = strtoupper($this->fmtTgl($this->pd->tanggal_mulai));
         $s = strtoupper($this->fmtTgl($this->pd->tanggal_selesai));
+
         return $m === $s ? $m : "{$m} S.D. {$s}";
     }
 
@@ -530,28 +649,49 @@ class NominatifExport
     {
         $bulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         $d = is_string($date) ? new \DateTime($date) : $date;
-        return $d->format('d') . ' ' . $bulan[(int)$d->format('n')] . ' ' . $d->format('Y');
+
+        return $d->format('d').' '.$bulan[(int) $d->format('n')].' '.$d->format('Y');
     }
 
     private function fmtBulanTahun($date): string
     {
         $bulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         $d = is_string($date) ? new \DateTime($date) : $date;
-        return $bulan[(int)$d->format('n')] . ' ' . $d->format('Y');
+
+        return $bulan[(int) $d->format('n')].' '.$d->format('Y');
     }
 
     private function terbilang(int $n): string
     {
-        if ($n < 0) return 'minus ' . $this->terbilang(abs($n));
-        if ($n === 0) return 'nol';
+        if ($n < 0) {
+            return 'minus '.$this->terbilang(abs($n));
+        }
+        if ($n === 0) {
+            return 'nol';
+        }
         $s = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas', 'dua belas', 'tiga belas', 'empat belas', 'lima belas', 'enam belas', 'tujuh belas', 'delapan belas', 'sembilan belas'];
-        if ($n < 20) return $s[$n];
-        if ($n < 100) return $s[(int)($n / 10)] . ' puluh' . ($n % 10 ? ' ' . $s[$n % 10] : '');
-        if ($n < 200) return 'seratus' . ($n - 100 > 0 ? ' ' . $this->terbilang($n - 100) : '');
-        if ($n < 1000) return $s[(int)($n / 100)] . ' ratus' . ($n % 100 ? ' ' . $this->terbilang($n % 100) : '');
-        if ($n < 2000) return 'seribu' . ($n - 1000 > 0 ? ' ' . $this->terbilang($n - 1000) : '');
-        if ($n < 1_000_000) return $this->terbilang((int)($n / 1000)) . ' ribu' . ($n % 1000 ? ' ' . $this->terbilang($n % 1000) : '');
-        if ($n < 1_000_000_000) return $this->terbilang((int)($n / 1_000_000)) . ' juta' . ($n % 1_000_000 ? ' ' . $this->terbilang($n % 1_000_000) : '');
-        return $this->terbilang((int)($n / 1_000_000_000)) . ' miliar' . ($n % 1_000_000_000 ? ' ' . $this->terbilang($n % 1_000_000_000) : '');
+        if ($n < 20) {
+            return $s[$n];
+        }
+        if ($n < 100) {
+            return $s[(int) ($n / 10)].' puluh'.($n % 10 ? ' '.$s[$n % 10] : '');
+        }
+        if ($n < 200) {
+            return 'seratus'.($n - 100 > 0 ? ' '.$this->terbilang($n - 100) : '');
+        }
+        if ($n < 1000) {
+            return $s[(int) ($n / 100)].' ratus'.($n % 100 ? ' '.$this->terbilang($n % 100) : '');
+        }
+        if ($n < 2000) {
+            return 'seribu'.($n - 1000 > 0 ? ' '.$this->terbilang($n - 1000) : '');
+        }
+        if ($n < 1_000_000) {
+            return $this->terbilang((int) ($n / 1000)).' ribu'.($n % 1000 ? ' '.$this->terbilang($n % 1000) : '');
+        }
+        if ($n < 1_000_000_000) {
+            return $this->terbilang((int) ($n / 1_000_000)).' juta'.($n % 1_000_000 ? ' '.$this->terbilang($n % 1_000_000) : '');
+        }
+
+        return $this->terbilang((int) ($n / 1_000_000_000)).' miliar'.($n % 1_000_000_000 ? ' '.$this->terbilang($n % 1_000_000_000) : '');
     }
 }

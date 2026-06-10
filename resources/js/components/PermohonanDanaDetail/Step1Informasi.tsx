@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DjaCode {
-    kode?: string;
-    nama: string;
+    kode?: string | null;
+    nama?: string | null;
 }
 
 export interface PermohonanStep1Data {
@@ -45,6 +45,12 @@ function Field({
             </div>
         </div>
     );
+}
+
+function formatDjaCodeName(value?: DjaCode | null) {
+    if (!value?.kode && !value?.nama) return null;
+
+    return [value.kode, value.nama].filter(Boolean).join(' — ');
 }
 
 export default function Step1Informasi({ pd }: { pd: PermohonanStep1Data }) {
@@ -99,7 +105,7 @@ export default function Step1Informasi({ pd }: { pd: PermohonanStep1Data }) {
                         <Field
                             icon={<Layers className="h-3.5 w-3.5" />}
                             label="KRO"
-                            value={pd.dja_kro ? `${pd.dja_kro.kode} — ${pd.dja_kro.nama}` : null}
+                            value={formatDjaCodeName(pd.dja_kro)}
                         />
                         <Field
                             icon={<Layers className="h-3.5 w-3.5" />}
@@ -114,7 +120,7 @@ export default function Step1Informasi({ pd }: { pd: PermohonanStep1Data }) {
                         <Field
                             icon={<Workflow className="h-3.5 w-3.5" />}
                             label="Kegiatan"
-                            value={pd.dja_kegiatan ? `${pd.dja_kegiatan.kode} — ${pd.dja_kegiatan.nama}` : null}
+                            value={formatDjaCodeName(pd.dja_kegiatan)}
                         />
                     </div>
                 </div>

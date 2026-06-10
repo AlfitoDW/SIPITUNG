@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class PermohonanDana extends Model
 {
     use HasFactory;
+
     protected $table = 'permohonan_dana';
 
     protected $fillable = [
@@ -283,6 +284,28 @@ class PermohonanDana extends Model
     public function picKeuangan(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pic_keuangan_id');
+    }
+
+    public function djaDisplayPayload(): array
+    {
+        $this->loadMissing(['djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan']);
+
+        $named = fn (?string $nama, ?string $fallback = null) => ($nama ?: $fallback)
+            ? ['nama' => $nama ?: $fallback]
+            : null;
+
+        $coded = fn (?string $kode, ?string $nama, ?string $fallbackKode = null, ?string $fallbackNama = null) => (($kode ?: $fallbackKode) || ($nama ?: $fallbackNama))
+            ? ['kode' => $kode ?: $fallbackKode, 'nama' => $nama ?: $fallbackNama]
+            : null;
+
+        return [
+            'dja_program' => $named($this->dja_program_nama, $this->djaProgram?->nama),
+            'dja_sasaran' => $named($this->dja_sasaran_nama, $this->djaSasaran?->nama),
+            'dja_kro' => $coded($this->dja_kro_kode, $this->dja_kro_nama, $this->djaKro?->kode, $this->djaKro?->nama),
+            'dja_ro' => $named($this->dja_ro_nama, $this->djaRo?->nama),
+            'dja_komponen' => $named($this->dja_komponen_nama, $this->djaKomponen?->nama),
+            'dja_kegiatan' => $coded($this->dja_kegiatan_kode, $this->dja_kegiatan_nama, $this->djaKegiatan?->kode, $this->djaKegiatan?->nama),
+        ];
     }
 
     /** Format nomor permohonan: SEQ/LL3/PerD/BULAN-ROMAWI/TAHUN */
