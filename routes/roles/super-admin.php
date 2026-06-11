@@ -7,6 +7,7 @@ use App\Http\Controllers\SuperAdmin\PengukuranController;
 use App\Http\Controllers\SuperAdmin\PerencanaanController;
 use App\Http\Controllers\SuperAdmin\TahunAnggaranController;
 use App\Http\Controllers\SuperAdmin\TimKerjaController;
+use App\Http\Controllers\SuperAdmin\BackupDataController;
 use App\Http\Controllers\SuperAdmin\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -74,7 +75,10 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
     Route::get('/laporan', fn () => Inertia::render('SuperAdmin/Laporan'))->name('laporan');
     Route::get('/notifikasi', fn () => Inertia::render('SuperAdmin/Notifikasi'))->name('notifikasi');
     Route::get('/kelola-pengguna', fn () => Inertia::render('SuperAdmin/KelolaPengguna'))->name('kelola-pengguna');
-    Route::get('/backup-data', fn () => Inertia::render('SuperAdmin/BackupData'))->name('backup-data');
+    Route::get('/backup-data', [BackupDataController::class, 'index'])->name('backup-data');
+    Route::post('/backup-data', [BackupDataController::class, 'store'])->name('backup-data.store');
+    Route::get('/backup-data/download/{filename}', [BackupDataController::class, 'download'])->name('backup-data.download');
+    Route::delete('/backup-data/{filename}', [BackupDataController::class, 'destroy'])->name('backup-data.destroy');
 
     Route::get('/data-master', [DataMasterController::class, 'index'])->name('data-master');
 

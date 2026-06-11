@@ -117,6 +117,11 @@ const superAdminNav: NavGroup[] = [
                 href: '/super-admin/notifikasi',
                 icon: BellRingIcon,
             },
+            {
+                title: 'Backup Data',
+                href: '/super-admin/backup-data',
+                icon: Database,
+            },
         ],
     },
 ];
