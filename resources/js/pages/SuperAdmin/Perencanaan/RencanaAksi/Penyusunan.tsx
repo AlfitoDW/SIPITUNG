@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Eye, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle, CalendarClock, Trash2, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import { DeadlineCountdown } from '@/components/deadline-countdown';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -486,6 +488,7 @@ function DeadlinePanel({ batasRa, serverNow }: { batasRa: string | null; serverN
 
 export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }: Props) {
     const [viewKegiatan, setViewKegiatan] = useState<Indikator | null>(null);
+    const isLoading = useNavigationLoading();
 
     const totalIku  = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
     const filledTw  = sasarans.reduce((s, sar) => s + sar.indikators.filter(
@@ -496,6 +499,9 @@ export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }:
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyusunan — Rencana Aksi" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -639,6 +645,7 @@ export default function Penyusunan({ tahun, sasarans, ras, batasRa, serverNow }:
                     </TabsContent>
                 </Tabs>
             </div>
+            )}
 
             {/* Kegiatan View Sheet */}
             {viewKegiatan && (

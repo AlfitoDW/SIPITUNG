@@ -1,12 +1,12 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Eye, FileText, Save, MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
@@ -173,6 +173,9 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pengukuran Kinerja" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
 
                 {/* Header */}
@@ -247,15 +250,7 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                                 </tr>
                             </thead>
                             <tbody>
-                                {isLoading ? Array.from({ length: 6 }).map((_, i) => (
-                                    <tr key={i}>
-                                        {[160, 220, 80, 60, 60, 70, 80].map((w, j) => (
-                                            <td key={j} className="border border-border px-3 py-2">
-                                                <Skeleton className="h-4 rounded" style={{ width: w }} />
-                                            </td>
-                                        ))}
-                                    </tr>
-                                )) : grouped.map((row) => {
+                                {grouped.map((row) => {
                                     const color   = getColor(row.sasaran_kode);
                                     const hasData = !!row.realisasi;
                                     return (
@@ -402,6 +397,7 @@ export default function Kinerja({ tahun, periodes, periode, matrix, role, rekome
                     </div>
                 )}
             </div>
+            )}
 
             {detail && (
                 <DetailDialog

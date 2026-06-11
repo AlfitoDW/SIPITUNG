@@ -1,5 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { FileText, ClipboardList, Loader2, ChevronRight, HandCoins, ChartNoAxesColumn } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -119,10 +121,14 @@ function DocCard<T extends Record<string, number>>({
 export default function Dashboard({ tahun, timKerjaTotal, pkAwal, pkRevisi, ra, pengukuran, permohonanDana, nilaiCair }: Props) {
     const pdTotal = Object.values(permohonanDana).reduce((a, b) => a + b, 0);
     const pengTotal = pengukuran.draft + pengukuran.submitted + pengukuran.kabag_approved + pengukuran.rejected;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard Super Admin" />
+            {isLoading ? (
+                <SkeletonDashboard />
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* Hero */}
@@ -220,6 +226,7 @@ export default function Dashboard({ tahun, timKerjaTotal, pkAwal, pkRevisi, ra, 
                 </div>
 
             </div>
+            )}
         </AppLayout>
     );
 }

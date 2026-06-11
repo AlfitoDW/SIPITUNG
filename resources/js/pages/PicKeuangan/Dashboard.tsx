@@ -4,7 +4,9 @@ import {
     Inbox, ArrowRight, TrendingUp, Loader2, Shield, Wallet,
     CircleCheck,
 } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -139,10 +141,14 @@ export default function Dashboard({
     nilaiVerifikasi, nilaiPencairan, nilaiSelesai,
 }: Props) {
     const pdTotal = pipeline.ppk_approved + pipeline.pic_approved + pipeline.dicairkan;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title="Dashboard PIC Keuangan" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonDashboard /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* ═══ HERO ═══════════════════════════════════════════════ */}
@@ -376,6 +382,7 @@ export default function Dashboard({
                     </div>
                 )}
             </div>
+            )}
         </AppLayout>
     );
 }

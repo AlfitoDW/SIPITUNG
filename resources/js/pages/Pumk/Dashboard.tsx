@@ -4,8 +4,10 @@ import {
     ChevronRight, Inbox, PlusCircle, ArrowRight, TrendingUp,
     Loader2, Shield, Wallet,
 } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -178,10 +180,14 @@ export default function Dashboard({
 }: Props) {
     const pdTotal = Object.values(pipeline).reduce((a, b) => a + b, 0);
     const perluPerhatian = stats.draft + stats.rejected;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title="Dashboard PUMK" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonDashboard /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* ═══ HERO ═══════════════════════════════════════════════ */}
@@ -438,6 +444,7 @@ export default function Dashboard({
                     </div>
                 )}
             </div>
+            )}
         </AppLayout>
     );
 }

@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Pencil, Send, CheckCircle2, Circle, Lock, Loader2, AlertCircle, Users, List, Plus, Trash2, Save, X } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { DeadlineCountdown } from '@/components/deadline-countdown';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -615,65 +617,75 @@ export default function Penyusunan({ tahun, raGroups, batasRa, serverNow }: Prop
         : totalInd > 0 ? Math.round((totalFilled / totalInd) * 60)
         : 10;
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyusunan — Rencana Aksi" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-
-                {/* Header */}
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
-                    <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
-                </div>
-
-                {/* Deadline countdown */}
-                <DeadlineCountdown
-                    deadline={batasRa}
-                    serverNow={serverNow}
-                    label="Pengisian Rencana Aksi"
-                    onExpire={handleDeadlineExpire}
-                />
-
-                {/* Overall progress */}
-                {raGroups.length > 0 && (
-                    <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Progres Keseluruhan</span>
-                            <span className="text-sm text-muted-foreground">{overallProgress}%</span>
-                        </div>
-                        <Progress value={overallProgress} className="h-2" />
-                        <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
-                            {[
-                                { done: raGroups.length > 0,                           label: 'Dokumen dibuat' },
-                                { done: totalInd > 0,                                  label: `IKU tersedia (${totalInd})` },
-                                { done: totalFilled === totalInd && totalInd > 0,       label: `Target TW diisi (${totalFilled}/${totalInd})` },
-                                { done: anySubmitted || allApproved,                   label: 'Ada RA tersubmit' },
-                                { done: allApproved,                                   label: 'Semua disetujui Kabag' },
-                            ].map(({ done, label }) => (
-                                <div key={label} className="flex items-center gap-1.5">
-                                    {done ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
-                                    <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {raGroups.length === 0 ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/30">
-                        Belum ada sasaran. Buat Perjanjian Kinerja Awal terlebih dahulu agar sasaran dapat digunakan di sini.
-                    </div>
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonTable />
+                    </>
                 ) : (
-                    raGroups.map((group) => (
-                        <RaGroupCard
-                            key={group.peer_id ?? 'solo'}
-                            group={group}
-                            onEdit={openEdit}
-                            onSubmit={setSubmitGroup}
-                            onOpenKegiatan={(iku, editable, peerNama) => setKegiatanSheet({ iku, editable, peerNama })}
-                            isDeadlinePassed={deadlinePassed}
+                    <>
+                        {/* Header */}
+                        <div className="flex flex-col gap-1">
+                            <h1 className="text-2xl font-bold tracking-tight">Penyusunan Rencana Aksi</h1>
+                            <p className="text-muted-foreground">Target kinerja per triwulan — {tahun.label}</p>
+                        </div>
+
+                        {/* Deadline countdown */}
+                        <DeadlineCountdown
+                            deadline={batasRa}
+                            serverNow={serverNow}
+                            label="Pengisian Rencana Aksi"
+                            onExpire={handleDeadlineExpire}
                         />
-                    ))
+
+                        {/* Overall progress */}
+                        {raGroups.length > 0 && (
+                            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">Progres Keseluruhan</span>
+                                    <span className="text-sm text-muted-foreground">{overallProgress}%</span>
+                                </div>
+                                <Progress value={overallProgress} className="h-2" />
+                                <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
+                                    {[
+                                        { done: raGroups.length > 0,                           label: 'Dokumen dibuat' },
+                                        { done: totalInd > 0,                                  label: `IKU tersedia (${totalInd})` },
+                                        { done: totalFilled === totalInd && totalInd > 0,       label: `Target TW diisi (${totalFilled}/${totalInd})` },
+                                        { done: anySubmitted || allApproved,                   label: 'Ada RA tersubmit' },
+                                        { done: allApproved,                                   label: 'Semua disetujui Kabag' },
+                                    ].map(({ done, label }) => (
+                                        <div key={label} className="flex items-center gap-1.5">
+                                            {done ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" /> : <Circle className="h-5 w-5 text-red-400 shrink-0" />}
+                                            <span className={`text-base font-medium ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {raGroups.length === 0 ? (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/30">
+                                Belum ada sasaran. Buat Perjanjian Kinerja Awal terlebih dahulu agar sasaran dapat digunakan di sini.
+                            </div>
+                        ) : (
+                            raGroups.map((group) => (
+                                <RaGroupCard
+                                    key={group.peer_id ?? 'solo'}
+                                    group={group}
+                                    onEdit={openEdit}
+                                    onSubmit={setSubmitGroup}
+                                    onOpenKegiatan={(iku, editable, peerNama) => setKegiatanSheet({ iku, editable, peerNama })}
+                                    isDeadlinePassed={deadlinePassed}
+                                />
+                            ))
+                        )}
+                    </>
                 )}
             </div>
 

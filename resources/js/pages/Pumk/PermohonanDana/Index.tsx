@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -12,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -380,10 +382,14 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
 
     const tabCount = (tab: Tab) =>
         tab.statuses ? permohonan.filter(pd => tab.statuses!.includes(pd.status)).length : permohonan.length;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title="Daftar Permohonan Dana" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex flex-col gap-5 p-4 md:p-6 max-w-7xl mx-auto">
 
                 {/* Page Header */}
@@ -704,6 +710,7 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                     </CardContent>
                 </Card>
             </div>
+            )}
 
             {/* Delete Dialog */}
             <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

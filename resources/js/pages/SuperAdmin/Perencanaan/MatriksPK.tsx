@@ -1,8 +1,10 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -28,6 +30,7 @@ const sasaranColors: Record<string, { bg: string; badge: string; accent: string 
 function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S 1']; }
 
 export default function MatriksPK({ tahun, pks, timKerjas }: Props) {
+    const isLoading = useNavigationLoading();
     const [filterPic, setFilterPic] = useState<string>('all');
 
     type Row = { pk: PK; sasaran: Sasaran; iku: Indikator };
@@ -54,6 +57,9 @@ export default function MatriksPK({ tahun, pks, timKerjas }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Matriks PK — Perjanjian Kinerja" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold tracking-tight">Matriks Perjanjian Kinerja</h1>
@@ -127,6 +133,7 @@ export default function MatriksPK({ tahun, pks, timKerjas }: Props) {
                     </div>
                 )}
             </div>
+            )}
         </AppLayout>
     );
 }

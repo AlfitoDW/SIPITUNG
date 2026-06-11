@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Eye, History, FileText } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -143,218 +145,228 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat, role }: 
     const tabCount = (tab: Tab) =>
         tab.statuses ? allData.filter(pd => tab.statuses!.includes(pd.status)).length : allData.length;
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title="Approval Permohonan Dana" />
             <div className="flex flex-col gap-5 p-4 md:p-6 max-w-7xl mx-auto">
-
-                {/* Page Header */}
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Approval Permohonan Dana</h1>
-                        <p className="text-sm text-muted-foreground">Persetujuan Pengajuan Dana</p>
-                        <p className="text-xs text-muted-foreground/70 mt-0.5">
-                            {roleLabel} — {stepLabel} · {tahun?.label}
-                        </p>
-                    </div>
-                    {menunggu.length > 0 && (
-                        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                            <span className="text-sm font-medium text-amber-700">{menunggu.length} menunggu persetujuan</span>
-                        </div>
-                    )}
-                </div>
-
-                <Card>
-                    {/* Tab Bar */}
-                    <CardHeader className="pb-0 pt-4 px-4">
-                        <div className="flex gap-1 border-b">
-                            {TABS.map(tab => {
-                                const count = tabCount(tab);
-                                return (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => handleTab(tab.key)}
-                                        className={cn(
-                                            'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                                            activeTab === tab.key
-                                                ? 'border-blue-600 text-blue-600'
-                                                : 'border-transparent text-muted-foreground hover:text-gray-700',
-                                        )}
-                                    >
-                                        {tab.label}
-                                        <span className={cn(
-                                            'text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center',
-                                            activeTab === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500',
-                                        )}>
-                                            {count}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-4 px-4 space-y-3">
-                        {/* Toolbar */}
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>Show</span>
-                                <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
-                                    <SelectTrigger className="h-8 w-16 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {[10, 25, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <span>entries</span>
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonTable />
+                    </>
+                ) : (
+                    <>
+                        {/* Page Header */}
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight">Approval Permohonan Dana</h1>
+                                <p className="text-sm text-muted-foreground">Persetujuan Pengajuan Dana</p>
+                                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                                    {roleLabel} — {stepLabel} · {tahun?.label}
+                                </p>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>Search:</span>
-                                <Input
-                                    value={search}
-                                    onChange={e => handleSearch(e.target.value)}
-                                    placeholder="Nomor / judul kegiatan..."
-                                    className="h-8 w-56 text-xs"
-                                />
-                            </div>
+                            {menunggu.length > 0 && (
+                                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                    <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                                    <span className="text-sm font-medium text-amber-700">{menunggu.length} menunggu persetujuan</span>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Table */}
-                        <div className="overflow-x-auto rounded-md border">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        <th className="px-3 py-3 text-center w-10">#</th>
-                                        <th className="px-3 py-3 text-left">Nomor Permohonan</th>
-                                        <th className="px-3 py-3 text-left">Judul Kegiatan</th>
-                                        <th className="px-3 py-3 text-center w-36">Tanggal Pengajuan</th>
-                                        <th className="px-3 py-3 text-center w-40">Status Permohonan</th>
-                                        <th className="px-3 py-3 text-center w-24">Perlu Approval</th>
-                                        <th className="px-3 py-3 text-center w-28">Oleh</th>
-                                        <th className="px-3 py-3 text-center w-24">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {paginated.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground">
-                                                Tidak ada data
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        paginated.map((pd, i) => {
-                                            const canAct = isKabag
-                                                ? pd.status === 'katim_approved'
-                                                : pd.status === 'kabag_approved';
-                                            return (
-                                                <tr key={pd.id} className={cn('hover:bg-gray-50/60 transition-colors', canAct && 'bg-amber-50/40')}>
-                                                    <td className="px-3 py-3 text-center text-muted-foreground tabular-nums text-xs">{from + i}</td>
-                                                    <td className="px-3 py-3">
-                                                        <span className="font-mono text-xs text-blue-700 font-semibold">{pd.nomor_permohonan}</span>
-                                                    </td>
-                                                    <td className="px-3 py-3 max-w-xs">
-                                                        <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
-                                                        {pd.catatan_penolakan && (
-                                                            <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
-                                                        {fmtDate(pd.submitted_at)}
-                                                    </td>
-                                                    <td className="px-3 py-3 text-center">
-                                                        <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium', statusColor(pd.status))}>
-                                                            {pd.status_label}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-3 py-3 text-center">
-                                                        {pd.next_approver_role ? (
-                                                            <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                                                                {pd.next_approver_role}
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-xs text-muted-foreground">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
-                                                        {pd.next_approver_name ?? '—'}
-                                                    </td>
-                                                    <td className="px-3 py-3">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button variant="ghost" size="icon"
-                                                                        className="h-7 w-7 text-violet-500 hover:text-violet-700 hover:bg-violet-50"
-                                                                        onClick={() => setHistoryTarget(pd)}>
-                                                                        <History className="h-4 w-4" />
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>Riwayat Ajuan</TooltipContent>
-                                                            </Tooltip>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Link href={`/pimpinan/keuangan/permohonan-dana/${pd.id}`}>
-                                                                        <Button variant="ghost" size="icon"
-                                                                            className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </Link>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>Lihat Detail</TooltipContent>
-                                                            </Tooltip>
-                                                        </div>
+                        <Card>
+                            {/* Tab Bar */}
+                            <CardHeader className="pb-0 pt-4 px-4">
+                                <div className="flex gap-1 border-b">
+                                    {TABS.map(tab => {
+                                        const count = tabCount(tab);
+                                        return (
+                                            <button
+                                                key={tab.key}
+                                                onClick={() => handleTab(tab.key)}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
+                                                    activeTab === tab.key
+                                                        ? 'border-blue-600 text-blue-600'
+                                                        : 'border-transparent text-muted-foreground hover:text-gray-700',
+                                                )}
+                                            >
+                                                {tab.label}
+                                                <span className={cn(
+                                                    'text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center',
+                                                    activeTab === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500',
+                                                )}>
+                                                    {count}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </CardHeader>
+
+                            <CardContent className="pt-4 px-4 space-y-3">
+                                {/* Toolbar */}
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span>Show</span>
+                                        <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
+                                            <SelectTrigger className="h-8 w-16 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {[10, 25, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <span>entries</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span>Search:</span>
+                                        <Input
+                                            value={search}
+                                            onChange={e => handleSearch(e.target.value)}
+                                            placeholder="Nomor / judul kegiatan..."
+                                            className="h-8 w-56 text-xs"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="overflow-x-auto rounded-md border">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                                <th className="px-3 py-3 text-center w-10">#</th>
+                                                <th className="px-3 py-3 text-left">Nomor Permohonan</th>
+                                                <th className="px-3 py-3 text-left">Judul Kegiatan</th>
+                                                <th className="px-3 py-3 text-center w-36">Tanggal Pengajuan</th>
+                                                <th className="px-3 py-3 text-center w-40">Status Permohonan</th>
+                                                <th className="px-3 py-3 text-center w-24">Perlu Approval</th>
+                                                <th className="px-3 py-3 text-center w-28">Oleh</th>
+                                                <th className="px-3 py-3 text-center w-24">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {paginated.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                                                        Tidak ada data
                                                     </td>
                                                 </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                            ) : (
+                                                paginated.map((pd, i) => {
+                                                    const canAct = isKabag
+                                                        ? pd.status === 'katim_approved'
+                                                        : pd.status === 'kabag_approved';
+                                                    return (
+                                                        <tr key={pd.id} className={cn('hover:bg-gray-50/60 transition-colors', canAct && 'bg-amber-50/40')}>
+                                                            <td className="px-3 py-3 text-center text-muted-foreground tabular-nums text-xs">{from + i}</td>
+                                                            <td className="px-3 py-3">
+                                                                <span className="font-mono text-xs text-blue-700 font-semibold">{pd.nomor_permohonan}</span>
+                                                            </td>
+                                                            <td className="px-3 py-3 max-w-xs">
+                                                                <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
+                                                                {pd.catatan_penolakan && (
+                                                                    <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
+                                                                {fmtDate(pd.submitted_at)}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center">
+                                                                <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium', statusColor(pd.status))}>
+                                                                    {pd.status_label}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center">
+                                                                {pd.next_approver_role ? (
+                                                                    <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                                                                        {pd.next_approver_role}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-xs text-muted-foreground">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">
+                                                                {pd.next_approver_name ?? '—'}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                <div className="flex items-center justify-center gap-1">
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button variant="ghost" size="icon"
+                                                                                className="h-7 w-7 text-violet-500 hover:text-violet-700 hover:bg-violet-50"
+                                                                                onClick={() => setHistoryTarget(pd)}>
+                                                                                <History className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>Riwayat Ajuan</TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Link href={`/pimpinan/keuangan/permohonan-dana/${pd.id}`}>
+                                                                                <Button variant="ghost" size="icon"
+                                                                                    className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                                                                                    <Eye className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </Link>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>Lihat Detail</TooltipContent>
+                                                                    </Tooltip>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                        {/* Footer: info + pagination */}
-                        <div className="flex items-center justify-between flex-wrap gap-2 text-sm text-muted-foreground pt-1">
-                            <span>Showing {from} to {to} of {searched.length} entries</span>
-                            <div className="flex items-center gap-1">
-                                {[
-                                    { label: 'First', page: 1 },
-                                    { label: 'Previous', page: currentPage - 1 },
-                                ].map(btn => (
-                                    <button key={btn.label} onClick={() => goPage(btn.page)} disabled={currentPage === 1}
-                                        className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors">
-                                        {btn.label}
-                                    </button>
-                                ))}
-                                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                                    .reduce<(number | '...')[]>((acc, p, idx, arr) => {
-                                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
-                                        acc.push(p);
-                                        return acc;
-                                    }, [])
-                                    .map((p, idx) =>
-                                        p === '...' ? (
-                                            <span key={`e${idx}`} className="px-2 text-xs">…</span>
-                                        ) : (
-                                            <button key={p} onClick={() => goPage(p as number)}
-                                                className={cn('px-3 py-1.5 rounded border text-xs font-medium transition-colors',
-                                                    currentPage === p ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100')}>
-                                                {p}
+                                {/* Footer: info + pagination */}
+                                <div className="flex items-center justify-between flex-wrap gap-2 text-sm text-muted-foreground pt-1">
+                                    <span>Showing {from} to {to} of {searched.length} entries</span>
+                                    <div className="flex items-center gap-1">
+                                        {[
+                                            { label: 'First', page: 1 },
+                                            { label: 'Previous', page: currentPage - 1 },
+                                        ].map(btn => (
+                                            <button key={btn.label} onClick={() => goPage(btn.page)} disabled={currentPage === 1}
+                                                className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors">
+                                                {btn.label}
                                             </button>
-                                        ),
-                                    )}
-                                {[
-                                    { label: 'Next', page: currentPage + 1 },
-                                    { label: 'Last', page: totalPages },
-                                ].map(btn => (
-                                    <button key={btn.label} onClick={() => goPage(btn.page)} disabled={currentPage === totalPages}
-                                        className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors">
-                                        {btn.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        ))}
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                            .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                            .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                                                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                                                acc.push(p);
+                                                return acc;
+                                            }, [])
+                                            .map((p, idx) =>
+                                                p === '...' ? (
+                                                    <span key={`e${idx}`} className="px-2 text-xs">…</span>
+                                                ) : (
+                                                    <button key={p} onClick={() => goPage(p as number)}
+                                                        className={cn('px-3 py-1.5 rounded border text-xs font-medium transition-colors',
+                                                            currentPage === p ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100')}>
+                                                        {p}
+                                                    </button>
+                                                ),
+                                            )}
+                                        {[
+                                            { label: 'Next', page: currentPage + 1 },
+                                            { label: 'Last', page: totalPages },
+                                        ].map(btn => (
+                                            <button key={btn.label} onClick={() => goPage(btn.page)} disabled={currentPage === totalPages}
+                                                className="px-3 py-1.5 rounded border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors">
+                                                {btn.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
             </div>
 
             <ApprovalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />

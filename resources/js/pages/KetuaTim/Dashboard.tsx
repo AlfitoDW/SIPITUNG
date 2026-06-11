@@ -3,6 +3,8 @@ import {
     FileText, ClipboardList, ChevronRight, Loader2, Building2,
     HandCoins, ShieldCheck, ChartNoAxesColumn, ArrowRight
 } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
 type DocStatus = { id: number; status: string; indikators_count?: number } | null;
@@ -117,10 +119,15 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra,
     const doneCount = flowSteps.filter(s => s.doc?.status === 'kabag_approved').length;
     const progressPct = Math.round((doneCount / flowSteps.length) * 100);
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title="Dashboard Ketua Tim" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+            {isLoading ? (
+                <SkeletonDashboard />
+            ) : (
+                <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* Hero */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#003580] to-[#0052cc] p-6 text-white shadow-lg">
@@ -238,6 +245,7 @@ export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra,
                 </div>
 
             </div>
+            )}
         </AppLayout>
     );
 }

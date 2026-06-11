@@ -16,6 +16,7 @@ import {
     Play,
 } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +45,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -192,11 +194,20 @@ export default function Laporan({ jenisLaporan, units, periods }: LaporanProps) 
         window.print();
     };
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laporan - Super Admin" />
 
             <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4 md:p-6">
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonTable rows={5} cols={7} />
+                    </>
+                ) : (
+                    <>
                 {/* Header */}
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold tracking-tight">Generate Laporan</h1>
@@ -433,6 +444,8 @@ export default function Laporan({ jenisLaporan, units, periods }: LaporanProps) 
                         </Card>
                     </div>
                 </div>
+                    </>
+                )}
             </div>
 
             {/* Preview Dialog */}

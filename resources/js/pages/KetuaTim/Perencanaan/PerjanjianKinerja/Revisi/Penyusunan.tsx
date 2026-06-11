@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Pencil, Send, FileText, Lock, Loader2, PlusCircle, X, AlertCircle } from 'lucide-react';
 import React from 'react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -54,6 +56,7 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
     const filledTarget   = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.target).length, 0);
 
     const [targetDialog, setTargetDialog] = useState<{ open: boolean; iku: Indikator | null }>({ open: false, iku: null });
+    const isLoading = useNavigationLoading();
     const [targetVal, setTargetVal]       = useState('');
     const [submitDialog, setSubmitDialog] = useState(false);
     const [saving, setSaving]             = useState(false);
@@ -99,6 +102,9 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyusunan Revisi — Perjanjian Kinerja" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* Header */}
@@ -259,6 +265,7 @@ export default function Penyusunan({ tahun, pk, sasarans, isOwner, canInit }: Pr
                     </div>
                 )}
             </div>
+            )}
 
             {/* Dialog: Edit Target */}
             <Dialog open={targetDialog.open} onOpenChange={(v) => setTargetDialog(d => ({ ...d, open: v }))}>

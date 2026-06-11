@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Plus, Trash2, Save, ArrowLeft, AlertTriangle, UserPlus, ChevronDown, ChevronRight, CheckCircle2, Pencil } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import EditPegawaiDialog from './EditPegawaiDialog';
@@ -1184,10 +1186,15 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
     };
 
     // ── Render ────────────────────────────────────────────────────────────────
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title={`Nominatif - ${permohonan.nomor_permohonan}`} />
 
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -1422,6 +1429,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                     )}
                 </div>
             </div>
+            )}
 
             <TambahPegawaiDialog
                 open={addDialogOpen}

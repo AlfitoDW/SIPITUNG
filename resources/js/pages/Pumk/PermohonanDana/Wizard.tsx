@@ -3,6 +3,7 @@ import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, Fil
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import DocPreviewModal from '@/components/DocPreviewModal';
+import { SkeletonPageHeader, SkeletonForm } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -946,10 +948,14 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
     // - Saat readonly (sudah disubmit): semua step bisa dikunjungi bebas (maxReached=4)
     // - Saat draft/edit: hanya sampai wizard_step yang tersimpan di DB
     const maxReached = isEditable ? Math.max(step, pd.wizard_step ?? 1) : 4;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title={`Permohonan ${pd.nomor_permohonan}`} />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonForm /></div>
+            ) : (
             <div className="max-w-6xl mx-auto py-8 px-4 space-y-4">
                 {/* Header */}
                 <div className="text-center space-y-1">
@@ -988,6 +994,7 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                 {step === 3 && <Step3 pd={pd} jenisDokumen={jenisDokumen} readonly={!isEditable} onPrev={() => goToStep(2)} onNext={() => goToStep(4)} />}
                 {step === 4 && <Step4 pd={pd} rincianBiaya={rincianBiaya} readonly={!isEditable} onPrev={() => goToStep(3)} />}
             </div>
+            )}
         </AppLayout>
     );
 }

@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { CheckCircle2, XCircle, Clock, AlertCircle, ExternalLink, Eye, ListChecks } from 'lucide-react';
 import React, { Fragment, useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -594,6 +596,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
     const [processing, setProcessing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabValue>(getInitialTab);
     const [viewKegiatanRa, setViewKegiatanRa] = useState<RaItem | null>(null);
+    const isLoading = useNavigationLoading();
 
     function openDialog(s: Selected) {
         setSelected(s);
@@ -640,6 +643,9 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Hub Persetujuan" />
 
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* ── Header ── */}
@@ -724,6 +730,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                     </TabsContent>
                 </Tabs>
             </div>
+            )}
 
             {/* ── Kegiatan Sheet ── */}
             {viewKegiatanRa && (

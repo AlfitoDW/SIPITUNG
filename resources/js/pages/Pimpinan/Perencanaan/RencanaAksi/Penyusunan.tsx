@@ -1,10 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { CheckCircle2, XCircle, Clock, FileEdit, ExternalLink, Eye, BarChart2 } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -256,6 +258,7 @@ function RaStatusSheet({ ras, open, onClose }: { ras: RAStatus[]; open: boolean;
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Penyusunan({ tahun, sasarans, ras }: Props) {
+    const isLoading = useNavigationLoading();
     const [viewKegiatan,  setViewKegiatan]  = useState<Indikator | null>(null);
     const [showRaStatus,  setShowRaStatus]  = useState(false);
 
@@ -264,6 +267,9 @@ export default function Penyusunan({ tahun, sasarans, ras }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Rencana Aksi — Perencanaan" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 {/* Header + tombol Status RA */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -421,6 +427,7 @@ export default function Penyusunan({ tahun, sasarans, ras }: Props) {
                 <RaStatusSheet ras={ras} open={showRaStatus} onClose={() => setShowRaStatus(false)} />
 
             </div>
+            )}
 
             {viewKegiatan && (
                 <KegiatanViewSheet iku={viewKegiatan} onClose={() => setViewKegiatan(null)} />

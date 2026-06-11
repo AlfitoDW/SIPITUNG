@@ -3,6 +3,8 @@ import {
     Loader2, CheckCircle2, XCircle, Shield, ChevronRight,
     ClipboardList, ChartNoAxesColumn, FileText, HandCoins, Clock
 } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -67,10 +69,12 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
     const roleLabel = isKabag ? 'Kepala Bagian Umum' : 'Pejabat Pembuat Komitmen (PPK)';
 
     const totalPending = pending.pk_awal + pending.pk_revisi + pending.ra + pending.permohonan_dana + pending.pengukuran;
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard Pimpinan" />
+            {isLoading ? <SkeletonDashboard /> : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 {/* Hero */}
@@ -258,6 +262,7 @@ export default function Dashboard({ user, pimpinanType, tahun, pending, approved
                 )}
 
             </div>
+            )}
         </AppLayout>
     );
 }

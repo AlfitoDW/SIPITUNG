@@ -1,11 +1,13 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { ChevronRight, FileText, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { SkeletonPageHeader, SkeletonForm } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
 interface DjaItem { id: number; kode: string; nama: string; pagu: number; }
@@ -56,10 +58,14 @@ export default function Create({ tahun, programs, sasarans, kros, ros, komponens
         e.preventDefault();
         post('/pumk/permohonan-dana');
     };
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title="Buat Permohonan Dana" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonForm /></div>
+            ) : (
             <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
 
                 {/* Header */}
@@ -283,6 +289,7 @@ export default function Create({ tahun, programs, sasarans, kros, ros, komponens
                     </div>
                 </form>
             </div>
+            )}
         </AppLayout>
     );
 }

@@ -3,6 +3,7 @@ import { Pencil, Trash2, Power, Plus, Upload, Database, Filter, X, ChevronRight 
 import { useState, useMemo } from 'react';
 import { DataTableControls } from '@/components/data-table-controls';
 import { DataTablePagination } from '@/components/data-table-pagination';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import { usePaginatedTable } from '@/hooks/use-paginated-table';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -1047,10 +1049,14 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, ros, komponens, kegiatans, rincians, importPreview, importKey }: Props) {
-  return (
-    <AppLayout>
-      <Head title="Master Anggaran DJA" />
-      <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
+    const isLoading = useNavigationLoading();
+    return (
+        <AppLayout>
+            <Head title="Master Anggaran DJA" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
+            <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1145,6 +1151,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
           </TabsContent>
         </Tabs>
       </div>
+      )}
     </AppLayout>
   );
 }

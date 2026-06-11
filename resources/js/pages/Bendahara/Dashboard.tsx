@@ -15,8 +15,10 @@ import {
     ArrowRight,
     Inbox,
 } from 'lucide-react';
+import { SkeletonDashboard } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
 type Tahun = { id: number; tahun: number; label: string } | null;
@@ -208,8 +210,11 @@ export default function Dashboard({
     riwayatCair,
 }: Props) {
     const pdTotal = pipeline.kabag_approved + pipeline.ppk_approved + pipeline.pic_approved + pipeline.dicairkan + pipeline.rejected;
+    const isLoading = useNavigationLoading();
 
-    return (
+    return isLoading ? (
+        <SkeletonDashboard />
+    ) : (
         <AppLayout>
             <Head title="Dashboard Bendahara" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">

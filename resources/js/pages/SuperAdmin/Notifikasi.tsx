@@ -20,6 +20,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonList } from '@/components/skeletons';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -61,6 +62,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -204,6 +206,8 @@ export default function Notifikasi({
         setShowSettingsDialog(false);
     };
 
+    const isLoading = useNavigationLoading();
+
     // Handler toggle setting
     const handleToggleSetting = (id: string) => {
         setNotifSettings(
@@ -265,6 +269,13 @@ export default function Notifikasi({
             <Head title="Notifikasi - Super Admin" />
 
             <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4 md:p-6">
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonList items={5} />
+                    </>
+                ) : (
+                    <>
                 {/* Header */}
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold tracking-tight">Notifikasi Sistem</h1>
@@ -589,6 +600,8 @@ export default function Notifikasi({
                         </Card>
                     </TabsContent>
                 </Tabs>
+                    </>
+                )}
             </div>
 
             {/* Broadcast Dialog */}

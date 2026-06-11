@@ -12,6 +12,7 @@ import Step1Informasi from '@/components/PermohonanDanaDetail/Step1Informasi';
 import Step2Waktu from '@/components/PermohonanDanaDetail/Step2Waktu';
 import Step3Dokumen from '@/components/PermohonanDanaDetail/Step3Dokumen';
 import RincianBiayaTable from '@/components/RincianBiayaTable';
+import { SkeletonDetailPage } from '@/components/skeletons';
 import StepBar from '@/components/StepBar';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -24,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
@@ -168,6 +170,8 @@ export default function Detail({ pd }: Props) {
 
     const bukaKunciForm = useForm({ alasan: '' });
 
+    const isLoading = useNavigationLoading();
+
     const handleConfirm = () => {
         if (!action) return;
         const onError = (errors: Record<string, string>) => {
@@ -213,7 +217,7 @@ export default function Detail({ pd }: Props) {
                 <DocPreviewModal url={previewDok.url} nama={previewDok.nama} onClose={() => setPreviewDok(null)} />
             )}
 
-            <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
+            {isLoading ? <SkeletonDetailPage /> : (<div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
 
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-3">
@@ -390,7 +394,7 @@ export default function Detail({ pd }: Props) {
                         Selanjutnya →
                     </Button>
                 </div>
-            </div>
+            </div>)}
 
 
 

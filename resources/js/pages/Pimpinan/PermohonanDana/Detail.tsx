@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import DocPreviewModal from '@/components/DocPreviewModal';
 import InfoRow from '@/components/InfoRow';
+import { SkeletonDetailPage } from '@/components/skeletons';
 import StepBar from '@/components/StepBar';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
@@ -152,6 +154,8 @@ export default function Detail({ pd, role }: Props) {
         });
     };
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title={`Detail — ${pd.nomor_permohonan}`} />
@@ -160,7 +164,7 @@ export default function Detail({ pd, role }: Props) {
                 <DocPreviewModal url={previewDok.url} nama={previewDok.nama} onClose={() => setPreviewDok(null)} />
             )}
 
-            <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
+            {isLoading ? <SkeletonDetailPage /> : (<div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
 
                 {/* Back + header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -422,7 +426,7 @@ export default function Detail({ pd, role }: Props) {
                         Selanjutnya →
                     </Button>
                 </div>
-            </div>
+            </div>)}
 
 
             {/* Approve / Reject Dialog */}

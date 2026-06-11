@@ -4,6 +4,8 @@ import {
     Loader2, Minus, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -337,11 +339,18 @@ function PengukuranPeriode({ p, allTim }: { p: PeriodeData; allTim: TimKerja[] }
 
 export default function Monitoring({ tahun, allTim, rasAll, laporanPerPeriode }: Props) {
     const [activeTab, setActiveTab] = useState<'ra' | 'pengukuran'>('ra');
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Monitoring Semua Tim" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
+                </div>
+            ) : (
+                <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold tracking-tight">Monitoring</h1>
@@ -433,6 +442,7 @@ export default function Monitoring({ tahun, allTim, rasAll, laporanPerPeriode }:
                 )}
 
             </div>
+            )}
         </AppLayout>
     );
 }

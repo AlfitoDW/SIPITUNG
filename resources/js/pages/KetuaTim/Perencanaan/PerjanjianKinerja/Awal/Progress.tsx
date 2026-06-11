@@ -1,5 +1,7 @@
 import { Head } from '@inertiajs/react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -16,25 +18,33 @@ type Props = {
 };
 
 export default function Progress({ tahun, pk }: Props) {
+    const isLoading = useNavigationLoading();
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Progress Awal — Perjanjian Kinerja" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl font-bold tracking-tight">Progress Awal</h1>
-                    <p className="text-muted-foreground">Perjanjian Kinerja — {tahun.label}</p>
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
                 </div>
-                <div className="rounded-xl border p-6 shadow-sm flex items-center gap-4">
-                    <span className="text-sm font-medium">Status Penyusunan</span>
-                    {!pk ? (
-                        <Badge variant="outline">Belum dimulai</Badge>
-                    ) : pk.status === 'final' ? (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Final</Badge>
-                    ) : (
-                        <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Draft</Badge>
-                    )}
+            ) : (
+                <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-2xl font-bold tracking-tight">Progress Awal</h1>
+                        <p className="text-muted-foreground">Perjanjian Kinerja — {tahun.label}</p>
+                    </div>
+                    <div className="rounded-xl border p-6 shadow-sm flex items-center gap-4">
+                        <span className="text-sm font-medium">Status Penyusunan</span>
+                        {!pk ? (
+                            <Badge variant="outline">Belum dimulai</Badge>
+                        ) : pk.status === 'final' ? (
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Final</Badge>
+                        ) : (
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Draft</Badge>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </AppLayout>
     );
 }

@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { CheckCircle2, FileText, CalendarDays, Download, Eye, History } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -148,10 +150,19 @@ export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, 
         return dataMap[tab.key]?.length || 0;
     };
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title="Pencairan Dana" />
             <div className="flex flex-col gap-5 p-4 md:p-6 max-w-7xl mx-auto">
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonTable />
+                    </>
+                ) : (
+                    <>
 
                 <div className="flex items-start justify-between">
                     <div>
@@ -381,6 +392,8 @@ export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, 
                         </div>
                     </CardContent>
                 </Card>
+                    </>
+                )}
             </div>
 
             <ApprovalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />

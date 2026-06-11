@@ -18,6 +18,7 @@ import {
     Settings,
 } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -63,6 +64,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -208,6 +210,8 @@ export default function Dokumen({
         );
     };
 
+    const isLoading = useNavigationLoading();
+
     // Filter data
     const filteredData = dokumenData.filter((item) => {
         const matchSearch =
@@ -227,6 +231,13 @@ export default function Dokumen({
             <Head title="Dokumen - Super Admin" />
 
             <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4 md:p-6">
+                {isLoading ? (
+                    <>
+                        <SkeletonPageHeader />
+                        <SkeletonTable rows={5} cols={9} />
+                    </>
+                ) : (
+                    <>
                 {/* Header */}
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold tracking-tight">Repository Dokumen</h1>
@@ -469,6 +480,8 @@ export default function Dokumen({
                         )}
                     </CardContent>
                 </Card>
+                    </>
+                )}
             </div>
 
             {/* Preview Dialog */}

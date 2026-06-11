@@ -1,5 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,11 +92,18 @@ export default function PrintPreview({ pd }: Props) {
     const currentStatusIdx = STATUS_ORDER.indexOf(pd.status);
     const grandTotal = Number(pd.total_anggaran ?? 0);
     const judul = pd.judul_pekerjaan ?? pd.keperluan;
+    const isLoading = useNavigationLoading();
 
     return (
         <>
             <Head title={`Cetak — ${pd.nomor_permohonan}`} />
-
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
+                </div>
+            ) : (
+                <>
             {/* Print-only global styles */}
             <style>{`
                 @media print {
@@ -325,6 +334,8 @@ export default function PrintPreview({ pd }: Props) {
                     Dicetak dari SIPITUNG — Sistem Informasi LLDIKTI Wilayah III · {pd.nomor_permohonan}
                 </div>
             </div>
+            </>
+            )}
         </>
     );
 }

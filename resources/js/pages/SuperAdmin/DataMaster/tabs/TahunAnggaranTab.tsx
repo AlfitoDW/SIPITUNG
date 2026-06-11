@@ -1,8 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Plus, Edit, Trash2, MoreVertical, CheckCircle2, XCircle, Star, Copy, Users, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
@@ -211,9 +210,9 @@ export function TahunAnggaranTab({ data, userAssignments }: TahunAnggaranTabProp
 
                     {cloneProcessing && (
                         <div className="space-y-3">
-                            <Skeleton height={40} />
-                            <Skeleton height={40} />
-                            <Skeleton height={40} />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
                             <p className="text-sm text-muted-foreground text-center">Sedang meng-clone user assignments...</p>
                         </div>
                     )}

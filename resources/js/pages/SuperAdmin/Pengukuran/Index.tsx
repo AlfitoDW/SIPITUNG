@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { SkeletonPageHeader, SkeletonCard } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -113,9 +115,21 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
         return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     }
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pengukuran Kinerja — Kelola Periode" />
+            {isLoading ? (
+                <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+                    <SkeletonPageHeader />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <SkeletonCard key={i} />
+                        ))}
+                    </div>
+                </div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold tracking-tight">Kelola Periode Pengukuran</h1>
@@ -174,6 +188,7 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
                 </div>
 
             </div>
+            )}
 
             <PeriodeDialog
                 open={dialog.open}

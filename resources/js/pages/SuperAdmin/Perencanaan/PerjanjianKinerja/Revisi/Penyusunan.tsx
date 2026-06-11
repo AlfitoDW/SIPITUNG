@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Plus, Pencil, Trash2, Settings2, ChevronDown, LockOpen, Clock, CheckCircle2, XCircle, FileEdit, AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -441,6 +443,7 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
     const [ikuDlg,      setIkuDlg]      = useState<{ open: boolean; indikator?: Indikator }>({ open: false });
     const [masterDlg,   setMasterDlg]   = useState(false);
     const [deleteDlg,   setDeleteDlg]   = useState<{ open: boolean; id: number | null; label: string }>({ open: false, id: null, label: '' });
+    const isLoading = useNavigationLoading();
 
     const totalIku  = sasarans.reduce((s, sar) => s + sar.indikators.length, 0);
     const filledPic = sasarans.reduce((s, sar) => s + sar.indikators.filter(i => i.pic_tim_kerjas.length > 0).length, 0);
@@ -449,6 +452,9 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Penyusunan Revisi — Perjanjian Kinerja" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
 
                 <div className="flex items-start justify-between">
@@ -592,6 +598,7 @@ export default function Penyusunan({ tahun, jenis, sasarans, masterSasarans, tim
                     </TabsContent>
                 </Tabs>
             </div>
+            )}
 
             <MasterSasaranDialog open={masterDlg} onClose={() => setMasterDlg(false)} masterSasarans={masterSasarans} />
 

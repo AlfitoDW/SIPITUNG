@@ -1,7 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { Fragment } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 
 type TimKerja  = { id: number; nama: string };
 type MatrixRow = {
@@ -93,11 +95,18 @@ export default function ExportPdf({ tahun, periode, matrix, rekomendasi_pimpinan
     const groups   = groupBySasaran(matrix);
     const twLabel  = TW_LABELS[periode.triwulan] ?? periode.triwulan;
     let no = 1;
+    const isLoading = useNavigationLoading();
 
     return (
         <>
             <Head title={`Laporan Kinerja ${twLabel} ${tahun.tahun}`} />
-
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
+                </div>
+            ) : (
+                <>
             {/* ─── Screen toolbar ───────────────────────────────────── */}
             <div className="flex flex-col items-end gap-2 p-4 print:hidden">
                 <Button
@@ -329,6 +338,8 @@ export default function ExportPdf({ tahun, periode, matrix, rekomendasi_pimpinan
                     .hidden.print\\:block { display: block !important; }
                 }
             `}</style>
+            </>
+            )}
         </>
     );
 }

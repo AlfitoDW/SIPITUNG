@@ -1,7 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { Fragment } from 'react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 
 type TimKerja  = { id: number; nama: string };
 type TwData    = { tw: string; target: string | null; realisasi: string | null };
@@ -67,12 +69,18 @@ const tdCenter: React.CSSProperties = { ...tdBase, textAlign: 'center', vertical
 export default function ExportPdf({ tahun, matrix }: Props) {
     const groups = groupBySasaran(matrix);
     let no = 1;
+    const isLoading = useNavigationLoading();
 
     return (
         <>
             <Head title={`Export Realisasi Kinerja ${tahun.tahun}`} />
-
-            <div className="p-4">
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
+                </div>
+            ) : (
+                <div className="p-4">
                 <div className="flex justify-end mb-4 print:hidden">
                     <Button onClick={() => {
                         const prev = document.title;
@@ -186,6 +194,7 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                     </table>
                 </div>
             </div>
+            )}
 
             <style>{`
                 @media print {

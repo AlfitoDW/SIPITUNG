@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -40,10 +42,17 @@ type Props = {
 };
 
 export default function Progress({ tahun, ra }: Props) {
+    const isLoading = useNavigationLoading();
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Progress — Rencana Aksi" />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+            {isLoading ? (
+                <div className="p-4">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={3} />
+                </div>
+            ) : (
+                <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex items-center justify-between">
                     <div className="flex flex-col gap-2">
                         <h1 className="text-2xl font-bold tracking-tight">Progress Rencana Aksi</h1>
@@ -112,6 +121,7 @@ export default function Progress({ tahun, ra }: Props) {
                     </div>
                 )}
             </div>
+            )}
         </AppLayout>
     );
 }

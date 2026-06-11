@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -151,9 +153,17 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
         return list.length;
     };
 
+    const isLoading = useNavigationLoading();
+
     return (
         <AppLayout>
             <Head title="Monitoring Permohonan Dana" />
+            {isLoading ? (
+                <div className="flex flex-col gap-5 p-4 md:p-6 max-w-7xl mx-auto">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={5} cols={6} />
+                </div>
+            ) : (
             <div className="flex flex-col gap-5 p-4 md:p-6 max-w-7xl mx-auto">
 
                 {/* Page Header */}
@@ -422,6 +432,7 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                     </CardContent>
                 </Card>
             </div>
+            )}
 
             <ApprovalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />
         </AppLayout>

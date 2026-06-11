@@ -3,6 +3,7 @@ import { Pencil, Trash2, Power, Plus, Upload, UserCog, Search, Download, AlertCi
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { DataTableControls } from '@/components/data-table-controls';
 import { DataTablePagination } from '@/components/data-table-pagination';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import { usePaginatedTable } from '@/hooks/use-paginated-table';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -280,10 +282,14 @@ export default function RefNamaIndex({ pegawai }: Props) {
     };
 
     const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+    const isLoading = useNavigationLoading();
 
     return (
         <AppLayout>
             <Head title="Referensi Nama Pegawai" />
+            {isLoading ? (
+                <div className="p-4"><SkeletonPageHeader /><SkeletonTable rows={5} /></div>
+            ) : (
             <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
 
                 {/* Header */}
@@ -434,6 +440,7 @@ export default function RefNamaIndex({ pegawai }: Props) {
 
                 <DataTablePagination page={table.page} totalPages={table.totalPages} goPage={table.goPage} />
             </div>
+            )}
 
             {/* Edit Dialog */}
             <AlertDialog open={!!editing} onOpenChange={() => setEditing(null)}>
