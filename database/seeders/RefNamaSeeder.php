@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\RefNama;
+use App\Models\TahunAnggaran;
 use App\Models\User;
+use App\Models\UserTahunAnggaran;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -137,6 +139,54 @@ class RefNamaSeeder extends Seeder
                 'nama_bank' => 'CIMB Niaga',
                 'email' => 'hendrik.prasetyo@freelance.id',
             ],
+            [
+                'nama' => 'Elih Ermawati',
+                'nip' => '198609152009122006',
+                'nik' => '3275085508860013',
+                'npwp' => null,
+                'gol_ruang' => 'III/b',
+                'status_kepegawaian' => 'PNS',
+                'nama_rekening' => 'ELIH ERMAWATI',
+                'no_rekening' => null,
+                'nama_bank' => null,
+                'email' => null,
+            ],
+            [
+                'nama' => 'Prayitno',
+                'nip' => null,
+                'nik' => '3174082203800005',
+                'npwp' => null,
+                'gol_ruang' => 'Non PNS',
+                'status_kepegawaian' => 'Non-PNS',
+                'nama_rekening' => 'PRAYITNO',
+                'no_rekening' => null,
+                'nama_bank' => null,
+                'email' => null,
+            ],
+            [
+                'nama' => 'Yeni Handayani',
+                'nip' => '198404022015042002',
+                'nik' => '3175014204840007',
+                'npwp' => null,
+                'gol_ruang' => 'III/b',
+                'status_kepegawaian' => 'PNS',
+                'nama_rekening' => 'YENI HANDAYANI',
+                'no_rekening' => null,
+                'nama_bank' => null,
+                'email' => null,
+            ],
+            [
+                'nama' => 'Tantri Rinjani',
+                'nip' => '198609102010012029',
+                'nik' => '1672015009860004',
+                'npwp' => null,
+                'gol_ruang' => 'III/b',
+                'status_kepegawaian' => 'PNS',
+                'nama_rekening' => 'TANTRI RINJANI',
+                'no_rekening' => null,
+                'nama_bank' => null,
+                'email' => null,
+            ],
         ];
 
         foreach ($pegawai as $data) {
@@ -159,6 +209,15 @@ class RefNamaSeeder extends Seeder
             ['nik' => '3175014204840007', 'username' => 'pic.yeni'],
             ['nik' => '1672015009860004', 'username' => 'pic.tantri'],
         ];
+        $picUsernames = array_column($picKeuanganList, 'username');
+
+        User::where('role', 'pic_keuangan')
+            ->whereNotIn('username', $picUsernames)
+            ->update(['is_active' => false]);
+
+        UserTahunAnggaran::where('role', 'pic_keuangan')
+            ->whereHas('user', fn ($query) => $query->whereNotIn('username', $picUsernames))
+            ->update(['is_active' => false]);
 
         foreach ($picKeuanganList as $pic) {
             $ref = RefNama::where('nik', $pic['nik'])->first();
@@ -168,7 +227,7 @@ class RefNamaSeeder extends Seeder
                 continue;
             }
 
-            User::updateOrCreate(
+            $user = User::updateOrCreate(
                 ['username' => $pic['username']],
                 [
                     'nama_lengkap' => $ref->nama,
@@ -182,6 +241,18 @@ class RefNamaSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+
+            TahunAnggaran::where('is_active', true)->get()->each(function (TahunAnggaran $tahun) use ($user) {
+                UserTahunAnggaran::updateOrCreate(
+                    ['user_id' => $user->id, 'tahun_anggaran_id' => $tahun->id],
+                    [
+                        'tim_kerja_id' => null,
+                        'role' => 'pic_keuangan',
+                        'pimpinan_type' => null,
+                        'is_active' => true,
+                    ]
+                );
+            });
         }
     }
 }
