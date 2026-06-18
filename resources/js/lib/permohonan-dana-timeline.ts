@@ -132,17 +132,17 @@ export function buildTimeline(pd: PermohonanDanaData): TimelineStep[] {
               : "pending",
     },
     {
-      key: "kabag",
+      key: "pic",
       stepNo: 4,
-      role: "Kabag Umum",
-      action: isRej && rejStep === "kabag" ? "Revisi" : "Disetujui",
-      actorName: pd.kabag_approved_by_name,
-      ts: pd.kabag_approved_at,
-      catatan: pd.catatan_kabag ?? null,
+      role: "PIC Keuangan",
+      action: isRej && rejStep === "pic" ? "Revisi" : "Diverifikasi",
+      actorName: pd.pic_approved_by_name,
+      ts: pd.pic_approved_at,
+      catatan: pd.catatan_pic ?? null,
       state:
-        isRej && rejStep === "kabag"
+        isRej && rejStep === "pic"
           ? "rejected"
-          : pd.kabag_approved_at
+          : pd.pic_approved_at
             ? "done"
             : pd.status === "katim_approved"
               ? "active"
@@ -161,30 +161,13 @@ export function buildTimeline(pd: PermohonanDanaData): TimelineStep[] {
           ? "rejected"
           : pd.ppk_approved_at
             ? "done"
-            : pd.status === "kabag_approved"
-              ? "active"
-              : "pending",
-    },
-    {
-      key: "pic",
-      stepNo: 6,
-      role: "PIC Keuangan",
-      action: isRej && rejStep === "pic" ? "Revisi" : "Diverifikasi",
-      actorName: pd.pic_approved_by_name,
-      ts: pd.pic_approved_at,
-      catatan: pd.catatan_pic ?? null,
-      state:
-        isRej && rejStep === "pic"
-          ? "rejected"
-          : pd.pic_approved_at
-            ? "done"
-            : pd.status === "ppk_approved"
+            : pd.status === "pic_approved"
               ? "active"
               : "pending",
     },
     {
       key: "cair",
-      stepNo: 7,
+      stepNo: 6,
       role: "Bendahara",
       action: isRej && rejStep === "bendahara" ? "Revisi" : "Dana Dicairkan",
       actorName: pd.dicairkan_by_name,
@@ -195,7 +178,7 @@ export function buildTimeline(pd: PermohonanDanaData): TimelineStep[] {
           ? "rejected"
           : pd.dicairkan_at
             ? "done"
-            : pd.status === "pic_approved"
+            : pd.status === "ppk_approved"
               ? "active"
               : "pending",
     },
@@ -204,7 +187,7 @@ export function buildTimeline(pd: PermohonanDanaData): TimelineStep[] {
   if (isBukaKunci) {
     steps.push({
       key: "buka_kunci",
-      stepNo: 8,
+      stepNo: 7,
       role: "Admin",
       action: "Dibuka Kunci",
       actorName: pd.dibuka_kunci_by_name ?? null,

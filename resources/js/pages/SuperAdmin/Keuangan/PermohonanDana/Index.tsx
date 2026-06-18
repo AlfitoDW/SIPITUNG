@@ -74,16 +74,15 @@ const fmtDate = (s: string | null) =>
 const nextApprover = (status: string): string => {
     switch (status) {
         case 'submitted':      return 'KA.TIM';
-        case 'katim_approved': return 'Kabag Umum';
-        case 'kabag_approved': return 'PPK';
-        case 'ppk_approved':   return 'PIC Keuangan';
-        case 'pic_approved':   return 'Bendahara';
+        case 'katim_approved': return 'PIC Keuangan';
+        case 'pic_approved':   return 'PPK';
+        case 'ppk_approved':   return 'Bendahara';
         default:               return '-';
     }
 };
 
 const needsApproval = (status: string) =>
-    ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'].includes(status);
+    ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'].includes(status);
 
 const statusColor = (s: string) => {
     if (s === 'dicairkan') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -98,7 +97,7 @@ type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
     { key: 'all',      label: 'Semua Ajuan', statuses: null },
     { key: 'draft',    label: 'Draft',        statuses: ['draft'] },
-    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
     { key: 'revisi',   label: 'Revisi',       statuses: ['rejected'] },
     { key: 'selesai',  label: 'Selesai',      statuses: ['dicairkan'] },
 ];

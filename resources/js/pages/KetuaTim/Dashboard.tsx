@@ -37,10 +37,9 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
 const PD_STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; spinner?: boolean; spinnerColor?: string }> = {
     draft:          { label: 'Draft',               dot: 'bg-amber-400',  text: 'text-amber-600' },
     submitted:      { label: 'Menunggu KA.TIM',     dot: 'bg-blue-400',   text: 'text-blue-600',    spinner: true, spinnerColor: 'text-blue-400' },
-    katim_approved: { label: 'Menunggu Kabag',       dot: 'bg-sky-400',    text: 'text-sky-600',     spinner: true, spinnerColor: 'text-sky-400' },
-    kabag_approved: { label: 'Menunggu PPK',         dot: 'bg-indigo-400', text: 'text-indigo-600',  spinner: true, spinnerColor: 'text-indigo-400' },
-    ppk_approved:   { label: 'Menunggu PIC',         dot: 'bg-violet-400', text: 'text-violet-600',  spinner: true, spinnerColor: 'text-violet-400' },
-    pic_approved:   { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
+    katim_approved: { label: 'Menunggu PIC',         dot: 'bg-sky-400',    text: 'text-sky-600',     spinner: true, spinnerColor: 'text-sky-400' },
+    pic_approved:   { label: 'Menunggu PPK',         dot: 'bg-violet-400', text: 'text-violet-600',  spinner: true, spinnerColor: 'text-violet-400' },
+    ppk_approved:   { label: 'Siap Cair',            dot: 'bg-lime-400',   text: 'text-lime-600',    spinner: true, spinnerColor: 'text-lime-400' },
     dicairkan:      { label: 'Sudah Cair',           dot: 'bg-emerald-400',text: 'text-emerald-600' },
     rejected:       { label: 'Ditolak',              dot: 'bg-red-400',    text: 'text-red-600' },
 };
@@ -98,7 +97,7 @@ function FlowCard({ step, index, isLast }: { step: FlowStep; index: number; isLa
 
 export default function Dashboard({ user, timKerja, tahun, pkAwal, pkRevisi, ra, pengukuran, permohonan, approvalPending }: Props) {
     const pdTotal = permohonan.draft + permohonan.submitted + permohonan.katim_approved +
-        permohonan.kabag_approved + permohonan.ppk_approved + permohonan.pic_approved +
+        permohonan.pic_approved + permohonan.ppk_approved +
         permohonan.dicairkan + permohonan.rejected;
 
     const flowSteps: FlowStep[] = [

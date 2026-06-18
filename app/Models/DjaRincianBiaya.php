@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DjaRincianBiaya extends Model
 {
     use HasFactory;
+
     protected $table = 'dja_rincian_biaya';
 
     protected $fillable = [

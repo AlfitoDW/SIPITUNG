@@ -80,16 +80,15 @@ const fmtDate = (s: string | null) =>
 const nextApprover = (status: string): string => {
     switch (status) {
         case 'submitted':      return 'KA.TIM';
-        case 'katim_approved': return 'Kabag Umum';
-        case 'kabag_approved': return 'PPK';
-        case 'ppk_approved':   return 'PIC Keuangan';
-        case 'pic_approved':   return 'Bendahara';
+        case 'katim_approved': return 'PIC Keuangan';
+        case 'pic_approved':   return 'PPK';
+        case 'ppk_approved':   return 'Bendahara';
         default:               return '-';
     }
 };
 
 const needsApproval = (status: string) =>
-    ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'].includes(status);
+    ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'].includes(status);
 
 const statusColor = (s: string) => {
     if (s === 'dicairkan') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -104,7 +103,7 @@ type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
     { key: 'all',      label: 'Semua Ajuan', statuses: null },
     { key: 'draft',    label: 'Draft',        statuses: ['draft'] },
-    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
     { key: 'revisi',   label: 'Revisi',       statuses: ['rejected'] },
     { key: 'selesai',  label: 'Selesai',      statuses: ['dicairkan'] },
 ];
@@ -166,14 +165,14 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
                  : pd.status === 'submitted' ? 'active' : 'pending',
         },
         {
-            key: 'kabag', stepNo: 4,
-            role: 'Kabag Umum',
-            action: isRejected && rejStep === 'kabag' ? 'Revisi' : 'Disetujui',
-            actorName: pd.kabag_approved_by_name ?? null,
-            ts: pd.kabag_approved_at,
-            catatan: pd.catatan_kabag,
-            state: isRejected && rejStep === 'kabag' ? 'rejected'
-                 : pd.kabag_approved_at ? 'done'
+            key: 'pic', stepNo: 4,
+            role: 'PIC Keuangan',
+            action: isRejected && rejStep === 'pic' ? 'Revisi' : 'Diverifikasi',
+            actorName: pd.pic_approved_by_name ?? null,
+            ts: pd.pic_approved_at,
+            catatan: pd.catatan_pic,
+            state: isRejected && rejStep === 'pic' ? 'rejected'
+                 : pd.pic_approved_at ? 'done'
                  : pd.status === 'katim_approved' ? 'active' : 'pending',
         },
         {
@@ -185,28 +184,17 @@ const buildTimeline = (pd: PD): TimelineStep[] => {
             catatan: pd.catatan_ppk,
             state: isRejected && rejStep === 'ppk' ? 'rejected'
                  : pd.ppk_approved_at ? 'done'
-                 : pd.status === 'kabag_approved' ? 'active' : 'pending',
+                 : pd.status === 'pic_approved' ? 'active' : 'pending',
         },
         {
-            key: 'pic', stepNo: 6,
-            role: 'PIC Keuangan',
-            action: isRejected && rejStep === 'pic' ? 'Revisi' : 'Diverifikasi',
-            actorName: pd.pic_approved_by_name ?? null,
-            ts: pd.pic_approved_at,
-            catatan: pd.catatan_pic,
-            state: isRejected && rejStep === 'pic' ? 'rejected'
-                 : pd.pic_approved_at ? 'done'
-                 : pd.status === 'ppk_approved' ? 'active' : 'pending',
-        },
-        {
-            key: 'dicairkan', stepNo: 7,
+            key: 'dicairkan', stepNo: 6,
             role: 'Bendahara',
             action: 'Dana Dicairkan',
             actorName: pd.dicairkan_by_name ?? null,
             ts: pd.dicairkan_at,
             catatan: pd.catatan_pencairan,
             state: pd.dicairkan_at ? 'done'
-                 : pd.status === 'dicairkan' ? 'active' : 'pending',
+                 : pd.status === 'ppk_approved' ? 'active' : 'pending',
         },
     ];
     return steps;

@@ -106,7 +106,7 @@ type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
     { key: 'all',      label: 'Semua Ajuan', statuses: null },
     { key: 'draft',    label: 'Draft',        statuses: ['draft'] },
-    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'diajukan', label: 'Diajukan',     statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
     { key: 'revisi',   label: 'Revisi',       statuses: ['rejected'] },
     { key: 'selesai',  label: 'Selesai',      statuses: ['dicairkan'] },
 ];

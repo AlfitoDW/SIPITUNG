@@ -88,21 +88,26 @@ class DashboardController extends Controller
         }
 
         // ── Keuangan — Permohonan Dana ─────────────────────────────────────────
-        // KA.TIM melihat permohonan yang dibuat oleh PUMK di tim mereka (via tim_kerja_id)
-        $pdCounts = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+        // KA.TIM PK (TK-PK) melihat semua permohonan lintas tim kerja.
+        // KA.TIM non-PK hanya melihat permohonan dari tim kerjanya sendiri.
+        $isTkPk = $user->load('timkerja')->timkerja?->kode === 'TK-PK';
+
+        $pdBase = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
+            ->when(! $isTkPk, fn ($q) => $q->where('tim_kerja_id', $timKerjaId)) : null;
+
+        $pdCounts = $pdBase ? (clone $pdBase)
             ->selectRaw('status, count(*) as n')
             ->groupBy('status')
             ->pluck('n', 'status') : collect();
 
-        $nilaiDicairkan = $tahun ? (float) PermohonanDana::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+        $nilaiDicairkan = $pdBase ? (float) (clone $pdBase)
             ->where('status', 'dicairkan')
             ->sum('total_anggaran') : 0;
 
-        // Antrian approval KA.TIM sendiri (submitted → katim_approved)
+        // Antrian approval KA.TIM sendiri (submitted, kapokja = user ini)
         $approvalPending = $tahun ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)
-            ->where('tim_kerja_id', $timKerjaId)
+            ->when(! $isTkPk, fn ($q) => $q->where('tim_kerja_id', $timKerjaId))
+            ->where('kapokja_id', $user->id)
             ->where('status', 'submitted')
             ->count() : 0;
 

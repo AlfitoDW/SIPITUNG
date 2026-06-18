@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class DjaProgram extends Model
 {
     use HasFactory;
+
     protected $table = 'dja_program';
 
     protected $fillable = ['tahun_anggaran', 'kode', 'nama', 'pagu', 'is_aktif'];

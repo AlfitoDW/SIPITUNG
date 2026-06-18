@@ -1,13 +1,6 @@
 <?php
 
 use App\Exports\NominatifExport;
-use App\Models\DjaKegiatan;
-use App\Models\DjaKomponen;
-use App\Models\DjaProgram;
-use App\Models\DjaRincianBiaya;
-use App\Models\DjaRo;
-use App\Models\DjaSasaran;
-use App\Models\DjaKro;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
@@ -48,7 +41,7 @@ it('stores approver name and nip snapshot on katim approval', function () {
 });
 
 it('stores approver name and nip snapshot on ppk approval', function () {
-    $pd = PermohonanDana::factory()->kabagApproved()->create([
+    $pd = PermohonanDana::factory()->picApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,

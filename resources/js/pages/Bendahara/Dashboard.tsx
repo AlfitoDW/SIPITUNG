@@ -44,7 +44,6 @@ type RiwayatItem = {
 };
 
 type PipelineStats = {
-    kabag_approved: number;
     ppk_approved: number;
     pic_approved: number;
     dicairkan: number;
@@ -72,18 +71,8 @@ const fmtDate = (s: string) =>
 /* ─── Pipeline row config ────────────────────────────────────────────── */
 const PIPELINE_ROWS = [
     {
-        key: 'kabag_approved' as const,
+        key: 'pic_approved' as const,
         label: 'Menunggu PPK',
-        dot: 'bg-sky-400',
-        text: 'text-sky-600 dark:text-sky-400',
-        bg: 'bg-sky-50 dark:bg-sky-950/20',
-        icon: Loader2,
-        spinner: true,
-        spinnerColor: 'text-sky-400',
-    },
-    {
-        key: 'ppk_approved' as const,
-        label: 'Menunggu PIC Keuangan',
         dot: 'bg-violet-400',
         text: 'text-violet-600 dark:text-violet-400',
         bg: 'bg-violet-50 dark:bg-violet-950/20',
@@ -92,7 +81,7 @@ const PIPELINE_ROWS = [
         spinnerColor: 'text-violet-400',
     },
     {
-        key: 'pic_approved' as const,
+        key: 'ppk_approved' as const,
         label: 'Siap Dicairkan',
         dot: 'bg-lime-400',
         text: 'text-lime-700 dark:text-lime-400',
@@ -209,7 +198,7 @@ export default function Dashboard({
     tugasHariIni,
     riwayatCair,
 }: Props) {
-    const pdTotal = pipeline.kabag_approved + pipeline.ppk_approved + pipeline.pic_approved + pipeline.dicairkan + pipeline.rejected;
+    const pdTotal = pipeline.ppk_approved + pipeline.pic_approved + pipeline.dicairkan + pipeline.rejected;
     const isLoading = useNavigationLoading();
 
     return isLoading ? (

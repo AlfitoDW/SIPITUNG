@@ -27,7 +27,7 @@ beforeEach(function () {
 });
 
 it('allows assigned pic to approve', function () {
-    $pd = PermohonanDana::factory()->ppkApproved()->create([
+    $pd = PermohonanDana::factory()->katimApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -43,7 +43,7 @@ it('allows assigned pic to approve', function () {
 });
 
 it('forbids unassigned pic from approving', function () {
-    $pd = PermohonanDana::factory()->ppkApproved()->create([
+    $pd = PermohonanDana::factory()->katimApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -57,7 +57,7 @@ it('forbids unassigned pic from approving', function () {
 });
 
 it('forbids pumk from accessing bendahara routes', function () {
-    $pd = PermohonanDana::factory()->picApproved()->create([
+    $pd = PermohonanDana::factory()->ppkApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -84,8 +84,8 @@ it('forbids bendahara from approving at wrong status', function () {
         ->assertStatus(422);
 });
 
-it('forbids kabag from approving ppk stage', function () {
-    $pd = PermohonanDana::factory()->ppkApproved()->create([
+it('forbids kabag from approving any stage (view-only)', function () {
+    $pd = PermohonanDana::factory()->picApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -95,5 +95,5 @@ it('forbids kabag from approving ppk stage', function () {
 
     $this->actingAs($this->kabag)
         ->post(route('pimpinan.keuangan.permohonan-dana.approve', $pd))
-        ->assertStatus(422);
+        ->assertForbidden();
 });

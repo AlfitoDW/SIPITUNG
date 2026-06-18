@@ -12,9 +12,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * PIC Keuangan — Approval Step 4
+ * PIC Keuangan — Approval Step 2
  *
- * ppk_approved → pic_approved  (atau rejected)
+ * katim_approved → pic_approved  (atau rejected)
  */
 class PermohonanDanaController extends Controller
 {
@@ -34,18 +34,16 @@ class PermohonanDanaController extends Controller
                 'pic_keuangan_name' => $pd->pic_keuangan_name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
-                    'katim_approved' => 'Kabag Umum',
-                    'kabag_approved' => 'PPK',
-                    'ppk_approved' => 'PIC Keuangan',
-                    'pic_approved' => 'Bendahara',
+                    'katim_approved' => 'PIC Keuangan',
+                    'pic_approved' => 'PPK',
+                    'ppk_approved' => 'Bendahara',
                     default => null,
                 },
                 'next_approver_name' => match ($pd->status) {
                     'submitted' => $pd->kapokja_name,
-                    'katim_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
-                    'kabag_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => $pd->pic_keuangan_name,
-                    'pic_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    'katim_approved' => $pd->pic_keuangan_name,
+                    'pic_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
@@ -55,7 +53,7 @@ class PermohonanDanaController extends Controller
         };
 
         $perluDiproses = (clone $baseQuery)
-            ->where('status', 'ppk_approved')
+            ->where('status', 'katim_approved')
             ->get()
             ->map($mapFn);
 
@@ -64,7 +62,7 @@ class PermohonanDanaController extends Controller
             ->map($mapFn);
 
         $diajukan = (clone $baseQuery)
-            ->whereIn('status', ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'])
+            ->whereIn('status', ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'])
             ->get()
             ->map($mapFn);
 
@@ -196,7 +194,7 @@ class PermohonanDanaController extends Controller
     public function approve(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->pic_keuangan_id !== $request->user()->id, 403, 'Bukan PIC Keuangan yang ditugaskan.');
-        abort_if($pd->status !== 'ppk_approved', 422, 'Status tidak valid.');
+        abort_if($pd->status !== 'katim_approved', 422, 'Status harus "Disetujui KA.TIM" untuk diverifikasi.');
 
         $request->validate(['catatan' => 'nullable|string|max:1000']);
 
@@ -212,13 +210,13 @@ class PermohonanDanaController extends Controller
             ]);
         });
 
-        return back()->with('success', "Permohonan {$pd->nomor_permohonan} diverifikasi, diteruskan ke Bendahara untuk pencairan.");
+        return back()->with('success', "Permohonan {$pd->nomor_permohonan} diverifikasi, diteruskan ke PPK.");
     }
 
     public function reject(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->pic_keuangan_id !== $request->user()->id, 403, 'Bukan PIC Keuangan yang ditugaskan.');
-        abort_if($pd->status !== 'ppk_approved', 422, 'Status tidak valid.');
+        abort_if($pd->status !== 'katim_approved', 422, 'Status harus "Disetujui KA.TIM" untuk ditolak.');
 
         $request->validate(['catatan' => 'required|string|max:1000']);
 

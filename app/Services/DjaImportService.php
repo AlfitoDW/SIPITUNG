@@ -13,9 +13,7 @@ use App\Models\DjaRevisiDetail;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
-use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -29,11 +27,17 @@ class DjaImportService
 
     /** Regex per level untuk deteksi baris Excel */
     private const REGEX_PROGRAM = '/^\d{3}\.\d{2}\.[A-Z]{2,3}$/';
+
     private const REGEX_SASARAN = '/^\d{4}$/';
+
     private const REGEX_KRO = '/^\d{4}\.[A-Z]{3}$/';
+
     private const REGEX_RO = '/^\d{4}\.[A-Z]{3}\.\d{3}$/';
+
     private const REGEX_KOMPONEN = '/^\d{3}$/';
+
     private const REGEX_KEGIATAN = '/^[A-Z]$/';
+
     private const REGEX_KODE_AKUN = '/^\d{6}$/';
 
     // ─── Public API ───────────────────────────────────────────────────────────────
@@ -113,54 +117,60 @@ class DjaImportService
                     'ro' => null, 'komponen' => null, 'kegiatan' => null,
                     'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0,
                 ]);
+
                 continue;
             }
 
             // Sasaran
             if (preg_match(self::REGEX_SASARAN, $a) && $current['program']) {
-                $path = "program:{$current['program']}" . self::SEP . "sasaran:{$a}";
+                $path = "program:{$current['program']}".self::SEP."sasaran:{$a}";
                 $map[$path] = $this->node('sasaran', $a, "program:{$current['program']}", $b, $paguInt($f));
                 $current = array_merge($current, [
                     'sasaran' => $a, 'kro' => null, 'ro' => null,
                     'komponen' => null, 'kegiatan' => null,
                     'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0,
                 ]);
+
                 continue;
             }
 
             // KRO
             if (preg_match(self::REGEX_KRO, $a) && $current['sasaran']) {
-                $parentPath = "program:{$current['program']}" . self::SEP . "sasaran:{$current['sasaran']}";
-                $path = $parentPath . self::SEP . "kro:{$a}";
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}";
+                $path = $parentPath.self::SEP."kro:{$a}";
                 $map[$path] = $this->node('kro', $a, $parentPath, $b, $paguInt($f));
                 $current = array_merge($current, ['kro' => $a, 'ro' => null, 'komponen' => null, 'kegiatan' => null, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0]);
+
                 continue;
             }
 
             // RO
             if (preg_match(self::REGEX_RO, $a) && $current['kro']) {
-                $parentPath = "program:{$current['program']}" . self::SEP . "sasaran:{$current['sasaran']}" . self::SEP . "kro:{$current['kro']}";
-                $path = $parentPath . self::SEP . "ro:{$a}";
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}";
+                $path = $parentPath.self::SEP."ro:{$a}";
                 $map[$path] = $this->node('ro', $a, $parentPath, $b, $paguInt($f));
                 $current = array_merge($current, ['ro' => $a, 'komponen' => null, 'kegiatan' => null, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0]);
+
                 continue;
             }
 
             // Komponen
             if (preg_match(self::REGEX_KOMPONEN, $a) && $current['ro']) {
-                $parentPath = "program:{$current['program']}" . self::SEP . "sasaran:{$current['sasaran']}" . self::SEP . "kro:{$current['kro']}" . self::SEP . "ro:{$current['ro']}";
-                $path = $parentPath . self::SEP . "komponen:{$a}";
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}";
+                $path = $parentPath.self::SEP."komponen:{$a}";
                 $map[$path] = $this->node('komponen', $a, $parentPath, $b, $paguInt($f));
                 $current = array_merge($current, ['komponen' => $a, 'kegiatan' => null, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0]);
+
                 continue;
             }
 
             // Kegiatan
             if (preg_match(self::REGEX_KEGIATAN, $a) && $current['komponen']) {
-                $parentPath = "program:{$current['program']}" . self::SEP . "sasaran:{$current['sasaran']}" . self::SEP . "kro:{$current['kro']}" . self::SEP . "ro:{$current['ro']}" . self::SEP . "komponen:{$current['komponen']}";
-                $path = $parentPath . self::SEP . "kegiatan:{$a}";
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}";
+                $path = $parentPath.self::SEP."kegiatan:{$a}";
                 $map[$path] = $this->node('kegiatan', $a, $parentPath, $b, $paguInt($f));
                 $current = array_merge($current, ['kegiatan' => $a, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0]);
+
                 continue;
             }
 
@@ -169,15 +179,16 @@ class DjaImportService
                 $current['kode_akun'] = $a;
                 $current['nama_akun'] = $b;
                 $current['urutan'] = 0;
+
                 continue;
             }
 
             // Rincian Biaya (A kosong, B adalah nama item)
             if ($a === '' && $b !== '' && $current['kegiatan'] && $current['kode_akun']) {
                 $current['urutan']++;
-                $parentPath = "program:{$current['program']}" . self::SEP . "sasaran:{$current['sasaran']}" . self::SEP . "kro:{$current['kro']}" . self::SEP . "ro:{$current['ro']}" . self::SEP . "komponen:{$current['komponen']}" . self::SEP . "kegiatan:{$current['kegiatan']}";
-                $kodeRincian = $current['kode_akun'] . ':' . $b;
-                $path = $parentPath . self::SEP . "rincian_biaya:{$kodeRincian}";
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}".self::SEP."kegiatan:{$current['kegiatan']}";
+                $kodeRincian = $current['kode_akun'].':'.$b;
+                $path = $parentPath.self::SEP."rincian_biaya:{$kodeRincian}";
                 $map[$path] = $this->node('rincian_biaya', $kodeRincian, $parentPath, $b, $parseDecimal($f), [
                     'kode_akun' => $current['kode_akun'],
                     'nama_akun' => $current['nama_akun'] ?? '',
@@ -205,33 +216,33 @@ class DjaImportService
 
             $sasarans = DjaSasaran::where('program_id', $p->id)->where('is_aktif', true)->get();
             foreach ($sasarans as $s) {
-                $sPath = $path . self::SEP . "sasaran:{$s->kode}";
+                $sPath = $path.self::SEP."sasaran:{$s->kode}";
                 $map[$sPath] = $this->node('sasaran', $s->kode, $path, $s->nama, $s->pagu, ['id' => $s->id]);
 
                 $kros = DjaKro::where('sasaran_id', $s->id)->where('is_aktif', true)->get();
                 foreach ($kros as $k) {
-                    $kPath = $sPath . self::SEP . "kro:{$k->kode}";
+                    $kPath = $sPath.self::SEP."kro:{$k->kode}";
                     $map[$kPath] = $this->node('kro', $k->kode, $sPath, $k->nama, $k->pagu, ['id' => $k->id]);
 
                     $ros = DjaRo::where('kro_id', $k->id)->where('is_aktif', true)->get();
                     foreach ($ros as $r) {
-                        $rPath = $kPath . self::SEP . "ro:{$r->kode}";
+                        $rPath = $kPath.self::SEP."ro:{$r->kode}";
                         $map[$rPath] = $this->node('ro', $r->kode, $kPath, $r->nama, $r->pagu, ['id' => $r->id]);
 
                         $komponens = DjaKomponen::where('ro_id', $r->id)->where('is_aktif', true)->get();
                         foreach ($komponens as $km) {
-                            $kmPath = $rPath . self::SEP . "komponen:{$km->kode}";
+                            $kmPath = $rPath.self::SEP."komponen:{$km->kode}";
                             $map[$kmPath] = $this->node('komponen', $km->kode, $rPath, $km->nama, $km->pagu, ['id' => $km->id]);
 
                             $kegiatans = DjaKegiatan::where('komponen_id', $km->id)->where('is_aktif', true)->get();
                             foreach ($kegiatans as $kg) {
-                                $kgPath = $kmPath . self::SEP . "kegiatan:{$kg->kode}";
+                                $kgPath = $kmPath.self::SEP."kegiatan:{$kg->kode}";
                                 $map[$kgPath] = $this->node('kegiatan', $kg->kode, $kmPath, $kg->nama, $kg->pagu, ['id' => $kg->id]);
 
                                 $rincians = DjaRincianBiaya::where('kegiatan_id', $kg->id)->where('is_aktif', true)->get();
                                 foreach ($rincians as $rc) {
-                                    $kodeRincian = $rc->kode_akun . ':' . $rc->nama_item;
-                                    $rcPath = $kgPath . self::SEP . "rincian_biaya:{$kodeRincian}";
+                                    $kodeRincian = $rc->kode_akun.':'.$rc->nama_item;
+                                    $rcPath = $kgPath.self::SEP."rincian_biaya:{$kodeRincian}";
                                     $map[$rcPath] = $this->node('rincian_biaya', $kodeRincian, $kgPath, $rc->nama_item, $rc->pagu_total, [
                                         'id' => $rc->id,
                                         'kode_akun' => $rc->kode_akun,
@@ -297,7 +308,7 @@ class DjaImportService
                     $terpakai = $dbNode['terpakai'] ?? 0;
                     if ($terpakai > (float) $excelNode['pagu']) {
                         $excelNode['overbudget'] = (float) $terpakai - (float) $excelNode['pagu'];
-                        $excelNode['overbudget_label'] = 'Overbudget: Rp ' . number_format($excelNode['overbudget'], 0, ',', '.');
+                        $excelNode['overbudget_label'] = 'Overbudget: Rp '.number_format($excelNode['overbudget'], 0, ',', '.');
                         $overbudgetCount++;
                         $overbudgetTotal += $excelNode['overbudget'];
                     }
@@ -317,21 +328,31 @@ class DjaImportService
 
         foreach ($added as $idx => $key) {
             $excelNode = $excelMap[$key];
-            if (($excelNode['level'] ?? '') !== 'rincian_biaya') continue;
+            if (($excelNode['level'] ?? '') !== 'rincian_biaya') {
+                continue;
+            }
 
             $parentPath = $excelNode['parent_path'] ?? '';
             $namaItem = $excelNode['nama'] ?? '';
 
             // Cari DB item dengan parent_path sama + nama_item sama + kode_akun kosong
             foreach ($dbMap as $dbKey => $dbNode) {
-                if (($dbNode['level'] ?? '') !== 'rincian_biaya') continue;
-                if ($dbNode['nama'] !== $namaItem) continue;
-                if (($dbNode['parent_path'] ?? '') !== $parentPath) continue;
+                if (($dbNode['level'] ?? '') !== 'rincian_biaya') {
+                    continue;
+                }
+                if ($dbNode['nama'] !== $namaItem) {
+                    continue;
+                }
+                if (($dbNode['parent_path'] ?? '') !== $parentPath) {
+                    continue;
+                }
 
                 // DB item punya kode_akun kosong → fallback match
                 $dbKodeAkun = $dbNode['kode_akun'] ?? $dbNode['kode'] ?? '';
                 $dbKodeAkun = explode(':', $dbKodeAkun)[0] ?? '';
-                if ($dbKodeAkun !== '') continue;
+                if ($dbKodeAkun !== '') {
+                    continue;
+                }
 
                 // Match ditemukan! Konversi dari tambah → ubah
                 $excelNode['jenis'] = 'ubah';
@@ -345,7 +366,7 @@ class DjaImportService
                     $terpakai = $dbNode['terpakai'] ?? 0;
                     if ($terpakai > (float) $excelNode['pagu']) {
                         $excelNode['overbudget'] = (float) $terpakai - (float) $excelNode['pagu'];
-                        $excelNode['overbudget_label'] = 'Overbudget: Rp ' . number_format($excelNode['overbudget'], 0, ',', '.');
+                        $excelNode['overbudget_label'] = 'Overbudget: Rp '.number_format($excelNode['overbudget'], 0, ',', '.');
                         $overbudgetCount++;
                         $overbudgetTotal += $excelNode['overbudget'];
                     }
@@ -355,6 +376,7 @@ class DjaImportService
                 $changedCount++;
                 $addedCount--;
                 $fallbackMatched[] = $dbKey;
+
                 continue 2; // lanjut ke added item berikutnya
             }
         }
@@ -374,6 +396,7 @@ class DjaImportService
                 $node['status_eksekusi'] = 'skip_parsial';
                 $node['keterangan'] = 'Item tidak muncul di file Excel — tidak dihapus (impor parsial)';
                 $result[$key] = $node;
+
                 continue;
             }
 
@@ -416,7 +439,7 @@ class DjaImportService
                 'blocked' => $blockedCount,
                 'overbudget_count' => $overbudgetCount,
                 'overbudget_total' => $overbudgetTotal,
-                'overbudget_total_formatted' => 'Rp ' . number_format($overbudgetTotal, 0, ',', '.'),
+                'overbudget_total_formatted' => 'Rp '.number_format($overbudgetTotal, 0, ',', '.'),
             ],
             'hierarchical' => $this->buildHierarchicalPreview($result),
         ];
@@ -459,9 +482,10 @@ class DjaImportService
                 // Cache ID untuk child items yang mungkin perlu lookup
                 if ($parentId === null && $level === 'program' && isset($dbMap[$key])) {
                     $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
-                } elseif ($parentId && in_array($level, ['sasaran','kro','ro','komponen','kegiatan','rincian_biaya']) && isset($dbMap[$key])) {
+                } elseif ($parentId && in_array($level, ['sasaran', 'kro', 'ro', 'komponen', 'kegiatan', 'rincian_biaya']) && isset($dbMap[$key])) {
                     $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
                 }
+
                 continue;
             }
 
@@ -571,6 +595,7 @@ class DjaImportService
             }
             if (($node['status_eksekusi'] ?? '') !== 'sukses') {
                 $this->logDetail($revisi, $node, $node['status_eksekusi'] ?? 'gagal_hapus_terikat');
+
                 continue;
             }
 

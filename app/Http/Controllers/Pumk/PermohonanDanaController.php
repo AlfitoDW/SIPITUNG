@@ -58,18 +58,16 @@ class PermohonanDanaController extends Controller
                 'pic_keuangan_name' => $pd->pic_keuangan_name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
-                    'katim_approved' => 'Kabag Umum',
-                    'kabag_approved' => 'PPK',
-                    'ppk_approved' => 'PIC Keuangan',
-                    'pic_approved' => 'Bendahara',
+                    'katim_approved' => 'PIC Keuangan',
+                    'pic_approved' => 'PPK',
+                    'ppk_approved' => 'Bendahara',
                     default => null,
                 },
                 'next_approver_name' => match ($pd->status) {
                     'submitted' => $pd->kapokja_name,
-                    'katim_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
-                    'kabag_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => $pd->pic_keuangan_name,
-                    'pic_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    'katim_approved' => $pd->pic_keuangan_name,
+                    'pic_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
             ]));
@@ -390,7 +388,7 @@ class PermohonanDanaController extends Controller
             if ($item['harga_satuan'] > $rincian->harga_satuan) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                     ->with('error',
-                        "Harga satuan [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                        "Harga satuan [{$rincian->kode_akun}] {$rincian->nama_item} ".
                         'tidak boleh melebihi SBM (Rp '.number_format($rincian->harga_satuan, 0, ',', '.').').'
                     )
                     ->with('wizard_step', 4);
@@ -441,7 +439,7 @@ class PermohonanDanaController extends Controller
 
                     if ($jumlah > $sisaAnggaran) {
                         throw new \Exception(
-                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} " .
+                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
                             'memerlukan Rp '.number_format($jumlah, 0, ',', '.').' '.
                             'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
                         );

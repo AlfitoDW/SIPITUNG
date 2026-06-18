@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class DjaKro extends Model
 {
     use HasFactory;
+
     protected $table = 'dja_kro';
 
     protected $fillable = ['sasaran_id', 'kode', 'nama', 'pagu', 'is_aktif'];

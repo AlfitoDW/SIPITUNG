@@ -19,7 +19,7 @@ class DashboardController extends Controller
 
         // ─── Summary Cards ─────────────────────────────────────────────────
         $siapCair = $tahunId
-            ? PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'pic_approved')->count()
+            ? PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'ppk_approved')->count()
             : 0;
         $sudahCair = $tahunId
             ? PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'dicairkan')->count()
@@ -28,24 +28,22 @@ class DashboardController extends Controller
             ? (float) PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'dicairkan')->sum('total_anggaran')
             : 0;
         $nilaiSiap = $tahunId
-            ? (float) PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'pic_approved')->sum('total_anggaran')
+            ? (float) PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'ppk_approved')->sum('total_anggaran')
             : 0;
 
         // ─── Pipeline (status breakdown) ───────────────────────────────────
         $pipeline = $tahunId
             ? [
-                'kabag_approved' => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'kabag_approved')->count(),
-                'ppk_approved'   => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'ppk_approved')->count(),
-                'pic_approved'   => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'pic_approved')->count(),
-                'dicairkan'      => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'dicairkan')->count(),
-                'rejected'       => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'rejected')->count(),
+                'ppk_approved' => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'ppk_approved')->count(),
+                'pic_approved' => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'pic_approved')->count(),
+                'dicairkan' => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'dicairkan')->count(),
+                'rejected' => PermohonanDana::where('tahun_anggaran_id', $tahunId)->where('status', 'rejected')->count(),
             ]
             : [
-                'kabag_approved' => 0,
-                'ppk_approved'   => 0,
-                'pic_approved'   => 0,
-                'dicairkan'      => 0,
-                'rejected'       => 0,
+                'ppk_approved' => 0,
+                'pic_approved' => 0,
+                'dicairkan' => 0,
+                'rejected' => 0,
             ];
 
         // ─── Tugas Hari Ini (siap dicairkan, oldest first) ─────────────────
@@ -53,17 +51,18 @@ class DashboardController extends Controller
         if ($tahunId) {
             $tugasHariIni = PermohonanDana::with('timKerja')
                 ->where('tahun_anggaran_id', $tahunId)
-                ->where('status', 'pic_approved')
-                ->orderBy('pic_approved_at', 'asc')
+                ->where('status', 'ppk_approved')
+                ->orderBy('ppk_approved_at', 'asc')
                 ->limit(8)
-                ->get(['id', 'nomor_permohonan', 'keperluan', 'total_anggaran', 'pic_approved_at', 'tim_kerja_id']);
+                ->get(['id', 'nomor_permohonan', 'keperluan', 'total_anggaran', 'ppk_approved_at', 'tim_kerja_id']);
         }
 
         // Tambahkan computed field: hari menunggu
         $tugasHariIni = $tugasHariIni->map(function ($pd) {
-            $pd->hari_menunggu = $pd->pic_approved_at
-                ? Carbon::parse($pd->pic_approved_at)->diffInDays(now())
+            $pd->hari_menunggu = $pd->ppk_approved_at
+                ? Carbon::parse($pd->ppk_approved_at)->diffInDays(now())
                 : 0;
+
             return $pd;
         });
 
@@ -78,15 +77,15 @@ class DashboardController extends Controller
             : collect();
 
         return Inertia::render('Bendahara/Dashboard', [
-            'user'         => ['nama_lengkap' => $user->nama_lengkap],
-            'tahun'        => $tahun,
-            'siapCair'     => $siapCair,
-            'sudahCair'    => $sudahCair,
-            'nilaiCair'    => $nilaiCair,
-            'nilaiSiap'    => $nilaiSiap,
-            'pipeline'     => $pipeline,
+            'user' => ['nama_lengkap' => $user->nama_lengkap],
+            'tahun' => $tahun,
+            'siapCair' => $siapCair,
+            'sudahCair' => $sudahCair,
+            'nilaiCair' => $nilaiCair,
+            'nilaiSiap' => $nilaiSiap,
+            'pipeline' => $pipeline,
             'tugasHariIni' => $tugasHariIni,
-            'riwayatCair'  => $riwayatCair,
+            'riwayatCair' => $riwayatCair,
         ]);
     }
 }

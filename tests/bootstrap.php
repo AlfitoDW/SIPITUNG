@@ -17,13 +17,13 @@
 // Force SQLite memory for test database BEFORE anything else.
 // putenv() + $_ENV + $_SERVER ensures all 3 layers Laravel checks are set.
 $forceTestEnv = [
-    'APP_ENV'       => 'testing',
+    'APP_ENV' => 'testing',
     'DB_CONNECTION' => 'sqlite',
-    'DB_DATABASE'   => ':memory:',
-    'CACHE_STORE'   => 'array',
+    'DB_DATABASE' => ':memory:',
+    'CACHE_STORE' => 'array',
     'SESSION_DRIVER' => 'array',
     'QUEUE_CONNECTION' => 'sync',
-    'MAIL_MAILER'   => 'array',
+    'MAIL_MAILER' => 'array',
     'BROADCAST_CONNECTION' => 'null',
     'TELESCOPE_ENABLED' => 'false',
     'PULSE_ENABLED' => 'false',

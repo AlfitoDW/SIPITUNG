@@ -66,7 +66,7 @@ class NominatifController extends Controller
                 'nominatif' => $item->nominatif,
             ];
 
-            $key = $item->kode_akun . '|' . ($dja?->nama_akun ?? '-');
+            $key = $item->kode_akun.'|'.($dja?->nama_akun ?? '-');
             $rincianBiaya[$key][] = $data;
         }
 
@@ -147,121 +147,127 @@ class NominatifController extends Controller
             PermohonanDanaItemNominatif::where('permohonan_dana_id', $pd->id)->delete();
 
             foreach (array_values($rows) as $urutan => $row) {
-            $itemId = $row['item_id'];
-            $refNamaId = $row['ref_nama_id'] ?? null;
-            $pph21 = (float) ($row['pph21_persen'] ?? 0);
+                $itemId = $row['item_id'];
+                $refNamaId = $row['ref_nama_id'] ?? null;
+                $pph21 = (float) ($row['pph21_persen'] ?? 0);
 
-            // ─── Honor ───────────────────────────────────────────────────────
-            $volume = (float) ($row['volume'] ?? 1);
-            $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
-            $jumlahBruto = round($volume * $hargaSatuan, 2);
-            $jumlahPajak = round($jumlahBruto * ($pph21 / 100), 2);
-            $jumlahDiterima = round($jumlahBruto - $jumlahPajak, 2);
+                // ─── Honor ───────────────────────────────────────────────────────
+                $volume = (float) ($row['volume'] ?? 1);
+                $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
+                $jumlahBruto = round($volume * $hargaSatuan, 2);
+                $jumlahPajak = round($jumlahBruto * ($pph21 / 100), 2);
+                $jumlahDiterima = round($jumlahBruto - $jumlahPajak, 2);
 
-            // ─── Perjadin ────────────────────────────────────────────────────
-            $item = PermohonanDanaItem::find($itemId);
-            $uraian = strtolower($item?->uraian ?? '');
+                // ─── Perjadin ────────────────────────────────────────────────────
+                $item = PermohonanDanaItem::find($itemId);
+                $uraian = strtolower($item?->uraian ?? '');
 
-            // Generic per-rincian mapping based on item.uraian regex
-            $vol = (float) ($row['volume'] ?? 1);
-            $hs = (float) ($row['harga_satuan'] ?? 0);
-            $jml = round($vol * $hs, 2);
+                // Generic per-rincian mapping based on item.uraian regex
+                $vol = (float) ($row['volume'] ?? 1);
+                $hs = (float) ($row['harga_satuan'] ?? 0);
+                $jml = round($vol * $hs, 2);
 
-            // Initialize all perjadin columns to 0
-            $transport = 0;
-            $uangHarianVol = 0; $uangHarianSatuan = 0; $uangHarianJumlah = 0;
-            $fullboardVol = 0; $fullboardSatuan = 0; $fullboardJumlah = 0;
-            $fulldayVol = 0; $fulldaySatuan = 0; $fulldayJumlah = 0;
-            $representasi = 0;
-            $taksiPp = 0;
-            $tiketPesawat = 0;
-            $hotel = 0;
+                // Initialize all perjadin columns to 0
+                $transport = 0;
+                $uangHarianVol = 0;
+                $uangHarianSatuan = 0;
+                $uangHarianJumlah = 0;
+                $fullboardVol = 0;
+                $fullboardSatuan = 0;
+                $fullboardJumlah = 0;
+                $fulldayVol = 0;
+                $fulldaySatuan = 0;
+                $fulldayJumlah = 0;
+                $representasi = 0;
+                $taksiPp = 0;
+                $tiketPesawat = 0;
+                $hotel = 0;
 
-            if ($item && $item->isPerjadin()) {
-                if (preg_match('/fullboard/i', $uraian)) {
-                    $fullboardVol = $vol;
-                    $fullboardSatuan = $hs;
-                    $fullboardJumlah = $jml;
-                } elseif (preg_match('/fullday|full\s*day/i', $uraian)) {
-                    $fulldayVol = $vol;
-                    $fulldaySatuan = $hs;
-                    $fulldayJumlah = $jml;
-                } elseif (preg_match('/uang\s*harian/i', $uraian)) {
-                    $uangHarianVol = $vol;
-                    $uangHarianSatuan = $hs;
-                    $uangHarianJumlah = $jml;
-                } elseif (preg_match('/representasi/i', $uraian)) {
-                    $representasi = $jml;
-                } elseif (preg_match('/tiket\s*pesawat/i', $uraian)) {
-                    $tiketPesawat = $jml;
-                } elseif (preg_match('/biaya\s*penginapan|hotel|akomodasi/i', $uraian)) {
-                    $hotel = $jml;
-                } elseif (preg_match('/taksi/i', $uraian)) {
-                    $taksiPp = $jml;
-                } elseif (preg_match('/transport/i', $uraian)) {
-                    $transport = $jml;
+                if ($item && $item->isPerjadin()) {
+                    if (preg_match('/fullboard/i', $uraian)) {
+                        $fullboardVol = $vol;
+                        $fullboardSatuan = $hs;
+                        $fullboardJumlah = $jml;
+                    } elseif (preg_match('/fullday|full\s*day/i', $uraian)) {
+                        $fulldayVol = $vol;
+                        $fulldaySatuan = $hs;
+                        $fulldayJumlah = $jml;
+                    } elseif (preg_match('/uang\s*harian/i', $uraian)) {
+                        $uangHarianVol = $vol;
+                        $uangHarianSatuan = $hs;
+                        $uangHarianJumlah = $jml;
+                    } elseif (preg_match('/representasi/i', $uraian)) {
+                        $representasi = $jml;
+                    } elseif (preg_match('/tiket\s*pesawat/i', $uraian)) {
+                        $tiketPesawat = $jml;
+                    } elseif (preg_match('/biaya\s*penginapan|hotel|akomodasi/i', $uraian)) {
+                        $hotel = $jml;
+                    } elseif (preg_match('/taksi/i', $uraian)) {
+                        $taksiPp = $jml;
+                    } elseif (preg_match('/transport/i', $uraian)) {
+                        $transport = $jml;
+                    }
+                } else {
+                    // Legacy: accept explicit component fields if item type unknown
+                    $transport = (float) ($row['transport'] ?? 0);
+                    $uangHarianVol = (float) ($row['uang_harian_vol'] ?? 0);
+                    $uangHarianSatuan = (float) ($row['uang_harian_satuan'] ?? 0);
+                    $uangHarianJumlah = round($uangHarianVol * $uangHarianSatuan, 2);
+                    $fullboardVol = (float) ($row['fullboard_vol'] ?? 0);
+                    $fullboardSatuan = (float) ($row['fullboard_satuan'] ?? 0);
+                    $fullboardJumlah = round($fullboardVol * $fullboardSatuan, 2);
+                    $fulldayVol = (float) ($row['fullday_vol'] ?? 0);
+                    $fulldaySatuan = (float) ($row['fullday_satuan'] ?? 0);
+                    $fulldayJumlah = round($fulldayVol * $fulldaySatuan, 2);
+                    $representasi = (float) ($row['representasi'] ?? 0);
+                    $taksiPp = (float) ($row['taksi_pp'] ?? 0);
+                    $tiketPesawat = (float) ($row['tiket_pesawat'] ?? 0);
+                    $hotel = (float) ($row['hotel'] ?? 0);
                 }
-            } else {
-                // Legacy: accept explicit component fields if item type unknown
-                $transport = (float) ($row['transport'] ?? 0);
-                $uangHarianVol = (float) ($row['uang_harian_vol'] ?? 0);
-                $uangHarianSatuan = (float) ($row['uang_harian_satuan'] ?? 0);
-                $uangHarianJumlah = round($uangHarianVol * $uangHarianSatuan, 2);
-                $fullboardVol = (float) ($row['fullboard_vol'] ?? 0);
-                $fullboardSatuan = (float) ($row['fullboard_satuan'] ?? 0);
-                $fullboardJumlah = round($fullboardVol * $fullboardSatuan, 2);
-                $fulldayVol = (float) ($row['fullday_vol'] ?? 0);
-                $fulldaySatuan = (float) ($row['fullday_satuan'] ?? 0);
-                $fulldayJumlah = round($fulldayVol * $fulldaySatuan, 2);
-                $representasi = (float) ($row['representasi'] ?? 0);
-                $taksiPp = (float) ($row['taksi_pp'] ?? 0);
-                $tiketPesawat = (float) ($row['tiket_pesawat'] ?? 0);
-                $hotel = (float) ($row['hotel'] ?? 0);
-            }
 
-            $jumlahPerjadin = $transport + $uangHarianJumlah + $fullboardJumlah
-                            + $fulldayJumlah + $representasi + $taksiPp
-                            + $tiketPesawat + $hotel;
+                $jumlahPerjadin = $transport + $uangHarianJumlah + $fullboardJumlah
+                                + $fulldayJumlah + $representasi + $taksiPp
+                                + $tiketPesawat + $hotel;
 
-            PermohonanDanaItemNominatif::create([
-                'permohonan_dana_item_id' => $itemId,
-                'permohonan_dana_id' => $pd->id,
-                'ref_nama_id' => $refNamaId ?: null,
-                'nama' => $row['nama'],
-                'nip' => $row['nip'] ?? null,
-                'nik' => $row['nik'] ?? null,
-                'npwp' => $row['npwp'] ?? null,
-                'gol_ruang' => $row['gol_ruang'] ?? null,
-                'nama_rekening' => $row['nama_rekening'] ?? null,
-                'no_rekening' => $row['no_rekening'] ?? null,
-                'nama_bank' => $row['nama_bank'] ?? null,
-                'email' => $row['email'] ?? null,
-                'pph21_persen' => $pph21,
-                // Honor
-                'jabatan' => $row['jabatan'] ?? null,
-                'volume' => $volume,
-                'harga_satuan' => $hargaSatuan,
-                'jumlah_bruto' => $jumlahBruto,
-                'jumlah_pajak' => $jumlahPajak,
-                'jumlah_diterima' => $jumlahDiterima,
-                // Perjadin
-                'transport' => $transport,
-                'uang_harian_vol' => $uangHarianVol,
-                'uang_harian_satuan' => $uangHarianSatuan,
-                'uang_harian_jumlah' => $uangHarianJumlah,
-                'fullboard_vol' => $fullboardVol,
-                'fullboard_satuan' => $fullboardSatuan,
-                'fullboard_jumlah' => $fullboardJumlah,
-                'fullday_vol' => $fulldayVol,
-                'fullday_satuan' => $fulldaySatuan,
-                'fullday_jumlah' => $fulldayJumlah,
-                'representasi' => $representasi,
-                'taksi_pp' => $taksiPp,
-                'tiket_pesawat' => $tiketPesawat,
-                'hotel' => $hotel,
-                'jumlah_perjadin' => $jumlahPerjadin,
-                'urutan' => $urutan,
-            ]);
+                PermohonanDanaItemNominatif::create([
+                    'permohonan_dana_item_id' => $itemId,
+                    'permohonan_dana_id' => $pd->id,
+                    'ref_nama_id' => $refNamaId ?: null,
+                    'nama' => $row['nama'],
+                    'nip' => $row['nip'] ?? null,
+                    'nik' => $row['nik'] ?? null,
+                    'npwp' => $row['npwp'] ?? null,
+                    'gol_ruang' => $row['gol_ruang'] ?? null,
+                    'nama_rekening' => $row['nama_rekening'] ?? null,
+                    'no_rekening' => $row['no_rekening'] ?? null,
+                    'nama_bank' => $row['nama_bank'] ?? null,
+                    'email' => $row['email'] ?? null,
+                    'pph21_persen' => $pph21,
+                    // Honor
+                    'jabatan' => $row['jabatan'] ?? null,
+                    'volume' => $volume,
+                    'harga_satuan' => $hargaSatuan,
+                    'jumlah_bruto' => $jumlahBruto,
+                    'jumlah_pajak' => $jumlahPajak,
+                    'jumlah_diterima' => $jumlahDiterima,
+                    // Perjadin
+                    'transport' => $transport,
+                    'uang_harian_vol' => $uangHarianVol,
+                    'uang_harian_satuan' => $uangHarianSatuan,
+                    'uang_harian_jumlah' => $uangHarianJumlah,
+                    'fullboard_vol' => $fullboardVol,
+                    'fullboard_satuan' => $fullboardSatuan,
+                    'fullboard_jumlah' => $fullboardJumlah,
+                    'fullday_vol' => $fulldayVol,
+                    'fullday_satuan' => $fulldaySatuan,
+                    'fullday_jumlah' => $fulldayJumlah,
+                    'representasi' => $representasi,
+                    'taksi_pp' => $taksiPp,
+                    'tiket_pesawat' => $tiketPesawat,
+                    'hotel' => $hotel,
+                    'jumlah_perjadin' => $jumlahPerjadin,
+                    'urutan' => $urutan,
+                ]);
             }
         });
 

@@ -9,18 +9,17 @@
  * - Hapus sheet tidak relevan (hanya sisakan 7 sheet: 521115, 521213, 522151, 524111, 524113, 524114, 524119)
  * - Clear data dummy
  */
+$sourceFile = __DIR__.'/bahan_keuangan/Ref. - User, Pegawai  dan Daftar Nominatif.xlsx';
+$destFile = __DIR__.'/storage/app/templates/nominatif_template_clean.xlsx';
 
-$sourceFile = __DIR__ . '/bahan_keuangan/Ref. - User, Pegawai  dan Daftar Nominatif.xlsx';
-$destFile = __DIR__ . '/storage/app/templates/nominatif_template_clean.xlsx';
-
-if (!file_exists($sourceFile)) {
+if (! file_exists($sourceFile)) {
     echo "Error: Source file not found: $sourceFile\n";
     exit(1);
 }
 
 // Ensure destination directory exists
 $destDir = dirname($destFile);
-if (!is_dir($destDir)) {
+if (! is_dir($destDir)) {
     mkdir($destDir, 0755, true);
 }
 
@@ -28,7 +27,7 @@ if (!is_dir($destDir)) {
 $tempFile = tempnam(sys_get_temp_dir(), 'nominatif_clean_');
 copy($sourceFile, $tempFile);
 
-$zip = new ZipArchive();
+$zip = new ZipArchive;
 $zip->open($tempFile);
 
 // --- 1. Remove named ranges from workbook.xml ---
@@ -52,7 +51,7 @@ $zip->addFromString('xl/workbook.xml', $wbXml->asXML());
 $externalLinksDir = 'xl/externalLinks/';
 $index = 0;
 while (true) {
-    $name = $externalLinksDir . 'externalLink' . ($index + 1) . '.xml';
+    $name = $externalLinksDir.'externalLink'.($index + 1).'.xml';
     if ($zip->locateName($name) === false) {
         break;
     }
@@ -70,22 +69,22 @@ $zip->deleteName('xl/calcChain.xml');
 $relsDir = 'xl/worksheets/_rels/';
 $index = 0;
 while (true) {
-    $name = $relsDir . 'sheet' . ($index + 1) . '.xml.rels';
+    $name = $relsDir.'sheet'.($index + 1).'.xml.rels';
     if ($zip->locateName($name) === false) {
         break;
     }
-    
+
     $rels = $zip->getFromName($name);
     $relsXml = new SimpleXMLElement($rels);
-    
+
     // Remove externalLink relationships
     foreach ($relsXml->Relationship as $rel) {
-        $type = (string)$rel['Type'];
+        $type = (string) $rel['Type'];
         if (strpos($type, 'externalLink') !== false) {
             unset($rel[0]);
         }
     }
-    
+
     $zip->deleteName($name);
     $zip->addFromString($name, $relsXml->asXML());
     $index++;
@@ -101,14 +100,14 @@ $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
 $relsXml = new SimpleXMLElement($rels);
 $rIdMap = [];
 foreach ($relsXml->Relationship as $rel) {
-    $rIdMap[(string)$rel['Id']] = (string)$rel['Target'];
+    $rIdMap[(string) $rel['Id']] = (string) $rel['Target'];
 }
 
 foreach ($wbXml->sheets->sheet as $sheet) {
-    $name = (string)$sheet['name'];
+    $name = (string) $sheet['name'];
     // Get r:id with namespace
     $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
-    $rid = (string)($attrs['id'] ?? '');
+    $rid = (string) ($attrs['id'] ?? '');
     $sheetMap[$name] = $rIdMap[$rid] ?? null;
 }
 
@@ -118,11 +117,11 @@ $keepSheets = ['521115', '521213', '522151', '524111', '524113', '524114', '5241
 // Remove unused sheets
 $sheetIndex = 0;
 foreach ($sheetMap as $name => $target) {
-    if (!in_array($name, $keepSheets)) {
+    if (! in_array($name, $keepSheets)) {
         // Remove sheet file
-        $zip->deleteName('xl/' . $target);
+        $zip->deleteName('xl/'.$target);
         // Remove rels file
-        $zip->deleteName('xl/worksheets/_rels/' . basename($target) . '.rels');
+        $zip->deleteName('xl/worksheets/_rels/'.basename($target).'.rels');
     }
     $sheetIndex++;
 }
@@ -143,13 +142,15 @@ $newSheets = $wbXml->addChild('sheets');
 $sheetId = 1;
 $rid = 1;
 foreach ($keepSheets as $name) {
-    if (!isset($sheetMap[$name]) || $sheetMap[$name] === null) continue;
-    
+    if (! isset($sheetMap[$name]) || $sheetMap[$name] === null) {
+        continue;
+    }
+
     $sheet = $newSheets->addChild('sheet');
     $sheet['name'] = $name;
     $sheet['sheetId'] = $sheetId;
     // Add r:id attribute with namespace
-    $sheet->addAttribute('r:id', 'rId' . $rid, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+    $sheet->addAttribute('r:id', 'rId'.$rid, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
     $sheetId++;
     $rid++;
 }
@@ -162,10 +163,12 @@ $newRels = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8" standalone
 
 $rid = 1;
 foreach ($keepSheets as $name) {
-    if (!isset($sheetMap[$name])) continue;
-    
+    if (! isset($sheetMap[$name])) {
+        continue;
+    }
+
     $rel = $newRels->addChild('Relationship');
-    $rel['Id'] = 'rId' . $rid;
+    $rel['Id'] = 'rId'.$rid;
     $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet';
     $rel['Target'] = $sheetMap[$name];
     $rid++;
@@ -173,19 +176,19 @@ foreach ($keepSheets as $name) {
 
 // Add styles, theme, sharedStrings
 $rel = $newRels->addChild('Relationship');
-$rel['Id'] = 'rId' . $rid;
+$rel['Id'] = 'rId'.$rid;
 $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles';
 $rel['Target'] = 'styles.xml';
 $rid++;
 
 $rel = $newRels->addChild('Relationship');
-$rel['Id'] = 'rId' . $rid;
+$rel['Id'] = 'rId'.$rid;
 $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
 $rel['Target'] = 'theme/theme1.xml';
 $rid++;
 
 $rel = $newRels->addChild('Relationship');
-$rel['Id'] = 'rId' . $rid;
+$rel['Id'] = 'rId'.$rid;
 $rel['Type'] = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings';
 $rel['Target'] = 'sharedStrings.xml';
 $rid++;
@@ -200,9 +203,9 @@ $ctXml = new SimpleXMLElement($ct);
 // Remove unused worksheet content types
 $overrides = $ctXml->Override;
 for ($i = count($overrides) - 1; $i >= 0; $i--) {
-    $partName = (string)$overrides[$i]['PartName'];
+    $partName = (string) $overrides[$i]['PartName'];
     if (preg_match('/xl\/worksheets\/sheet\d+\.xml/', $partName)) {
-        $sheetNum = (int)preg_replace('/.*sheet(\d+)\.xml/', '$1', $partName);
+        $sheetNum = (int) preg_replace('/.*sheet(\d+)\.xml/', '$1', $partName);
         if ($sheetNum > count($keepSheets)) {
             unset($overrides[$i][0]);
         }
@@ -211,7 +214,7 @@ for ($i = count($overrides) - 1; $i >= 0; $i--) {
 
 // Remove externalLink content types
 for ($i = count($overrides) - 1; $i >= 0; $i--) {
-    $partName = (string)$overrides[$i]['PartName'];
+    $partName = (string) $overrides[$i]['PartName'];
     if (strpos($partName, 'externalLink') !== false) {
         unset($overrides[$i][0]);
     }
@@ -219,7 +222,7 @@ for ($i = count($overrides) - 1; $i >= 0; $i--) {
 
 // Remove calcChain content type
 for ($i = count($overrides) - 1; $i >= 0; $i--) {
-    $partName = (string)$overrides[$i]['PartName'];
+    $partName = (string) $overrides[$i]['PartName'];
     if ($partName === '/xl/calcChain.xml') {
         unset($overrides[$i][0]);
     }
@@ -230,27 +233,29 @@ $zip->addFromString('[Content_Types].xml', $ctXml->asXML());
 
 // --- 7. Clear data dummy from all sheets ---
 foreach ($keepSheets as $sheetName) {
-    if (!isset($sheetMap[$sheetName])) continue;
-    
-    $sheetFile = 'xl/' . $sheetMap[$sheetName];
+    if (! isset($sheetMap[$sheetName])) {
+        continue;
+    }
+
+    $sheetFile = 'xl/'.$sheetMap[$sheetName];
     $sheetContent = $zip->getFromName($sheetFile);
     $sheetXml = new SimpleXMLElement($sheetContent);
-    
+
     // Clear data rows (rows 12-14 for 521115, 14-16 for 521213, etc.)
-    $dataStartRow = match($sheetName) {
+    $dataStartRow = match ($sheetName) {
         '521115' => 12,
         '521213', '522151' => 14,
         '524111', '524113', '524114', '524119' => 14,
     };
-    
-    $dataEndRow = match($sheetName) {
+
+    $dataEndRow = match ($sheetName) {
         '521115' => 14,
         '521213', '522151' => 16,
         '524111', '524113', '524114', '524119' => 44,
     };
-    
+
     foreach ($sheetXml->sheetData->row as $row) {
-        $rowNum = (int)$row['r'];
+        $rowNum = (int) $row['r'];
         if ($rowNum >= $dataStartRow && $rowNum <= $dataEndRow) {
             foreach ($row->c as $cell) {
                 unset($cell->v);
@@ -258,7 +263,7 @@ foreach ($keepSheets as $sheetName) {
             }
         }
     }
-    
+
     $zip->deleteName($sheetFile);
     $zip->addFromString($sheetFile, $sheetXml->asXML());
 }
@@ -272,4 +277,4 @@ unlink($tempFile);
 echo "Template cleaned successfully!\n";
 echo "Source: $sourceFile\n";
 echo "Destination: $destFile\n";
-echo "Sheets kept: " . implode(', ', $keepSheets) . "\n";
+echo 'Sheets kept: '.implode(', ', $keepSheets)."\n";

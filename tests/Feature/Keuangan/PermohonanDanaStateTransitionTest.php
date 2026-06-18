@@ -62,7 +62,7 @@ describe('happy path state transitions', function () {
             ->and($fresh->katim_approved_at)->not->toBeNull();
     });
 
-    it('katim_approved -> kabag_approved by Kabag', function () {
+    it('kabag tidak bisa approve (403)', function () {
         $pd = PermohonanDana::factory()->katimApproved()->create([
             'tahun_anggaran_id' => $this->tahunAnggaran->id,
             'tim_kerja_id' => $this->timKerja->id,
@@ -73,29 +73,13 @@ describe('happy path state transitions', function () {
 
         $this->actingAs($this->kabag)
             ->post(route('pimpinan.keuangan.permohonan-dana.approve', $pd))
-            ->assertRedirect();
+            ->assertForbidden();
 
-        expect($pd->fresh()->status)->toBe('kabag_approved');
+        expect($pd->fresh()->status)->toBe('katim_approved');
     });
 
-    it('kabag_approved -> ppk_approved by PPK', function () {
-        $pd = PermohonanDana::factory()->kabagApproved()->create([
-            'tahun_anggaran_id' => $this->tahunAnggaran->id,
-            'tim_kerja_id' => $this->timKerja->id,
-            'created_by' => $this->pumk->id,
-            'kapokja_id' => $this->kapokja->id,
-            'pic_keuangan_id' => $this->pic->id,
-        ]);
-
-        $this->actingAs($this->ppk)
-            ->post(route('pimpinan.keuangan.permohonan-dana.approve', $pd))
-            ->assertRedirect();
-
-        expect($pd->fresh()->status)->toBe('ppk_approved');
-    });
-
-    it('ppk_approved -> pic_approved by PIC Keuangan', function () {
-        $pd = PermohonanDana::factory()->ppkApproved()->create([
+    it('katim_approved -> pic_approved by PIC Keuangan', function () {
+        $pd = PermohonanDana::factory()->katimApproved()->create([
             'tahun_anggaran_id' => $this->tahunAnggaran->id,
             'tim_kerja_id' => $this->timKerja->id,
             'created_by' => $this->pumk->id,
@@ -107,11 +91,31 @@ describe('happy path state transitions', function () {
             ->post(route('pic-keuangan.permohonan-dana.approve', $pd))
             ->assertRedirect();
 
-        expect($pd->fresh()->status)->toBe('pic_approved');
+        $fresh = $pd->fresh();
+        expect($fresh->status)->toBe('pic_approved')
+            ->and($fresh->pic_approved_by)->toBe($this->pic->id);
     });
 
-    it('pic_approved -> dicairkan by Bendahara', function () {
+    it('pic_approved -> ppk_approved by PPK', function () {
         $pd = PermohonanDana::factory()->picApproved()->create([
+            'tahun_anggaran_id' => $this->tahunAnggaran->id,
+            'tim_kerja_id' => $this->timKerja->id,
+            'created_by' => $this->pumk->id,
+            'kapokja_id' => $this->kapokja->id,
+            'pic_keuangan_id' => $this->pic->id,
+        ]);
+
+        $this->actingAs($this->ppk)
+            ->post(route('pimpinan.keuangan.permohonan-dana.approve', $pd))
+            ->assertRedirect();
+
+        $fresh = $pd->fresh();
+        expect($fresh->status)->toBe('ppk_approved')
+            ->and($fresh->ppk_approved_by)->toBe($this->ppk->id);
+    });
+
+    it('ppk_approved -> dicairkan by Bendahara', function () {
+        $pd = PermohonanDana::factory()->ppkApproved()->create([
             'tahun_anggaran_id' => $this->tahunAnggaran->id,
             'tim_kerja_id' => $this->timKerja->id,
             'created_by' => $this->pumk->id,

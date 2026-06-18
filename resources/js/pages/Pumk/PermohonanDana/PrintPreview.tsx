@@ -72,13 +72,12 @@ const fmtRp = (n: string | number) =>
 const STATUS_CHAIN: { key: string; label: string; field: keyof Pd }[] = [
     { key: 'submitted',      label: 'Diajukan PUMK',          field: 'kapokja' },
     { key: 'katim_approved', label: 'Disetujui KA.TIM',        field: 'katim_approved_by' },
-    { key: 'kabag_approved', label: 'Disetujui Kabag Umum',    field: 'kabag_approved_by' },
+    { key: 'pic_approved',   label: 'Diverifikasi PIC Keuangan', field: 'pic_approved_by' },
     { key: 'ppk_approved',   label: 'Disetujui PPK',           field: 'ppk_approved_by' },
-    { key: 'pic_approved',   label: 'Disetujui PIC Keuangan',  field: 'pic_approved_by' },
     { key: 'dicairkan',      label: 'Dicairkan',               field: 'dicairkan_by' },
 ];
 
-const STATUS_ORDER = ['submitted','katim_approved','kabag_approved','ppk_approved','pic_approved','dicairkan'];
+const STATUS_ORDER = ['submitted','katim_approved','pic_approved','ppk_approved','dicairkan'];
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 

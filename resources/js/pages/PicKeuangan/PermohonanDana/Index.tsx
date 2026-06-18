@@ -89,8 +89,8 @@ const statusColor = (s: string) => {
 type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
     { key: 'all',      label: 'Semua Ajuan', statuses: null },
-    { key: 'waiting',  label: 'Menunggu',    statuses: ['ppk_approved'] },
-    { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'waiting',  label: 'Menunggu',    statuses: ['katim_approved'] },
+    { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
     { key: 'revisi',   label: 'Revisi',      statuses: ['rejected'] },
     { key: 'selesai',  label: 'Selesai',     statuses: ['dicairkan'] },
 ];
@@ -243,7 +243,7 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props)
                                         </tr>
                                     ) : (
                                         paginated.map((pd, i) => {
-                                            const canAct = pd.status === 'ppk_approved';
+                                            const canAct = pd.status === 'katim_approved';
                                             const canPrint = !['draft', 'rejected'].includes(pd.status);
                                             return (
                                                 <tr key={pd.id} className={cn('hover:bg-gray-50/60 transition-colors', canAct && 'bg-amber-50/40')}>

@@ -9,6 +9,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class CleanNominatifTemplate extends Command
 {
     protected $signature = 'template:clean-nominatif';
+
     protected $description = 'Clean nominatif template: keep only 7 sheets, remove external references';
 
     public function handle()
@@ -16,8 +17,9 @@ class CleanNominatifTemplate extends Command
         $src = base_path('bahan_keuangan/Ref. - User, Pegawai  dan Daftar Nominatif.xlsx');
         $dst = storage_path('app/templates/nominatif_template_clean.xlsx');
 
-        if (!file_exists($src)) {
-            $this->error('Source template not found: ' . $src);
+        if (! file_exists($src)) {
+            $this->error('Source template not found: '.$src);
+
             return 1;
         }
 
@@ -29,7 +31,7 @@ class CleanNominatifTemplate extends Command
         $names = $spreadsheet->getSheetNames();
 
         foreach ($names as $name) {
-            if (!in_array($name, $keep)) {
+            if (! in_array($name, $keep)) {
                 $idx = $spreadsheet->getIndex($spreadsheet->getSheetByName($name));
                 $spreadsheet->removeSheetByIndex($idx);
             }
@@ -40,7 +42,7 @@ class CleanNominatifTemplate extends Command
         $writer->save($dst);
 
         // Clean up ZIP: remove external links, calcChain
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($dst) === true) {
             // Remove external link files
             for ($i = $zip->numFiles - 1; $i >= 0; $i--) {

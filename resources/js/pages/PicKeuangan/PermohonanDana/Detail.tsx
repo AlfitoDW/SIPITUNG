@@ -153,7 +153,7 @@ export default function Detail({ pd }: Props) {
 
     const { data, setData, post, processing, reset } = useForm({ catatan: '' });
 
-    const canApprove = pd.status === 'ppk_approved';
+    const canApprove = pd.status === 'katim_approved';
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
@@ -218,7 +218,7 @@ export default function Detail({ pd }: Props) {
                                 <TooltipContent>Cetak permohonan dana</TooltipContent>
                             </Tooltip>
                         )}
-                        {/* Approve / Reject — hanya jika status ppk_approved */}
+                        {/* Approve / Reject — hanya jika status katim_approved */}
                         {canApprove && (
                             <>
                                 <Tooltip>
@@ -228,7 +228,7 @@ export default function Detail({ pd }: Props) {
                                             <CheckCircle2 className="h-4 w-4" /> Verifikasi
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Verifikasi dan teruskan ke Bendahara untuk pencairan</TooltipContent>
+                                    <TooltipContent>Verifikasi dan teruskan ke PPK</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -246,10 +246,9 @@ export default function Detail({ pd }: Props) {
                             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
                                 Menunggu {{
                                     submitted: 'persetujuan KA.TIM',
-                                    katim_approved: 'persetujuan Kabag Umum',
-                                    kabag_approved: 'persetujuan PPK',
-                                    ppk_approved: 'verifikasi PIC Keuangan',
-                                    pic_approved: 'pencairan Bendahara',
+                                    katim_approved: 'verifikasi PIC Keuangan',
+                                    pic_approved: 'persetujuan PPK',
+                                    ppk_approved: 'pencairan Bendahara',
                                 }[pd.status] ?? 'proses'}
                             </span>
                         )}
@@ -325,7 +324,7 @@ export default function Detail({ pd }: Props) {
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {action === 'approve'
-                                ? `Verifikasi ${pd.nomor_permohonan} dan teruskan ke Bendahara untuk pencairan?`
+                                ? `Verifikasi ${pd.nomor_permohonan} dan teruskan ke PPK?`
                                 : `Tolak ${pd.nomor_permohonan}? PUMK perlu merevisi dan mengajukan ulang.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>

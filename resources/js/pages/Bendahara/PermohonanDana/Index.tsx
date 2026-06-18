@@ -94,9 +94,9 @@ const statusColor = (s: string) => {
 
 type Tab = { key: string; label: string; statuses: string[] | null };
 const TABS: Tab[] = [
-    { key: 'perlu_diproses', label: 'Perlu Diproses', statuses: ['pic_approved'] },
+    { key: 'perlu_diproses', label: 'Perlu Diproses', statuses: ['ppk_approved'] },
     { key: 'all',            label: 'Semua Ajuan',    statuses: null },
-    { key: 'diajukan',       label: 'Diajukan',       statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
+    { key: 'diajukan',       label: 'Diajukan',       statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
     { key: 'revisi',         label: 'Revisi',         statuses: ['rejected'] },
     { key: 'selesai',        label: 'Selesai',        statuses: ['dicairkan'] },
 ];
@@ -255,7 +255,7 @@ export default function PermohonanDanaIndex({ tahun, perluDiproses, semuaAjuan, 
                                         </tr>
                                     ) : (
                                         paginated.map((pd, i) => {
-                                            const canCairkan = pd.status === 'pic_approved' && !pd.bukti_bayar_path;
+                                            const canCairkan = pd.status === 'ppk_approved' && !pd.bukti_bayar_path;
                                             const hasBukti = !!pd.bukti_bayar_path;
                                             const canPrint = !['draft', 'rejected'].includes(pd.status);
                                             return (

@@ -19,7 +19,7 @@ type Stats = {
 };
 
 type PipelineStats = {
-    ppk_approved: number;
+    katim_approved: number;
     pic_approved: number;
     dicairkan: number;
 };
@@ -29,7 +29,7 @@ type TugasItem = {
     nomor_permohonan: string;
     keperluan: string;
     total_anggaran: number;
-    ppk_approved_at: string;
+    katim_approved_at: string;
     hari_menunggu: number;
     tim_kerja: TimKerja;
 };
@@ -89,8 +89,8 @@ function SummaryCard({
 
 /* ─── Pipeline config ──────────────────────────────────────────────── */
 const PIPELINE_ROWS = [
-    { key: 'ppk_approved' as const, label: 'Menunggu Verifikasi', dot: 'bg-violet-400', text: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', spinner: true as const, spinnerColor: 'text-violet-400' },
-    { key: 'pic_approved' as const, label: 'Siap Dicairkan', dot: 'bg-lime-400', text: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-950/20', spinner: true as const, spinnerColor: 'text-lime-400' },
+    { key: 'katim_approved' as const, label: 'Menunggu Verifikasi', dot: 'bg-violet-400', text: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', spinner: true as const, spinnerColor: 'text-violet-400' },
+    { key: 'pic_approved' as const, label: 'Siap Disetujui PPK', dot: 'bg-lime-400', text: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-950/20', spinner: true as const, spinnerColor: 'text-lime-400' },
     { key: 'dicairkan' as const, label: 'Sudah Dicairkan', dot: 'bg-emerald-400', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
 ] as const;
 
@@ -140,7 +140,7 @@ export default function Dashboard({
     tahun, user, stats, pipeline, tugasHariIni, riwayatVerifikasi,
     nilaiVerifikasi, nilaiPencairan, nilaiSelesai,
 }: Props) {
-    const pdTotal = pipeline.ppk_approved + pipeline.pic_approved + pipeline.dicairkan;
+    const pdTotal = pipeline.katim_approved + pipeline.pic_approved + pipeline.dicairkan;
     const isLoading = useNavigationLoading();
 
     return (
@@ -243,7 +243,7 @@ export default function Dashboard({
                                 <div className="space-y-1">
                                     {PIPELINE_ROWS.map((row) => {
                                         const value = pipeline[row.key];
-                                        const isActive = row.key === 'ppk_approved' && value > 0;
+                                        const isActive = row.key === 'katim_approved' && value > 0;
                                         return (
                                             <div
                                                 key={row.key}

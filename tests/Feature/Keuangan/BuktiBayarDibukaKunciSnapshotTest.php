@@ -91,7 +91,7 @@ it('saves dibuka kunci by snapshot', function () {
     session(['tahun_anggaran_id' => $this->tahun->id]);
     $this->actingAs($this->bendahara);
 
-    $service = new \App\Services\PermohonanDanaService();
+    $service = new \App\Services\PermohonanDanaService;
     $service->bukaKunci($this->pd, $this->bendahara, 'Salah input');
 
     $this->pd->refresh();
@@ -105,7 +105,7 @@ it('dibuka kunci snapshot survives actor name change', function () {
 
     $originalName = $this->bendahara->nama_lengkap;
 
-    $service = new \App\Services\PermohonanDanaService();
+    $service = new \App\Services\PermohonanDanaService;
     $service->bukaKunci($this->pd, $this->bendahara, 'Salah input');
 
     $this->bendahara->update(['nama_lengkap' => 'Bendahara Baru']);

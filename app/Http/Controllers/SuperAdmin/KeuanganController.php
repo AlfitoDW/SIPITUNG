@@ -36,18 +36,16 @@ class KeuanganController extends Controller
                 'pic_keuangan_name' => $pd->pic_keuangan_name,
                 'next_approver_role' => match ($pd->status) {
                     'submitted' => 'KA.TIM',
-                    'katim_approved' => 'Kabag Umum',
-                    'kabag_approved' => 'PPK',
-                    'ppk_approved' => 'PIC Keuangan',
-                    'pic_approved' => 'Bendahara',
+                    'katim_approved' => 'PIC Keuangan',
+                    'pic_approved' => 'PPK',
+                    'ppk_approved' => 'Bendahara',
                     default => null,
                 },
                 'next_approver_name' => match ($pd->status) {
                     'submitted' => $pd->kapokja_name,
-                    'katim_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
-                    'kabag_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => $pd->pic_keuangan_name,
-                    'pic_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    'katim_approved' => $pd->pic_keuangan_name,
+                    'pic_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
@@ -66,7 +64,7 @@ class KeuanganController extends Controller
             ->map($mapFn);
 
         $diajukan = (clone $baseQuery)
-            ->whereIn('status', ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'])
+            ->whereIn('status', ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'])
             ->get()
             ->map($mapFn);
 

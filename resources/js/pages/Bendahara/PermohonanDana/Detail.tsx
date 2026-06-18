@@ -145,7 +145,7 @@ export default function Detail({ pd }: Props) {
     const [showBukaKunci, setShowBukaKunci] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
-    const canAct = pd.status === 'pic_approved';
+    const canAct = pd.status === 'ppk_approved';
     const canUploadBuktiBayar = pd.status === 'dicairkan' && !pd.bukti_bayar_path;
 
     const user = (usePage().props as unknown as { auth: { user: { role: string } } }).auth.user;

@@ -14,33 +14,41 @@ use Inertia\Response;
 /**
  * KA.TIM (Ketua Tim Kerja) — Approval Step 1
  *
- * KA.TIM melihat dan menyetujui/menolak permohonan yang diajukan oleh PUMK
- * dari tim kerja yang sama, ATAU permohonan di mana KA.TIM dipilih sebagai kapokja.
+ * KA.TIM PK (TK-PK) melihat semua permohonan lintas tim kerja.
+ * KA.TIM non-PK hanya melihat permohonan dari tim kerjanya sendiri
+ * atau permohonan di mana dia dipilih sebagai kapokja.
+ * Semua KA.TIM hanya bisa menyetujui/menolak permohonan di mana dia
+ * sebagai kapokja.
  */
 class PermohonanDanaController extends Controller
 {
+    private function isTkPk(Request $request): bool
+    {
+        return $request->user()->load('timkerja')->timkerja?->kode === 'TK-PK';
+    }
+
     public function index(Request $request): Response
     {
         $tahun = TahunAnggaran::forSession();
-        $timKerjaId = $request->user()->tim_kerja_id;
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
+        $isTkPk = $this->isTkPk($request);
 
-        // Scope: tim sendiri OR kapokja = user ini
         $baseQuery = PermohonanDana::with(['items', 'timKerja'])
             ->where('tahun_anggaran_id', $tahun->id)
-            ->where(function ($q) use ($timKerjaId, $userId) {
-                $q->where('tim_kerja_id', $timKerjaId)
-                    ->orWhere('kapokja_id', $userId);
+            ->when(! $isTkPk, function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('tim_kerja_id', $user->tim_kerja_id)
+                        ->orWhere('kapokja_id', $user->id);
+                });
             })
             ->orderByDesc('created_at');
 
-        // Menunggu (bisa approve): submitted + kapokja = user ini
         $menunggu = (clone $baseQuery)
             ->where('status', 'submitted')
             ->where('kapokja_id', $userId)
             ->get();
 
-        // Semua permohonan yang bisa dilihat
         $permohonan = $baseQuery->get();
 
         $mapPd = fn ($pd) => [
@@ -82,18 +90,16 @@ class PermohonanDanaController extends Controller
             'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
             'next_approver_role' => match ($pd->status) {
                 'submitted' => 'KA.TIM',
-                'katim_approved' => 'Kabag Umum',
-                'kabag_approved' => 'PPK',
-                'ppk_approved' => 'PIC Keuangan',
-                'pic_approved' => 'Bendahara',
+                'katim_approved' => 'PIC Keuangan',
+                'pic_approved' => 'PPK',
+                'ppk_approved' => 'Bendahara',
                 default => null,
             },
             'next_approver_name' => match ($pd->status) {
                 'submitted' => $pd->kapokja_name,
-                'katim_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'kabag_umum')->where('is_active', true)->value('nama_lengkap'),
-                'kabag_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                'ppk_approved' => $pd->pic_keuangan_name,
-                'pic_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                'katim_approved' => $pd->pic_keuangan_name,
+                'pic_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                'ppk_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                 default => null,
             },
             'items' => $pd->items->map(fn ($item) => [
@@ -117,8 +123,11 @@ class PermohonanDanaController extends Controller
     public function show(Request $request, PermohonanDana $pd): Response
     {
         $user = $request->user();
-        $canView = $pd->tim_kerja_id === $user->tim_kerja_id || $pd->kapokja_id === $user->id;
-        abort_if(! $canView, 403, 'Anda tidak memiliki akses ke permohonan ini.');
+
+        if (! $this->isTkPk($request)) {
+            $canView = $pd->tim_kerja_id === $user->tim_kerja_id || $pd->kapokja_id === $user->id;
+            abort_if(! $canView, 403, 'Anda tidak memiliki akses ke permohonan ini.');
+        }
 
         $pd->load([
             'dokumens', 'timKerja',
@@ -243,8 +252,11 @@ class PermohonanDanaController extends Controller
     public function print(Request $request, PermohonanDana $pd): Response
     {
         $user = $request->user();
-        $canView = $pd->tim_kerja_id === $user->tim_kerja_id || $pd->kapokja_id === $user->id;
-        abort_if(! $canView, 403, 'Anda tidak memiliki akses ke permohonan ini.');
+
+        if (! $this->isTkPk($request)) {
+            $canView = $pd->tim_kerja_id === $user->tim_kerja_id || $pd->kapokja_id === $user->id;
+            abort_if(! $canView, 403, 'Anda tidak memiliki akses ke permohonan ini.');
+        }
 
         $pd->load([
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
@@ -275,7 +287,7 @@ class PermohonanDanaController extends Controller
             ]);
         });
 
-        return back()->with('success', "Permohonan {$pd->nomor_permohonan} disetujui, diteruskan ke Kabag Umum.");
+        return back()->with('success', "Permohonan {$pd->nomor_permohonan} disetujui, diteruskan ke PIC Keuangan.");
     }
 
     public function reject(Request $request, PermohonanDana $pd): RedirectResponse

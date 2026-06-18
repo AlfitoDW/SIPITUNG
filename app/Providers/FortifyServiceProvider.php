@@ -69,6 +69,7 @@ class FortifyServiceProvider extends ServiceProvider
                 $valid = TahunAnggaran::where('id', $tahunAnggaranId)->where('is_active', true)->exists();
                 if (! $valid) {
                     $request->session()->flash('error', 'Tahun anggaran tidak valid atau nonaktif.');
+
                     return null;
                 }
             } else {
@@ -78,6 +79,7 @@ class FortifyServiceProvider extends ServiceProvider
             // 2. Super_admin: always allowed
             if ($user->isSuperAdmin()) {
                 $request->session()->put('tahun_anggaran_id', $tahunAnggaranId);
+
                 return $user;
             }
 
@@ -89,10 +91,12 @@ class FortifyServiceProvider extends ServiceProvider
 
             if (! $hasAssignment) {
                 $request->session()->flash('error', 'Akun tidak terdaftar untuk tahun anggaran ini.');
+
                 return null;
             }
 
             $request->session()->put('tahun_anggaran_id', $tahunAnggaranId);
+
             return $user;
         });
     }

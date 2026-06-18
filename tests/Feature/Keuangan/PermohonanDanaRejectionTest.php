@@ -58,7 +58,7 @@ it('katim can reject submitted and pumk can resubmit', function () {
     expect($fresh->fresh()->status)->toBe('submitted');
 });
 
-it('kabag can reject katim_approved', function () {
+it('kabag gets 403 rejecting (view-only)', function () {
     $pd = PermohonanDana::factory()->katimApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
@@ -69,19 +69,15 @@ it('kabag can reject katim_approved', function () {
 
     $this->actingAs($this->kabag)
         ->post(route('pimpinan.keuangan.permohonan-dana.reject', $pd), [
-            'catatan' => 'Anggaran tidak mencukupi',
+            'catatan' => 'Tidak berhak',
         ])
-        ->assertRedirect();
+        ->assertForbidden();
 
-    $fresh = $pd->fresh();
-    expect($fresh->status)->toBe('rejected')
-        ->and($fresh->rejected_at_step)->toBe('kabag')
-        ->and($fresh->kabag_approved_by)->toBeNull()
-        ->and($fresh->rejections)->toHaveCount(1);
+    expect($pd->fresh()->status)->toBe('katim_approved');
 });
 
-it('ppk can reject kabag_approved', function () {
-    $pd = PermohonanDana::factory()->kabagApproved()->create([
+it('ppk can reject pic_approved', function () {
+    $pd = PermohonanDana::factory()->picApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -98,12 +94,11 @@ it('ppk can reject kabag_approved', function () {
     $fresh = $pd->fresh();
     expect($fresh->status)->toBe('rejected')
         ->and($fresh->rejected_at_step)->toBe('ppk')
-        ->and($fresh->ppk_approved_by)->toBeNull()
         ->and($fresh->rejections)->toHaveCount(1);
 });
 
-it('pic can reject ppk_approved', function () {
-    $pd = PermohonanDana::factory()->ppkApproved()->create([
+it('pic can reject katim_approved', function () {
+    $pd = PermohonanDana::factory()->katimApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -120,12 +115,11 @@ it('pic can reject ppk_approved', function () {
     $fresh = $pd->fresh();
     expect($fresh->status)->toBe('rejected')
         ->and($fresh->rejected_at_step)->toBe('pic')
-        ->and($fresh->pic_approved_by)->toBeNull()
         ->and($fresh->rejections)->toHaveCount(1);
 });
 
-it('bendahara can reject pic_approved', function () {
-    $pd = PermohonanDana::factory()->picApproved()->create([
+it('bendahara can reject ppk_approved', function () {
+    $pd = PermohonanDana::factory()->ppkApproved()->create([
         'tahun_anggaran_id' => $this->tahunAnggaran->id,
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
@@ -142,6 +136,5 @@ it('bendahara can reject pic_approved', function () {
     $fresh = $pd->fresh();
     expect($fresh->status)->toBe('rejected')
         ->and($fresh->rejected_at_step)->toBe('bendahara')
-        ->and($fresh->dicairkan_by)->toBeNull()
         ->and($fresh->rejections)->toHaveCount(1);
 });

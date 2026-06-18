@@ -20,15 +20,14 @@ class DashboardController extends Controller
         $type = $user->pimpinan_type;
         $tahun = TahunAnggaran::forSession();
 
-        // Hanya kabag_umum yang dapat melakukan persetujuan.
-        // PPK tidak lagi memiliki alur approve terpisah.
         $isKabag = $type === 'kabag_umum';
+        $isPPK = $type === 'ppk';
 
         $pending = $tahun ? [
             'pk_awal' => $isKabag ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->where('jenis', 'awal')->where('status', 'submitted')->count() : 0,
             'pk_revisi' => $isKabag ? PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->where('jenis', 'revisi')->where('status', 'submitted')->count() : 0,
             'ra' => $isKabag ? RencanaAksi::where('tahun_anggaran_id', $tahun->id)->where('status', 'submitted')->count() : 0,
-            'permohonan_dana' => $isKabag ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)->where('status', 'submitted')->count() : 0,
+            'permohonan_dana' => $isPPK ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)->where('status', 'pic_approved')->count() : 0,
             'pengukuran' => $isKabag
                 ? LaporanPengukuran::where('status', 'submitted')
                     ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
@@ -39,7 +38,7 @@ class DashboardController extends Controller
         $approved = $tahun ? [
             'pk' => PerjanjianKinerja::where('tahun_anggaran_id', $tahun->id)->where('status', 'kabag_approved')->count(),
             'ra' => RencanaAksi::where('tahun_anggaran_id', $tahun->id)->where('status', 'kabag_approved')->count(),
-            'permohonan_dana' => PermohonanDana::where('tahun_anggaran_id', $tahun->id)->where('status', 'kabag_approved')->count(),
+            'permohonan_dana' => $isPPK ? PermohonanDana::where('tahun_anggaran_id', $tahun->id)->where('status', 'ppk_approved')->count() : 0,
             'pengukuran' => LaporanPengukuran::where('status', 'kabag_approved')
                 ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
                 ->count(),

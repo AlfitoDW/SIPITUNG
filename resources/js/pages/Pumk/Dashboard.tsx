@@ -109,10 +109,9 @@ function SummaryCard({
 const PIPELINE_ROWS = [
     { key: 'draft' as const, label: 'Draft', dot: 'bg-amber-400', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/20' },
     { key: 'submitted' as const, label: 'Menunggu KA.TIM', dot: 'bg-blue-400', text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/20', spinner: true as const, spinnerColor: 'text-blue-400' },
-    { key: 'katim_approved' as const, label: 'Menunggu Kabag', dot: 'bg-sky-400', text: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950/20', spinner: true as const, spinnerColor: 'text-sky-400' },
-    { key: 'kabag_approved' as const, label: 'Menunggu PPK', dot: 'bg-indigo-400', text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/20', spinner: true as const, spinnerColor: 'text-indigo-400' },
-    { key: 'ppk_approved' as const, label: 'Menunggu PIC', dot: 'bg-violet-400', text: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', spinner: true as const, spinnerColor: 'text-violet-400' },
-    { key: 'pic_approved' as const, label: 'Siap Dicairkan', dot: 'bg-lime-400', text: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-950/20', spinner: true as const, spinnerColor: 'text-lime-400' },
+    { key: 'katim_approved' as const, label: 'Menunggu PIC', dot: 'bg-sky-400', text: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950/20', spinner: true as const, spinnerColor: 'text-sky-400' },
+    { key: 'pic_approved' as const, label: 'Menunggu PPK', dot: 'bg-violet-400', text: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', spinner: true as const, spinnerColor: 'text-violet-400' },
+    { key: 'ppk_approved' as const, label: 'Siap Dicairkan', dot: 'bg-lime-400', text: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-950/20', spinner: true as const, spinnerColor: 'text-lime-400' },
     { key: 'dicairkan' as const, label: 'Sudah Dicairkan', dot: 'bg-emerald-400', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
     { key: 'rejected' as const, label: 'Ditolak', dot: 'bg-red-400', text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/20' },
 ] as const;

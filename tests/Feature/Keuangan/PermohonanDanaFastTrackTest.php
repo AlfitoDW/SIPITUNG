@@ -23,10 +23,11 @@ beforeEach(function () {
     $this->kabag = User::factory()->kabag()->create();
     $this->ppk = User::factory()->ppk()->create();
     $this->pic = User::factory()->picKeuangan()->create();
+    $this->bendahara = User::factory()->bendahara()->create();
 });
 
 describe('fast-track approval', function () {
-    it('approves permohonan from submitted to pic_approved in one go', function () {
+    it('approves permohonan from submitted to dicairkan in one go', function () {
         $pd = PermohonanDana::factory()->submitted()->create([
             'tahun_anggaran_id' => $this->tahunAnggaran->id,
             'tim_kerja_id' => $this->timKerja->id,
@@ -40,15 +41,15 @@ describe('fast-track approval', function () {
             ->assertRedirect();
 
         $fresh = $pd->fresh();
-        expect($fresh->status)->toBe('pic_approved')
+        expect($fresh->status)->toBe('dicairkan')
             ->and($fresh->katim_approved_by)->toBe($this->kapokja->id)
             ->and($fresh->katim_approved_at)->not->toBeNull()
-            ->and($fresh->kabag_approved_by)->toBe($this->kabag->id)
-            ->and($fresh->kabag_approved_at)->not->toBeNull()
+            ->and($fresh->pic_approved_by)->toBe($this->pic->id)
+            ->and($fresh->pic_approved_at)->not->toBeNull()
             ->and($fresh->ppk_approved_by)->toBe($this->ppk->id)
             ->and($fresh->ppk_approved_at)->not->toBeNull()
-            ->and($fresh->pic_approved_by)->toBe($this->pic->id)
-            ->and($fresh->pic_approved_at)->not->toBeNull();
+            ->and($fresh->dicairkan_by)->not->toBeNull()
+            ->and($fresh->dicairkan_at)->not->toBeNull();
     });
 
     it('rejects fast-track if status is not submitted', function () {
@@ -106,7 +107,7 @@ describe('fast-track approval', function () {
             ->post(route('pumk.permohonan-dana.fast-track', $pd1))
             ->assertRedirect();
 
-        expect($pd1->fresh()->status)->toBe('pic_approved')
+        expect($pd1->fresh()->status)->toBe('dicairkan')
             ->and($pd2->fresh()->status)->toBe('submitted');
     });
 });

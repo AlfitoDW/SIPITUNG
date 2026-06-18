@@ -216,7 +216,7 @@ export default function Detail({ pd }: Props) {
                                             <CheckCircle2 className="h-4 w-4" /> Setujui
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Setujui dan teruskan ke Kabag Umum</TooltipContent>
+                                    <TooltipContent>Setujui dan teruskan ke PIC Keuangan</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

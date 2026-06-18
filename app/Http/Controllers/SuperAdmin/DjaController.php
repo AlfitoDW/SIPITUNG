@@ -515,15 +515,15 @@ class DjaController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         try {
-            $service = new \App\Services\DjaImportService();
+            $service = new \App\Services\DjaImportService;
             $preview = $service->preview($request->file('file')->getRealPath(), $tahun);
 
-            $importKey = 'import_preview_' . $request->user()->id . '_' . $tahun->id;
+            $importKey = 'import_preview_'.$request->user()->id.'_'.$tahun->id;
             cache()->put($importKey, $preview, now()->addHour());
 
             return $this->indexWithPreview($tahun, $preview, $importKey);
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memproses file: '.$e->getMessage());
         }
     }
 
@@ -547,7 +547,7 @@ class DjaController extends Controller
 
         try {
             $previewData['catatan'] = $request->input('catatan');
-            $service = new \App\Services\DjaImportService();
+            $service = new \App\Services\DjaImportService;
             $revisi = $service->commit($previewData, $request->user()->id, $tahun);
 
             cache()->forget($request->import_key);
@@ -564,9 +564,9 @@ class DjaController extends Controller
             }
 
             return redirect()->route('super-admin.keuangan.master-anggaran.index')
-                ->with('success', $msg . $notif);
+                ->with('success', $msg.$notif);
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal menerapkan revisi: ' . $e->getMessage());
+            return back()->with('error', 'Gagal menerapkan revisi: '.$e->getMessage());
         }
     }
 

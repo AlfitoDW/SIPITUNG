@@ -86,13 +86,24 @@ const statusColor = (s: string) => {
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
 type Tab = { key: string; label: string; statuses: string[] | null };
-const TABS: Tab[] = [
-    { key: 'all',      label: 'Semua Ajuan', statuses: null },
-    { key: 'waiting',  label: 'Menunggu',    statuses: ['katim_approved', 'kabag_approved'] },
-    { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'kabag_approved', 'ppk_approved', 'pic_approved'] },
-    { key: 'revisi',   label: 'Revisi',      statuses: ['rejected'] },
-    { key: 'selesai',  label: 'Selesai',     statuses: ['dicairkan'] },
-];
+
+function buildTabs(isKabag: boolean): Tab[] {
+    if (isKabag) {
+        return [
+            { key: 'all',      label: 'Semua Ajuan', statuses: null },
+            { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
+            { key: 'revisi',   label: 'Revisi',      statuses: ['rejected'] },
+            { key: 'selesai',  label: 'Selesai',     statuses: ['dicairkan'] },
+        ];
+    }
+    return [
+        { key: 'all',      label: 'Semua Ajuan', statuses: null },
+        { key: 'waiting',  label: 'Menunggu',    statuses: ['pic_approved'] },
+        { key: 'diajukan', label: 'Diajukan',    statuses: ['submitted', 'katim_approved', 'pic_approved', 'ppk_approved'] },
+        { key: 'revisi',   label: 'Revisi',      statuses: ['rejected'] },
+        { key: 'selesai',  label: 'Selesai',     statuses: ['dicairkan'] },
+    ];
+}
 
 
 
@@ -100,9 +111,10 @@ const TABS: Tab[] = [
 
 export default function PermohonanDanaIndex({ tahun, menunggu, riwayat, role }: Props) {
     const isKabag = role === 'kabag_umum';
-    const roleLabel = isKabag ? 'Kabag Umum' : 'PPK';
-    const stepLabel = isKabag ? 'Step 2' : 'Step 3';
+    const roleLabel = isKabag ? 'Kabag Umum (View-only)' : 'PPK';
+    const stepLabel = isKabag ? 'View-only' : 'Step 3';
 
+    const TABS = useMemo(() => buildTabs(isKabag), [isKabag]);
     const allData = useMemo(() => riwayat, [riwayat]);
 
     const [activeTab, setActiveTab] = useState('all');
@@ -253,9 +265,7 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat, role }: 
                                                 </tr>
                                             ) : (
                                                 paginated.map((pd, i) => {
-                                                    const canAct = isKabag
-                                                        ? pd.status === 'katim_approved'
-                                                        : pd.status === 'kabag_approved';
+                                                    const canAct = !isKabag && pd.status === 'pic_approved';
                                                     return (
                                                         <tr key={pd.id} className={cn('hover:bg-gray-50/60 transition-colors', canAct && 'bg-amber-50/40')}>
                                                             <td className="px-3 py-3 text-center text-muted-foreground tabular-nums text-xs">{from + i}</td>

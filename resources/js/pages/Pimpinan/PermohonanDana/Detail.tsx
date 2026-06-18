@@ -132,10 +132,8 @@ export default function Detail({ pd, role }: Props) {
     const { data, setData, post, processing, reset } = useForm({ catatan: '' });
 
     const isKabag = role === 'kabag_umum';
-    const canApprove = isKabag
-        ? pd.status === 'katim_approved'
-        : pd.status === 'kabag_approved';
-    const nextLabel = isKabag ? 'PPK' : 'PIC Keuangan';
+    const canApprove = !isKabag && pd.status === 'pic_approved';
+    const nextLabel = 'Bendahara';
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
@@ -216,10 +214,9 @@ export default function Detail({ pd, role }: Props) {
                             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
                                 Menunggu {{
                                     submitted: 'persetujuan KA.TIM',
-                                    katim_approved: 'persetujuan Kabag Umum',
-                                    kabag_approved: 'persetujuan PPK',
-                                    ppk_approved: 'verifikasi PIC Keuangan',
-                                    pic_approved: 'pencairan Bendahara',
+                                    katim_approved: 'verifikasi PIC Keuangan',
+                                    pic_approved: 'persetujuan PPK',
+                                    ppk_approved: 'pencairan Bendahara',
                                 }[pd.status] ?? 'proses'}
                             </span>
                         )}

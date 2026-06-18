@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
 class BackfillApproverSnapshots extends Command
 {
     protected $signature = 'backfill:approver-snapshots';
+
     protected $description = 'Backfill approver name & NIP snapshots from users table';
 
     public function handle(): int
@@ -40,7 +41,7 @@ class BackfillApproverSnapshots extends Command
                         if ($user) {
                             $pd->update([
                                 $step['nameField'] => $user->nama_lengkap,
-                                $step['nipField']  => $user->nip,
+                                $step['nipField'] => $user->nip,
                             ]);
                             $count++;
                         }
@@ -129,6 +130,7 @@ class BackfillApproverSnapshots extends Command
         $total += $bkCount;
 
         $this->info("Done. Total backfilled: {$total}");
+
         return self::SUCCESS;
     }
 }
