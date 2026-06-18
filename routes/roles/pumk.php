@@ -33,8 +33,7 @@ Route::prefix('pumk')->middleware('role:pumk')->name('pumk.')->group(function ()
         Route::post('/{pd}/upload-lpj', [PermohonanDanaController::class, 'uploadLpj'])->name('lpj.upload');
         Route::post('/{pd}/hapus-lpj', [PermohonanDanaController::class, 'hapusLpj'])->name('lpj.hapus');
 
-        // Nominatif
-        Route::get('/{pd}/nominatif', [NominatifController::class, 'index'])->name('nominatif');
+        // Nominatif (simpan via old route masih digunakan oleh tests)
         Route::post('/{pd}/nominatif/simpan', [NominatifController::class, 'store'])->name('nominatif.store');
 
         // Cascading dropdown APIs

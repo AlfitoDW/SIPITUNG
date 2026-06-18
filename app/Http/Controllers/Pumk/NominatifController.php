@@ -271,7 +271,7 @@ class NominatifController extends Controller
             }
         });
 
-        return redirect()->route('pumk.permohonan-dana.nominatif', $pd->id)
+        return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Daftar nominatif berhasil disimpan.');
     }
 

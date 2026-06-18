@@ -1,8 +1,12 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { CheckCircle2, Upload, Trash2, AlertTriangle, Loader2, Lock, Eye, X, FileText, Plus, Pencil, ChevronDown, ChevronRight, UserPlus } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import DocPreviewModal from '@/components/DocPreviewModal';
+import PegawaiCombobox from '@/components/PegawaiCombobox';
+import type { PegawaiComboboxRefNama } from '@/components/PegawaiCombobox';
+import TambahPegawaiDialog from '@/components/TambahPegawaiDialog';
+import EditPegawaiDialog from './EditPegawaiDialog';
 import { SkeletonPageHeader, SkeletonForm } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +46,39 @@ interface KapokjaItem {
 }
 interface PicItem     { id:number; nama_lengkap:string; }
 interface Dokumen     { id:number; jenis_dokumen_id:number; nama_jenis:string; nama_file:string; path_file:string; }
+
+type RefNama = PegawaiComboboxRefNama;
+
+interface NominatifRow {
+    item_id: number;
+    ref_nama_id: number | string | null;
+    nama: string;
+    nip: string;
+    nik: string;
+    npwp: string;
+    gol_ruang: string;
+    nama_rekening: string;
+    no_rekening: string;
+    nama_bank: string;
+    email: string;
+    pph21_persen: string;
+    jabatan: string;
+    volume: string;
+    satuan: string;
+    harga_satuan: string;
+    transport: string;
+    uang_harian_vol: string;
+    uang_harian_satuan: string;
+    fullboard_vol: string;
+    fullboard_satuan: string;
+    fullday_vol: string;
+    fullday_satuan: string;
+    representasi: string;
+    taksi_pp: string;
+    tiket_pesawat: string;
+    hotel: string;
+}
+
 interface RincianItem {
     id:number; kode_akun:string; nama_akun:string; nama_item:string;
     satuan:string; harga_satuan:number; harga_satuan_aktual:number;
@@ -50,13 +87,29 @@ interface RincianItem {
     status_anggaran?: 'overbudget' | 'habis' | 'tersedia' | 'belum_terpakai';
     volume_diminta:number; jumlah_permintaan:number;
     tipe_nominatif: 'honor' | 'perjadin' | 'non_nominatif';
-    nominatif_count: number;   // jumlah baris nominatif yang sudah diisi
+    nominatif_count: number;
+    nominatif: Array<{
+        id: number;
+        ref_nama_id: number | null;
+        nama: string;
+        nip: string | null; nik: string | null; npwp: string | null;
+        gol_ruang: string | null; nama_rekening: string | null;
+        no_rekening: string | null; nama_bank: string | null;
+        email: string | null; pph21_persen: string;
+        jabatan: string | null;
+        volume: string; harga_satuan: string;
+        transport: string; uang_harian_vol: string; uang_harian_satuan: string;
+        fullboard_vol: string; fullboard_satuan: string;
+        fullday_vol: string; fullday_satuan: string;
+        representasi: string; taksi_pp: string; tiket_pesawat: string; hotel: string;
+    }>;
 }
 interface Props {
     pd: Pd;
     kapokjaList: KapokjaItem[];
     picList: PicItem[];
-    rincianBiaya: RincianItem[][];  // grouped by akun
+    rincianBiaya: RincianItem[][];
+    refNama: RefNama[];
     jenisDokumen: Record<string,string>;
 }
 
@@ -65,6 +118,89 @@ const fmt = (n: number | string | null | undefined) => {
     return new Intl.NumberFormat('id-ID').format(Number.isNaN(num) ? 0 : num);
 };
 const STEPS = ['Kegiatan','Waktu & PJ','Dokumen','Rincian Biaya'];
+
+// ── Nominatif helpers ──────────────────────────────────────────────────────
+
+function hitungPph21(status: string, gol: string | null, _npwp: string | null): number {
+    if (status === 'Non-PNS' || status === 'P3K') return 2.5;
+    if (!gol) return 0;
+    const g = gol.toUpperCase();
+    if (g.startsWith('IV')) return 15.0;
+    if (g.startsWith('III')) return 5.0;
+    return 0.0;
+}
+
+const JABATAN_OPTIONS_521213 = ['Honorarium Penanggungjawab', 'Honorarium Ketua', 'Honorarium Wakil Ketua', 'Honorarium Sekretariat', 'Honorarium Anggota'];
+const JABATAN_OPTIONS_522151 = ['Honorarium Narasumber (Pejabat Eselon II)', 'Honorarium Narasumber (Pejabat Eselon III)', 'Honorarium Moderator', 'Honorarium Redaktur (Managing Editor)', 'Honorarium Penyunting/Editor', 'Honorarium Sekretariat', 'Honorarium Pembawa Acara'];
+
+function getJabatanOptions(kodeAkun: string): string[] {
+    if (kodeAkun === '521213') return JABATAN_OPTIONS_521213;
+    if (kodeAkun === '522151') return JABATAN_OPTIONS_522151;
+    return [];
+}
+
+function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number, kodeAkun: string, rowIndex: number = 0): NominatifRow {
+    const jabatanOptions = getJabatanOptions(kodeAkun);
+    let defaultJabatan = '';
+    if (kodeAkun === '521213') {
+        if (rowIndex === 0) defaultJabatan = jabatanOptions[1] ?? '';
+        else if (rowIndex === 1) defaultJabatan = jabatanOptions[2] ?? '';
+    } else if (kodeAkun === '522151') {
+        defaultJabatan = jabatanOptions[0] ?? '';
+    }
+    return {
+        item_id: itemId, ref_nama_id: null,
+        nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
+        nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
+        jabatan: defaultJabatan, volume: '1', satuan: satuan, harga_satuan: String(hargaDefault),
+        transport: '0', uang_harian_vol: '0', uang_harian_satuan: '0',
+        fullboard_vol: '0', fullboard_satuan: '0', fullday_vol: '0', fullday_satuan: '0',
+        representasi: '0', taksi_pp: '0', tiket_pesawat: '0', hotel: '0',
+    };
+}
+
+function makeEmptyPerjadinRow(itemId: number, satuan: string, hargaSatuan: number): NominatifRow {
+    return {
+        item_id: itemId, ref_nama_id: null,
+        nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
+        nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
+        jabatan: '', volume: '1', satuan: satuan, harga_satuan: String(hargaSatuan),
+        transport: '0', uang_harian_vol: '0', uang_harian_satuan: '0',
+        fullboard_vol: '0', fullboard_satuan: '0', fullday_vol: '0', fullday_satuan: '0',
+        representasi: '0', taksi_pp: '0', tiket_pesawat: '0', hotel: '0',
+    };
+}
+
+function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): NominatifRow {
+    const perjadinTotal =
+        (parseFloat(String(nom.transport)) || 0) +
+        ((parseFloat(String(nom.uang_harian_vol)) || 0) * (parseFloat(String(nom.uang_harian_satuan)) || 0)) +
+        ((parseFloat(String(nom.fullboard_vol)) || 0) * (parseFloat(String(nom.fullboard_satuan)) || 0)) +
+        ((parseFloat(String(nom.fullday_vol)) || 0) * (parseFloat(String(nom.fullday_satuan)) || 0)) +
+        (parseFloat(String(nom.representasi)) || 0) +
+        (parseFloat(String(nom.taksi_pp)) || 0) +
+        (parseFloat(String(nom.tiket_pesawat)) || 0) +
+        (parseFloat(String(nom.hotel)) || 0);
+    const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
+    return {
+        item_id: itemId, ref_nama_id: nom.ref_nama_id,
+        nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
+        npwp: nom.npwp ?? '', gol_ruang: nom.gol_ruang ?? '',
+        nama_rekening: nom.nama_rekening ?? '', no_rekening: nom.no_rekening ?? '',
+        nama_bank: nom.nama_bank ?? '', email: nom.email ?? '',
+        pph21_persen: nom.pph21_persen,
+        jabatan: nom.jabatan ?? '',
+        volume: isGeneric ? nom.volume : (perjadinTotal > 0 ? '1' : nom.volume),
+        satuan: '',
+        harga_satuan: isGeneric ? nom.harga_satuan : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
+        transport: nom.transport, uang_harian_vol: nom.uang_harian_vol,
+        uang_harian_satuan: nom.uang_harian_satuan,
+        fullboard_vol: nom.fullboard_vol, fullboard_satuan: nom.fullboard_satuan,
+        fullday_vol: nom.fullday_vol, fullday_satuan: nom.fullday_satuan,
+        representasi: nom.representasi, taksi_pp: nom.taksi_pp,
+        tiket_pesawat: nom.tiket_pesawat, hotel: nom.hotel,
+    };
+}
 
 /** Normalize date string ke YYYY-MM-DD untuk <input type="date"> */
 const toDateInput = (v: string | null | undefined) => (v ? v.slice(0, 10) : '');
@@ -178,7 +314,6 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
     pd: Pd; kapokjaList: KapokjaItem[]; picList: PicItem[];
     onPrev: () => void; onNext: () => void; readonly?: boolean;
 }) {
-    // Inisialisasi dari pd — key di parent memastikan ini fresh setiap pd berubah
     const [form, setFormRaw] = useState({
         tanggal_mulai:          toDateInput(pd.tanggal_mulai),
         tanggal_selesai:        toDateInput(pd.tanggal_selesai),
@@ -200,20 +335,18 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
             return;
         }
         setProcessing(true);
-        // Gunakan router.patch Inertia — data pasti tersimpan ke DB sebelum onSuccess
         router.patch(
             `/pumk/permohonan-dana/${pd.id}/step2`,
             form,
             {
-                preserveState: true,    // jaga step wizard, jangan reset ke awal
+                preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
                     setProcessing(false);
-                    onNext();           // advance ke step 3
+                    onNext();
                 },
                 onError: (errs) => {
                     setProcessing(false);
-                    // Inertia returns { field: 'message' } on 422
                     const flat: Record<string, string> = {};
                     for (const [k, v] of Object.entries(errs)) {
                         flat[k] = String(v);
@@ -229,7 +362,6 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
             <Card>
                 <CardHeader><CardTitle className="text-base font-semibold">Waktu dan Penanggung Jawab</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Fields — dinonaktifkan saat readonly, tombol navigasi tetap bisa diklik */}
                     <div className={readonly ? 'pointer-events-none opacity-75 space-y-4' : 'space-y-4'}>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -301,7 +433,6 @@ function Step2({ pd, kapokjaList, picList, onPrev, onNext, readonly = false }: {
                         )}
                     </div>
 
-                    {/* Navigasi — SELALU bisa diklik, bahkan saat readonly */}
                     <div className="flex justify-between pt-4">
                         <Button type="button" variant="outline" onClick={onPrev}>← Sebelumnya</Button>
                         {!readonly && (
@@ -328,7 +459,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
     const fileRef = useRef<HTMLInputElement>(null);
     const [previewDok, setPreviewDok] = useState<{ url: string; nama: string } | null>(null);
 
-    // SK / ST fields
     const [noSk, setNoSk] = useState(pd.no_sk ?? '');
     const [tglSk, setTglSk] = useState(toDateInput(pd.tgl_sk));
     const [noSt, setNoSt] = useState(pd.no_st ?? '');
@@ -406,7 +536,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
             <Card>
                 <CardHeader><CardTitle className="text-base font-semibold">Dokumen Pendukung</CardTitle></CardHeader>
                 <CardContent className="space-y-5">
-                    {/* Upload area — disembunyikan saat readonly */}
                     {!readonly && (
                         <div className="rounded-lg border-2 border-dashed border-gray-200 p-5 space-y-3">
                             <div className="grid grid-cols-2 gap-3">
@@ -430,7 +559,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                                 </div>
                             </div>
 
-                            {/* Fields SK — muncul saat jenis 2 */}
                             {jenis === '2' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
@@ -449,7 +577,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                                 </div>
                             )}
 
-                            {/* Fields ST — muncul saat jenis 3 */}
                             {jenis === '3' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
@@ -488,7 +615,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                         </div>
                     )}
 
-                    {/* Daftar dokumen */}
                     {pd.dokumens.length > 0 ? (
                         <table className="w-full text-sm">
                             <thead>
@@ -507,7 +633,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                                         <td className="py-2 text-gray-600 truncate max-w-xs">{dok.nama_file}</td>
                                         <td className="py-2">
                                             <div className="flex items-center justify-center gap-2">
-                                                {/* Tombol preview — selalu tampil */}
                                                 <button
                                                     type="button"
                                                     onClick={() => openPreview(dok)}
@@ -516,7 +641,6 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
-                                                {/* Tombol hapus — hanya saat tidak readonly */}
                                                 {!readonly && (
                                                     <button
                                                         type="button"
@@ -549,13 +673,20 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
 
 // ── Step 4: Rincian Biaya ─────────────────────────────────────────────────────
 
-function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincianBiaya: RincianItem[][]; onPrev: () => void; readonly?: boolean; }) {
+function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddDialog, onOpenEditDialog }: {
+    pd: Pd;
+    rincianBiaya: RincianItem[][];
+    refNama: RefNama[];
+    onPrev: () => void;
+    readonly?: boolean;
+    onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
+}) {
     const [volumes, setVolumes] = useState<Record<number, number>>(() => {
         const init: Record<number, number> = {};
         rincianBiaya.flat().forEach(item => { init[item.id] = item.volume_diminta; });
         return init;
     });
-    // Harga satuan bisa diubah PUMK — default dari DJA (harga_satuan_aktual sudah terisi nilai tersimpan atau DJA)
     const [hargaSatuan, setHargaSatuan] = useState<Record<number, number>>(() => {
         const init: Record<number, number> = {};
         rincianBiaya.flat().forEach(item => { init[item.id] = item.harga_satuan_aktual; });
@@ -563,35 +694,111 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
     });
     const [submitting, setSubmitting] = useState(false);
 
+    const [expanded, setExpanded] = useState<Set<number>>(() => {
+        const s = new Set<number>();
+        rincianBiaya.flat().forEach(item => {
+            if ((item.tipe_nominatif === 'honor' || item.tipe_nominatif === 'perjadin') && item.volume_diminta > 0) {
+                s.add(item.id);
+            }
+        });
+        return s;
+    });
+
+    const [nominatifRows, setNominatifRows] = useState<Record<number, NominatifRow[]>>(() => {
+        const m: Record<number, NominatifRow[]> = {};
+        rincianBiaya.flat().forEach(item => {
+            if (item.nominatif.length > 0) {
+                m[item.id] = item.nominatif.map(n => rowFromExisting(n, item.id));
+            } else if (item.tipe_nominatif === 'honor' && item.volume_diminta > 0) {
+                m[item.id] = [makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual, item.kode_akun)];
+            } else if (item.tipe_nominatif === 'perjadin' && item.volume_diminta > 0) {
+                m[item.id] = [makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual)];
+            } else {
+                m[item.id] = [];
+            }
+        });
+        return m;
+    });
+
+    const toggleExpand = (itemId: number) => {
+        setExpanded(prev => {
+            const next = new Set(prev);
+            if (next.has(itemId)) next.delete(itemId);
+            else next.add(itemId);
+            return next;
+        });
+    };
+
+    const setNomRow = (itemId: number, idx: number, field: keyof NominatifRow, val: string) => {
+        setNominatifRows(prev => {
+            const rows = [...(prev[itemId] ?? [])];
+            if (!rows[idx]) return prev;
+            rows[idx] = { ...rows[idx], [field]: val };
+            return { ...prev, [itemId]: rows };
+        });
+    };
+
+    const fillFromPegawai = (itemId: number, idx: number, nama: string, peg: RefNama | null) => {
+        setNomRow(itemId, idx, 'nama', nama);
+        setNomRow(itemId, idx, 'ref_nama_id', peg ? String(peg.id) : '');
+        setNomRow(itemId, idx, 'nip', peg?.nip ?? '');
+        setNomRow(itemId, idx, 'nik', peg?.nik ?? '');
+        setNomRow(itemId, idx, 'npwp', peg?.npwp ?? '');
+        setNomRow(itemId, idx, 'gol_ruang', peg?.gol_ruang ?? '');
+        setNomRow(itemId, idx, 'nama_rekening', peg?.nama_rekening ?? '');
+        setNomRow(itemId, idx, 'no_rekening', peg?.no_rekening ?? '');
+        setNomRow(itemId, idx, 'nama_bank', peg?.nama_bank ?? '');
+        setNomRow(itemId, idx, 'email', peg?.email ?? '');
+        const pph = peg ? String(hitungPph21(peg.status_kepegawaian, peg.gol_ruang, peg.npwp)) : '0';
+        setNomRow(itemId, idx, 'pph21_persen', pph);
+    };
+
+    const addRow = (item: RincianItem) => {
+        const rows = nominatifRows[item.id] ?? [];
+        const newRow = item.tipe_nominatif === 'honor'
+            ? makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual, item.kode_akun, rows.length)
+            : makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual);
+        setNominatifRows(prev => ({ ...prev, [item.id]: [...(prev[item.id] ?? []), newRow] }));
+    };
+
+    const removeRow = (itemId: number, idx: number) => {
+        setNominatifRows(prev => ({
+            ...prev,
+            [itemId]: (prev[itemId] ?? []).filter((_, i) => i !== idx),
+        }));
+    };
+
+    // ── Perhitungan ────────────────────────────────────────────────────────
+
     const getHarga  = (item: RincianItem) => hargaSatuan[item.id] ?? item.harga_satuan;
     const getVol    = (item: RincianItem) => volumes[item.id] ?? 0;
-    const jumlah    = (item: RincianItem) => getVol(item) * getHarga(item);
-    // Sisa dinamis = sisa_anggaran (dari server, sudah exclude PD ini) - jumlah yang sedang diminta
+
+    const nomVol = (item: RincianItem) => {
+        const rows = nominatifRows[item.id] ?? [];
+        return rows.reduce((s, r) => s + (parseFloat(r.volume) || 0), 0);
+    };
+    const nomJumlah = (item: RincianItem) => {
+        const rows = nominatifRows[item.id] ?? [];
+        return rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+    };
+
+    const isNominatifItem = (item: RincianItem) => item.tipe_nominatif === 'honor' || item.tipe_nominatif === 'perjadin';
+
+    const jumlah    = (item: RincianItem) => isNominatifItem(item) ? nomJumlah(item) : getVol(item) * getHarga(item);
+    const volumeDisplay = (item: RincianItem) => isNominatifItem(item) ? nomVol(item) : getVol(item);
     const sisaDinamis = (item: RincianItem) => item.sisa_anggaran - jumlah(item);
 
     const totalAkun  = (group: RincianItem[]) => group.reduce((s, item) => s + jumlah(item), 0);
     const grandTotal = rincianBiaya.flat().reduce((s, item) => s + jumlah(item), 0);
 
-    const buildItems = () =>
-        rincianBiaya.flat()
-            .filter(item => getVol(item) > 0)
-            .map(item => ({
-                dja_rincian_biaya_id: item.id,
-                volume:               getVol(item),
-                harga_satuan:         getHarga(item),
-                jumlah_permintaan:    jumlah(item),
-            }));
-
-    // Item honor/perjadin yang volume > 0 tapi belum ada nominatif
     const NOMINATIF_TYPES = ['honor', 'perjadin'] as const;
     const itemsBelumNominatif = rincianBiaya.flat().filter(
         item =>
             NOMINATIF_TYPES.includes(item.tipe_nominatif as typeof NOMINATIF_TYPES[number]) &&
-            getVol(item) > 0 &&
-            item.nominatif_count === 0,
+            nomJumlah(item) > 0 &&
+            (nominatifRows[item.id] ?? []).length === 0,
     );
 
-    // Item yang melebihi sisa pagu (semua item, termasuk non-nominatif)
     const itemsOverBudget = rincianBiaya.flat().filter(
         item => jumlah(item) > item.sisa_anggaran,
     );
@@ -599,18 +806,48 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
     const blockSubmit = itemsBelumNominatif.length > 0;
     const blockSave   = itemsOverBudget.length > 0;
 
+    const buildItems = () => {
+        const result: Array<{ dja_rincian_biaya_id: number; volume: number; harga_satuan: number; jumlah_permintaan: number }> = [];
+        for (const item of rincianBiaya.flat()) {
+            if (isNominatifItem(item)) {
+                const rows = nominatifRows[item.id] ?? [];
+                if (rows.length === 0) continue;
+                const vol = nomVol(item);
+                const jml = nomJumlah(item);
+                if (jml <= 0) continue;
+                result.push({ dja_rincian_biaya_id: item.id, volume: vol, harga_satuan: item.harga_satuan, jumlah_permintaan: jml });
+            } else {
+                const vol = getVol(item);
+                if (vol <= 0) continue;
+                result.push({ dja_rincian_biaya_id: item.id, volume: vol, harga_satuan: getHarga(item), jumlah_permintaan: vol * getHarga(item) });
+            }
+        }
+        return result;
+    };
+
+    const buildNominatif = () => {
+        const result: NominatifRow[] = [];
+        for (const item of rincianBiaya.flat()) {
+            if (!isNominatifItem(item)) continue;
+            const rows = nominatifRows[item.id] ?? [];
+            for (const row of rows) {
+                result.push({ ...row, item_id: item.id });
+            }
+        }
+        return result;
+    };
+
     const saveAndSubmit = () => {
         setSubmitting(true);
-        // PATCH step4 dulu (simpan rincian), lalu di onSuccess langsung PATCH submit.
-        // preserveState:true agar step state di React tidak hilang di tengah chain.
+        const payload = { items: buildItems(), nominatif: buildNominatif() };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         router.patch(
             `/pumk/permohonan-dana/${pd.id}/step4`,
-            { items: buildItems() },
+            payload as any,
             {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
-                    // step4 tersimpan — sekarang ajukan
                     router.patch(
                         `/pumk/permohonan-dana/${pd.id}/submit`,
                         {},
@@ -631,9 +868,11 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
 
     const save = () => {
         setSubmitting(true);
+        const payload = { items: buildItems(), nominatif: buildNominatif() };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         router.patch(
             `/pumk/permohonan-dana/${pd.id}/step4`,
-            { items: buildItems() },
+            payload as any,
             {
                 preserveState: true,
                 preserveScroll: true,
@@ -647,7 +886,7 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
             <CardHeader>
                 <CardTitle className="text-base font-semibold">Rincian Biaya</CardTitle>
                 <p className="text-xs text-gray-500 mt-1">
-                    Harga satuan dapat disesuaikan dengan kondisi di lapangan. Jumlah permintaan dan sisa anggaran dihitung otomatis.
+                    Untuk honor/perjadin, isi data peserta langsung di sini. Jumlah permintaan akan dihitung otomatis.
                 </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -677,7 +916,6 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                         const first = group[0];
                         return (
                             <div key={gi} className="border rounded-lg overflow-hidden">
-                                {/* Header akun */}
                                 <div className="bg-slate-100 px-4 py-2.5 flex items-center justify-between border-b">
                                     <span className="text-sm font-semibold text-gray-700">
                                         {first.kode_akun} — {first.nama_akun}
@@ -705,79 +943,105 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                                         </thead>
                                         <tbody>
                                             {group.map(item => {
-                                                const vol   = getVol(item);
+                                                const vol   = volumeDisplay(item);
                                                 const harga = getHarga(item);
-                                                const req   = vol * harga;
+                                                const req   = jumlah(item);
                                                 const sisa  = sisaDinamis(item);
                                                 const over  = req > item.sisa_anggaran || item.status_anggaran === 'overbudget';
-                                                const hargaBeda = harga < item.harga_satuan; // di bawah SBM
+                                                const hargaBeda = !isNominatifItem(item) && harga < item.harga_satuan;
                                                 const isOverbudget = item.status_anggaran === 'overbudget';
                                                 const isHabis = item.status_anggaran === 'habis';
+                                                const isNom = isNominatifItem(item);
+                                                const rows = nominatifRows[item.id] ?? [];
+                                                const isEx = expanded.has(item.id);
+
                                                 return (
-                                                    <tr key={item.id} className={cn('border-b last:border-0 align-top', over ? 'bg-red-50' : '', isOverbudget && 'bg-red-100')}>
-                                                        <td className="px-3 py-2 text-gray-700 leading-snug">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span>{item.nama_item}</span>
-                                                                {isOverbudget && (
-                                                                    <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold">Overbudget</span>
-                                                                )}
-                                                                {isHabis && (
-                                                                    <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded font-semibold">Habis</span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        {/* Pagu Anggaran */}
-                                                        <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">
-                                                            {fmt(item.pagu_total ?? 0)}
-                                                        </td>
-                                                        {/* Volume */}
-                                                        <td className="px-2 py-2">
-                                                            <input
-                                                                type="number" min={0} step="1"
-                                                                value={vol || ''}
-                                                                placeholder="0"
-                                                                onChange={e => setVolumes(v => ({ ...v, [item.id]: Number(e.target.value) }))}
-                                                                className="w-full text-center border rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-400"
-                                                            />
-                                                        </td>
-                                                        <td className="px-2 py-2 text-center text-gray-500">{item.satuan}</td>
-                                                        {/* Harga Satuan — editable */}
-                                                        <td className="px-2 py-2">
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <input
-                                                                    type="number" min={0} step="1"
-                                                                    value={harga || ''}
-                                                                    placeholder="0"
-                                                                    onChange={e => {
-                                                                        const val = Math.min(Number(e.target.value), item.harga_satuan);
-                                                                        setHargaSatuan(h => ({ ...h, [item.id]: val }));
-                                                                    }}
-                                                                    className={cn(
-                                                                        'w-full text-right border rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-400',
-                                                                        hargaBeda && 'border-amber-400 bg-amber-50',
+                                                    <tr key={item.id} className={cn('border-b last:border-0 align-top', over ? 'bg-red-50' : '', isOverbudget && 'bg-red-100', isNom && isEx && 'bg-amber-50/30')}>
+                                                        <td className="px-3 py-2 text-gray-700 leading-snug" colSpan={isNom && isEx ? 8 : 1}>
+                                                            {isNom && isEx ? (
+                                                                /* Inline nominatif table */
+                                                                <div>
+                                                                    <button type="button" onClick={() => toggleExpand(item.id)}
+                                                                        className="flex items-center gap-2 w-full text-left mb-2">
+                                                                        <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                                                                        <span className="font-medium text-sm">{item.nama_item}</span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            · {rows.length} peserta · Rp {fmt(req)}
+                                                                        </span>
+                                                                    </button>
+                                                                    {item.tipe_nominatif === 'honor' ? (
+                                                                        <HonorNominatifTable
+                                                                            item={item} rows={rows} refNama={refNama}
+                                                                            onChange={(idx, f, v) => setNomRow(item.id, idx, f, v)}
+                                                                            fillFromPegawai={(idx, n, p) => fillFromPegawai(item.id, idx, n, p)}
+                                                                            onAdd={() => addRow(item)} onRemove={(idx) => removeRow(item.id, idx)}
+                                                                            onOpenAddDialog={onOpenAddDialog} onOpenEditDialog={onOpenEditDialog}
+                                                                        />
+                                                                    ) : (
+                                                                        <PerjadinNominatifTable
+                                                                            item={item} rows={rows} refNama={refNama}
+                                                                            onChange={(idx, f, v) => setNomRow(item.id, idx, f, v)}
+                                                                            fillFromPegawai={(idx, n, p) => fillFromPegawai(item.id, idx, n, p)}
+                                                                            onAdd={() => addRow(item)} onRemove={(idx) => removeRow(item.id, idx)}
+                                                                            onOpenAddDialog={onOpenAddDialog} onOpenEditDialog={onOpenEditDialog}
+                                                                        />
                                                                     )}
-                                                                />
-                                                                {hargaBeda && (
-                                                                    <span className="text-[10px] text-amber-600 text-right">
-                                                                        SBM: {fmt(item.harga_satuan)}
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {isNom ? (
+                                                                        <button type="button" onClick={() => toggleExpand(item.id)} className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                                                                            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                                                                            <span>{item.nama_item}</span>
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span>{item.nama_item}</span>
+                                                                    )}
+                                                                    {isOverbudget && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold">Overbudget</span>}
+                                                                    {isHabis && <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded font-semibold">Habis</span>}
+                                                                    {isNom && <span className="text-[10px] text-muted-foreground">· {rows.length} peserta</span>}
+                                                                </div>
+                                                            )}
                                                         </td>
-                                                        {/* Terpakai (dari PD lain) */}
-                                                        <td className="px-2 py-2 text-right text-orange-600 whitespace-nowrap">
-                                                            {fmt(item.terpakai ?? 0)}
-                                                        </td>
-                                                        {/* Jumlah Permintaan */}
-                                                        <td className={cn('px-2 py-2 text-right font-semibold whitespace-nowrap', over ? 'text-red-600' : 'text-blue-700')}>
-                                                            {fmt(req)}
-                                                            {over && <AlertTriangle className="w-3 h-3 inline ml-1" />}
-                                                        </td>
-                                                        {/* Sisa dinamis */}
-                                                        <td className={cn('px-3 py-2 text-right whitespace-nowrap font-medium', sisa < 0 ? 'text-red-600' : 'text-emerald-600')}>
-                                                            {fmt(Math.max(0, sisa ?? 0))}
-                                                            {sisa < 0 && <AlertTriangle className="w-3 h-3 inline ml-0.5" />}
-                                                        </td>
+                                                        {isNom && isEx ? null : (
+                                                            <>
+                                                                <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">{fmt(item.pagu_total ?? 0)}</td>
+                                                                <td className="px-2 py-2">
+                                                                    {isNom ? (
+                                                                        <span className="text-center block text-xs font-medium">{vol}</span>
+                                                                    ) : (
+                                                                        <input type="number" min={0} step="1" value={vol || ''} placeholder="0"
+                                                                            onChange={e => setVolumes(v => ({ ...v, [item.id]: Number(e.target.value) }))}
+                                                                            className="w-full text-center border rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-400" />
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-2 text-center text-gray-500">{item.satuan}</td>
+                                                                <td className="px-2 py-2">
+                                                                    {isNom ? (
+                                                                        <span className="block text-right text-xs">SBM: {fmt(item.harga_satuan)}</span>
+                                                                    ) : (
+                                                                        <div className="flex flex-col gap-0.5">
+                                                                            <input type="number" min={0} step="1" value={harga || ''} placeholder="0"
+                                                                                onChange={e => {
+                                                                                    const val = Math.min(Number(e.target.value), item.harga_satuan);
+                                                                                    setHargaSatuan(h => ({ ...h, [item.id]: val }));
+                                                                                }}
+                                                                                className={cn('w-full text-right border rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-400', hargaBeda && 'border-amber-400 bg-amber-50')} />
+                                                                            {hargaBeda && <span className="text-[10px] text-amber-600 text-right">SBM: {fmt(item.harga_satuan)}</span>}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-2 text-right text-orange-600 whitespace-nowrap">{fmt(item.terpakai ?? 0)}</td>
+                                                                <td className={cn('px-2 py-2 text-right font-semibold whitespace-nowrap', over ? 'text-red-600' : 'text-blue-700')}>
+                                                                    {fmt(req)}
+                                                                    {over && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                                                                </td>
+                                                                <td className={cn('px-3 py-2 text-right whitespace-nowrap font-medium', sisa < 0 ? 'text-red-600' : 'text-emerald-600')}>
+                                                                    {fmt(Math.max(0, sisa ?? 0))}
+                                                                    {sisa < 0 && <AlertTriangle className="w-3 h-3 inline ml-0.5" />}
+                                                                </td>
+                                                            </>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
@@ -809,27 +1073,19 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                     </div>
                 )}
 
-                {/* Banner over-budget */}
                 {itemsOverBudget.length > 0 && (
                     <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-2">
                         <div className="flex items-start gap-2">
                             <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                                <p className="text-sm font-semibold text-red-800">
-                                    Jumlah permintaan melebihi sisa pagu anggaran
-                                </p>
-                                <p className="text-xs text-red-700 mt-0.5">
-                                    Item berikut melebihi sisa pagu yang tersedia:
-                                </p>
+                                <p className="text-sm font-semibold text-red-800">Jumlah permintaan melebihi sisa pagu anggaran</p>
+                                <p className="text-xs text-red-700 mt-0.5">Item berikut melebihi sisa pagu yang tersedia:</p>
                                 <ul className="mt-2 space-y-1.5">
                                     {itemsOverBudget.map(item => (
                                         <li key={item.id} className="flex items-center justify-between gap-3">
                                             <span className="text-xs text-red-800">
-                                                <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}
-                                                {item.nama_item}
-                                                <span className="block text-red-600 mt-0.5">
-                                                    Melebihi Rp {fmt(jumlah(item) - item.sisa_anggaran)}
-                                                </span>
+                                                <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}{item.nama_item}
+                                                <span className="block text-red-600 mt-0.5">Melebihi Rp {fmt(jumlah(item) - item.sisa_anggaran)}</span>
                                             </span>
                                         </li>
                                     ))}
@@ -839,31 +1095,23 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
                     </div>
                 )}
 
-                {/* Banner wajib nominatif */}
                 {itemsBelumNominatif.length > 0 && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
                         <div className="flex items-start gap-2">
                             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                                <p className="text-sm font-semibold text-amber-800">
-                                    Wajib isi daftar nominatif sebelum mengajukan
-                                </p>
-                                <p className="text-xs text-amber-700 mt-0.5">
-                                    Item honor/perjalanan dinas berikut membutuhkan data peserta (nominatif):
-                                </p>
+                                <p className="text-sm font-semibold text-amber-800">Wajib isi daftar nominatif sebelum mengajukan</p>
+                                <p className="text-xs text-amber-700 mt-0.5">Item honor/perjalanan dinas berikut membutuhkan data peserta:</p>
                                 <ul className="mt-2 space-y-1.5">
                                     {itemsBelumNominatif.map(item => (
                                         <li key={item.id} className="flex items-center justify-between gap-3">
                                             <span className="text-xs text-amber-800">
-                                                <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}
-                                                {item.nama_item}
+                                                <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}{item.nama_item}
                                             </span>
-                                            <a
-                                                href={`/pumk/permohonan-dana/${pd.id}/nominatif`}
-                                                className="shrink-0 text-xs font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap"
-                                            >
+                                            <button type="button" onClick={() => !expanded.has(item.id) && toggleExpand(item.id)}
+                                                className="shrink-0 text-xs font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap">
                                                 → Isi Nominatif
-                                            </a>
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
@@ -924,17 +1172,189 @@ function Step4({ pd, rincianBiaya, onPrev, readonly = false }: { pd: Pd; rincian
     );
 }
 
+// ── Inline nominatif sub-tables ────────────────────────────────────────────────
+
+function HonorNominatifTable({
+    item, rows, refNama, onChange, fillFromPegawai, onAdd, onRemove, onOpenAddDialog, onOpenEditDialog,
+}: {
+    item: RincianItem;
+    rows: NominatifRow[];
+    refNama: RefNama[];
+    onChange: (idx: number, field: keyof NominatifRow, val: string) => void;
+    fillFromPegawai: (idx: number, nama: string, pegawai: RefNama | null) => void;
+    onAdd: () => void;
+    onRemove: (idx: number) => void;
+    onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
+}) {
+    const totalNom = rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+    const jabatanOptions = getJabatanOptions(item.kode_akun);
+
+    return (
+        <div className="rounded-lg border border-orange-200 overflow-hidden shadow-sm mt-2">
+            <div className="overflow-x-auto">
+                <table className="w-full text-xs" style={{ minWidth: 720 }}>
+                    <thead>
+                        <tr className="border-b bg-orange-100 text-[10px] font-semibold text-amber-800 uppercase tracking-wider">
+                            <th className="text-left px-2 py-1.5 w-48 border-r border-orange-200/60">Nama</th>
+                            <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60">Jabatan</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60">Vol</th>
+                            <th className="text-center px-2 py-1.5 w-16 border-r border-orange-200/60">Sat</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60">Jumlah</th>
+                            <th className="text-center px-2 py-1.5 w-10">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row, idx) => {
+                            const vol = parseFloat(row.volume) || 0;
+                            const harga = parseFloat(row.harga_satuan) || 0;
+                            const jumlah = vol * harga;
+                            return (
+                                <tr key={idx} className="border-b last:border-0 even:bg-orange-50/30 hover:bg-amber-50/60">
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <PegawaiCombobox value={row.nama} options={refNama}
+                                            onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
+                                            onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
+                                            onOpenEditDialog={onOpenEditDialog} />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        {jabatanOptions.length > 0 ? (
+                                            <Select value={row.jabatan} onValueChange={v => onChange(idx, 'jabatan', v)}>
+                                                <SelectTrigger className="h-7 text-xs w-full"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                                                <SelectContent>{jabatanOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                        ) : <span className="text-xs text-muted-foreground">-</span>}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" step="0.5" value={row.volume}
+                                            onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="text" value={row.satuan || item.satuan}
+                                            onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" value={row.harga_satuan || String(item.harga_satuan_aktual)}
+                                            onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700 border-r border-slate-100">{fmt(jumlah)}</td>
+                                    <td className="px-2 py-1.5 text-center">
+                                        <button onClick={() => onRemove(idx)} className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                    <tfoot>
+                        <tr className="border-t-2 border-t-orange-200 bg-orange-50/60">
+                            <td colSpan={5} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700">{fmt(totalNom)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div className="flex items-center justify-between px-2 py-1.5">
+                <Button variant="outline" size="sm" onClick={onAdd} className="h-7 text-xs gap-1 text-orange-700 border-orange-300">
+                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function PerjadinNominatifTable({
+    item, rows, refNama, onChange, fillFromPegawai, onAdd, onRemove, onOpenAddDialog, onOpenEditDialog,
+}: {
+    item: RincianItem;
+    rows: NominatifRow[];
+    refNama: RefNama[];
+    onChange: (idx: number, field: keyof NominatifRow, val: string) => void;
+    fillFromPegawai: (idx: number, nama: string, pegawai: RefNama | null) => void;
+    onAdd: () => void;
+    onRemove: (idx: number) => void;
+    onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
+    onOpenEditDialog: (pegawai: RefNama) => void;
+}) {
+    const totalNom = rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+
+    return (
+        <div className="rounded-lg border border-blue-200 overflow-hidden shadow-sm mt-2">
+            <div className="overflow-x-auto">
+                <table className="w-full text-xs" style={{ minWidth: 720 }}>
+                    <thead>
+                        <tr className="border-b bg-blue-100 text-[10px] font-semibold text-blue-800 uppercase tracking-wider">
+                            <th className="text-left px-2 py-1.5 w-48 border-r border-blue-200/60">Nama</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-blue-200/60">Vol</th>
+                            <th className="text-center px-2 py-1.5 w-16 border-r border-blue-200/60">Sat</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60">Jumlah</th>
+                            <th className="text-center px-2 py-1.5 w-10">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row, idx) => {
+                            const vol = parseFloat(row.volume) || 0;
+                            const harga = parseFloat(row.harga_satuan) || 0;
+                            const jumlah = vol * harga;
+                            return (
+                                <tr key={idx} className="border-b last:border-0 even:bg-blue-50/30 hover:bg-sky-50/60">
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <PegawaiCombobox value={row.nama} options={refNama}
+                                            onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
+                                            onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
+                                            onOpenEditDialog={onOpenEditDialog} />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" step="0.5" value={row.volume}
+                                            onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="text" value={row.satuan || item.satuan}
+                                            onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" value={row.harga_satuan}
+                                            onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700 border-r border-slate-100">{fmt(jumlah)}</td>
+                                    <td className="px-2 py-1.5 text-center">
+                                        <button onClick={() => onRemove(idx)} className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                    <tfoot>
+                        <tr className="border-t-2 border-t-blue-200 bg-blue-50/60">
+                            <td colSpan={4} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700">{fmt(totalNom)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div className="flex items-center justify-between px-2 py-1.5">
+                <Button variant="outline" size="sm" onClick={onAdd} className="h-7 text-xs gap-1 text-blue-700 border-blue-300">
+                    <Plus className="h-3.5 w-3.5" /> Tambah Peserta
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Wizard ───────────────────────────────────────────────────────────────
 
-export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDokumen }: Props) {
+export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, refNama: initialRefNama, jenisDokumen }: Props) {
     const { flash } = usePage<{ flash: { wizard_step?: number; error?: string; success?: string } }>().props;
-    // Inisialisasi dari wizard_step tersimpan di DB agar reload halaman tidak reset ke step 1.
-    // wizard_step di DB menyimpan step terakhir yang berhasil dilalui (1–4).
-    // Setelah step 2 sukses, DB akan bernilai 3, jadi kita mulai di step 3, dll.
     const initialStep = Math.max(1, Math.min(4, pd.wizard_step ?? 1));
     const [step, setStep] = useState<number>(initialStep);
 
-    // Override dari flash server (misalnya: server minta balik ke step 2 karena error)
     useEffect(() => {
         if (flash?.wizard_step && flash.wizard_step !== step) {
             setStep(flash.wizard_step);
@@ -947,9 +1367,6 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
     const isEditable = pd.status === 'draft' || pd.status === 'rejected';
     const canUpload = pd.status !== 'dicairkan';
 
-    // Step tertinggi yang bisa dijangkau:
-    // - Saat readonly (sudah disubmit): semua step bisa dikunjungi bebas (maxReached=4)
-    // - Saat draft/edit: hanya sampai wizard_step yang tersimpan di DB
     const maxReached = isEditable ? Math.max(step, pd.wizard_step ?? 1) : 4;
     const isLoading = useNavigationLoading();
 
@@ -980,6 +1397,44 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
         });
     };
 
+    // RefNama state + dialogs
+    const [refNama, setRefNama] = useState<RefNama[]>(initialRefNama);
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [addDialogPrefill, setAddDialogPrefill] = useState('');
+    const pendingSelectRef = useRef<((peg: RefNama) => void) | null>(null);
+
+    const openAddDialog = (prefill: string, onSelect?: (peg: RefNama) => void) => {
+        setAddDialogPrefill(prefill);
+        pendingSelectRef.current = onSelect ?? null;
+        setAddDialogOpen(true);
+    };
+
+    const handleNewPegawai = (peg: RefNama) => {
+        setRefNama(prev => [...prev, peg].sort((a, b) => a.nama.localeCompare(b.nama)));
+        if (pendingSelectRef.current) {
+            pendingSelectRef.current(peg);
+            pendingSelectRef.current = null;
+        }
+    };
+
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editingPegawai, setEditingPegawai] = useState<RefNama | null>(null);
+
+    const openEditDialog = (pegawai: RefNama) => {
+        setEditingPegawai(pegawai);
+        setEditDialogOpen(true);
+    };
+
+    const handleUpdatePegawai = (peg: RefNama) => {
+        setRefNama(prev => prev.map(p => p.id === peg.id ? peg : p).sort((a, b) => a.nama.localeCompare(b.nama)));
+        toast.success(`Data pegawai ${peg.nama} berhasil diperbarui.`);
+    };
+
+    const handleToggleStatusPegawai = (peg: RefNama) => {
+        setRefNama(prev => prev.filter(p => p.id !== peg.id));
+        toast.success(`Pegawai ${peg.nama} telah dinonaktifkan.`);
+    };
+
     return (
         <AppLayout>
             <Head title={`Permohonan ${pd.nomor_permohonan}`} />
@@ -987,7 +1442,6 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                 <div className="p-4"><SkeletonPageHeader /><SkeletonForm /></div>
             ) : (
             <div className="max-w-6xl mx-auto py-8 px-4 space-y-4">
-                {/* Header */}
                 <div className="text-center space-y-1">
                     <Badge variant="outline" className="text-xs uppercase tracking-widest">
                         {isEditable ? 'Draft Permohonan Dana' : pd.status_label}
@@ -996,7 +1450,6 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                     <p className="text-sm text-muted-foreground">{pd.nomor_permohonan}</p>
                 </div>
 
-                {/* Banner terkunci — tampil bila sudah disubmit */}
                 {!isEditable && (
                     <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                         <Lock className="h-4 w-4 shrink-0 text-blue-600" />
@@ -1013,7 +1466,6 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                     </div>
                 )}
 
-                {/* LPJ — hanya tampil setelah dicairkan */}
                 {pd.status === 'dicairkan' && (
                     <Card className="border-emerald-200 bg-emerald-50/30">
                         <CardHeader className="pb-2">
@@ -1067,14 +1519,18 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                 <StepBar current={step} maxReached={maxReached} onGoto={goToStep} />
 
                 {step === 1 && <Step1 pd={pd} onNext={() => goToStep(2)} />}
-                {/* key={pd.tanggal_mulai + pd.kapokja_id + pd.pic_keuangan_id} agar form Step2
-                    selalu diinisialisasi ulang dengan nilai terbaru dari server setelah reload. */}
                 {step === 2 && <Step2 key={`s2-${pd.tanggal_mulai}-${pd.kapokja_id}-${pd.pic_keuangan_id}`}
                     pd={pd} kapokjaList={kapokjaList} picList={picList} readonly={!isEditable}
                     onPrev={() => goToStep(1)} onNext={() => goToStep(3)} />}
                 {step === 3 && <Step3 pd={pd} jenisDokumen={jenisDokumen} readonly={!canUpload} onPrev={() => goToStep(2)} onNext={() => goToStep(4)} />}
-                {step === 4 && <Step4 pd={pd} rincianBiaya={rincianBiaya} readonly={!isEditable} onPrev={() => goToStep(3)} />}
+                {step === 4 && <Step4 pd={pd} rincianBiaya={rincianBiaya} refNama={refNama} readonly={!isEditable} onPrev={() => goToStep(3)}
+                    onOpenAddDialog={openAddDialog} onOpenEditDialog={openEditDialog} />}
             </div>
+            )}
+            <TambahPegawaiDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onSuccess={handleNewPegawai} />
+            {editingPegawai && (
+                <EditPegawaiDialog open={editDialogOpen} onClose={() => { setEditDialogOpen(false); setEditingPegawai(null); }}
+                    onSuccess={handleUpdatePegawai} onToggleStatus={handleToggleStatusPegawai} pegawai={editingPegawai} />
             )}
         </AppLayout>
     );

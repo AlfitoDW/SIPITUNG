@@ -12,6 +12,8 @@ use App\Models\DjaRo;
 use App\Models\DjaSasaran;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaDokumen;
+use App\Models\PermohonanDanaItemNominatif;
+use App\Models\RefNama;
 use App\Models\TahunAnggaran;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -179,10 +181,22 @@ class PermohonanDanaController extends Controller
         abort_if($pd->created_by !== $request->user()->id, 403);
 
         $pd->load([
-            'items.djaRincianBiaya', 'dokumens',
+            'items.djaRincianBiaya', 'items.nominatif', 'dokumens',
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
             'kapokja', 'picKeuangan',
         ]);
+
+        $refNama = RefNama::aktif()
+            ->orderBy('nama')
+            ->get(['id', 'nama', 'nip', 'nik', 'npwp', 'gol_ruang', 'status_kepegawaian',
+                'nama_rekening', 'no_rekening', 'nama_bank', 'email', 'pph21_persen'])
+            ->each(function (RefNama $r) {
+                $r->pph21_persen = RefNama::hitungPph21(
+                    $r->status_kepegawaian,
+                    $r->gol_ruang,
+                    $r->npwp
+                );
+            });
 
         // Kapokja: hanya Ketua Tim Kerja yang aktif
         $kapokjaList = User::with('timkerja:id,kode,nama')
@@ -238,6 +252,34 @@ class PermohonanDanaController extends Controller
                         // Nominatif info — tipe & jumlah peserta yang sudah diisi
                         'tipe_nominatif' => $existing?->tipe_nominatif ?? 'non_nominatif',
                         'nominatif_count' => $existing ? $existing->nominatif()->count() : 0,
+                        'nominatif' => $existing ? $existing->nominatif->map(fn($n) => [
+                            'id' => $n->id,
+                            'ref_nama_id' => $n->ref_nama_id,
+                            'nama' => $n->nama,
+                            'nip' => $n->nip,
+                            'nik' => $n->nik,
+                            'npwp' => $n->npwp,
+                            'gol_ruang' => $n->gol_ruang,
+                            'nama_rekening' => $n->nama_rekening,
+                            'no_rekening' => $n->no_rekening,
+                            'nama_bank' => $n->nama_bank,
+                            'email' => $n->email,
+                            'pph21_persen' => (string) $n->pph21_persen,
+                            'jabatan' => $n->jabatan,
+                            'volume' => (string) $n->volume,
+                            'harga_satuan' => (string) $n->harga_satuan,
+                            'transport' => (string) $n->transport,
+                            'uang_harian_vol' => (string) $n->uang_harian_vol,
+                            'uang_harian_satuan' => (string) $n->uang_harian_satuan,
+                            'fullboard_vol' => (string) $n->fullboard_vol,
+                            'fullboard_satuan' => (string) $n->fullboard_satuan,
+                            'fullday_vol' => (string) $n->fullday_vol,
+                            'fullday_satuan' => (string) $n->fullday_satuan,
+                            'representasi' => (string) $n->representasi,
+                            'taksi_pp' => (string) $n->taksi_pp,
+                            'tiket_pesawat' => (string) $n->tiket_pesawat,
+                            'hotel' => (string) $n->hotel,
+                        ])->values() : [],
                     ];
                 });
 
@@ -253,6 +295,7 @@ class PermohonanDanaController extends Controller
             'kapokjaList' => $kapokjaList,
             'picList' => $picList,
             'rincianBiaya' => array_values($rincianBiaya),
+            'refNama' => $refNama,
             'jenisDokumen' => PermohonanDanaDokumen::$JENIS,
             'no_sk' => $pd->no_sk,
             'tgl_sk' => $pd->tgl_sk?->format('Y-m-d'),
@@ -432,12 +475,47 @@ class PermohonanDanaController extends Controller
             'items.*.volume' => 'required|numeric|min:0',
             'items.*.harga_satuan' => 'required|numeric|min:0',
             'items.*.jumlah_permintaan' => 'required|numeric|min:0',
+            'nominatif' => 'nullable|array',
+            'nominatif.*.dja_rincian_biaya_id' => 'required|exists:dja_rincian_biaya,id',
+            'nominatif.*.nama' => 'required|string|max:150',
+            'nominatif.*.jabatan' => 'nullable|string|max:100',
+            'nominatif.*.volume' => 'nullable|numeric|min:0',
+            'nominatif.*.harga_satuan' => 'nullable|numeric|min:0',
+            'nominatif.*.pph21_persen' => 'nullable|numeric|min:0',
         ]);
+
+        $nominatifData = $request->input('nominatif', []);
+
+        $submittedDjaIds = collect($request->items)
+            ->pluck('dja_rincian_biaya_id')
+            ->unique()
+            ->toArray();
+
+        $nominatifDjaIds = collect($nominatifData)
+            ->pluck('dja_rincian_biaya_id')
+            ->unique()
+            ->toArray();
+
+        $allSubmittedDjaIds = array_unique(array_merge($submittedDjaIds, $nominatifDjaIds));
+
+        $itemsWithNominatif = $pd->items()
+            ->whereNotIn('dja_rincian_biaya_id', $allSubmittedDjaIds)
+            ->whereHas('nominatif')
+            ->get();
+
+        if ($itemsWithNominatif->isNotEmpty()) {
+            $item = $itemsWithNominatif->first();
+            return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                ->with('error',
+                    "Item [{$item->kode_akun}] {$item->uraian} sudah memiliki data nominatif. "
+                    .'Hapus nominatif terlebih dahulu sebelum menghapus item ini.'
+                )
+                ->with('wizard_step', 4);
+        }
 
         // ── Validasi: harga satuan tidak boleh melebihi SBM ─────────────────────
         foreach ($request->items as $item) {
             $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
-
             if ($item['harga_satuan'] > $rincian->harga_satuan) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                     ->with('error',
@@ -448,39 +526,16 @@ class PermohonanDanaController extends Controller
             }
         }
 
-        $submittedRincianIds = collect($request->items)
-            ->filter(fn ($i) => $i['volume'] > 0)
-            ->pluck('dja_rincian_biaya_id')
-            ->toArray();
-
-        // ── Validasi: item yang sudah punya nominatif tidak boleh dihapus dari form ──
-        $itemsWithNominatif = $pd->items()
-            ->whereNotIn('dja_rincian_biaya_id', $submittedRincianIds)
-            ->whereHas('nominatif')
-            ->get();
-
-        if ($itemsWithNominatif->isNotEmpty()) {
-            $item = $itemsWithNominatif->first();
-
-            return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
-                ->with('error',
-                    "Item [{$item->kode_akun}] {$item->uraian} sudah memiliki data nominatif. "
-                    .'Hapus nominatif terlebih dahulu di Step 5 sebelum menghapus item ini.'
-                )
-                ->with('wizard_step', 4);
-        }
-
         // ── Semua modify data dalam 1 transaction dengan lock ────────────────────
         try {
-            \DB::transaction(function () use ($request, $pd, $submittedRincianIds) {
-                // Validasi pagu dengan lockForUpdate untuk mencegah race condition
+            \DB::transaction(function () use ($request, $pd, $allSubmittedDjaIds, $nominatifData) {
+                // Validasi pagu dengan lockForUpdate
                 foreach ($request->items as $item) {
-                    if ($item['volume'] == 0) {
+                    if ((float) $item['jumlah_permintaan'] == 0) {
                         continue;
                     }
-
                     $rincian = DjaRincianBiaya::lockForUpdate()->find($item['dja_rincian_biaya_id']);
-                    $jumlah = round($item['volume'] * $item['harga_satuan'], 2);
+                    $jumlah = (float) $item['jumlah_permintaan'];
 
                     $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
@@ -489,7 +544,6 @@ class PermohonanDanaController extends Controller
                         ->sum('jumlah_permintaan');
 
                     $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
-
                     if ($jumlah > $sisaAnggaran) {
                         throw new \Exception(
                             "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
@@ -499,27 +553,28 @@ class PermohonanDanaController extends Controller
                     }
                 }
 
-                // Hapus hanya item yang tidak ada di list DAN belum punya nominatif
-                $pd->items()->whereNotIn('dja_rincian_biaya_id', $submittedRincianIds)
+                // Hapus item yang tidak ada di submitted list DAN belum punya nominatif
+                $pd->items()->whereNotIn('dja_rincian_biaya_id', $allSubmittedDjaIds)
                     ->whereDoesntHave('nominatif')
                     ->delete();
 
                 // Upsert items
                 foreach ($request->items as $idx => $item) {
-                    if ($item['volume'] == 0) {
+                    $jumlah = (float) $item['jumlah_permintaan'];
+                    $volume = (float) $item['volume'];
+                    $hargaAktual = (float) $item['harga_satuan'];
+
+                    if ($jumlah == 0) {
                         continue;
                     }
 
                     $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
-                    $hargaAktual = (float) $item['harga_satuan'];
-                    $jumlah = round($item['volume'] * $hargaAktual, 2);
-
                     $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
 
                     if ($existingItem) {
                         $existingItem->update([
                             'uraian' => $rincian->nama_item,
-                            'volume' => $item['volume'],
+                            'volume' => $volume,
                             'harga_satuan' => $hargaAktual,
                             'total' => $jumlah,
                             'jumlah_permintaan' => $jumlah,
@@ -530,7 +585,7 @@ class PermohonanDanaController extends Controller
                             'dja_rincian_biaya_id' => $rincian->id,
                             'kode_akun' => $rincian->kode_akun,
                             'uraian' => $rincian->nama_item,
-                            'volume' => $item['volume'],
+                            'volume' => $volume,
                             'satuan' => $rincian->satuan,
                             'harga_satuan' => $hargaAktual,
                             'total' => $jumlah,
@@ -540,6 +595,97 @@ class PermohonanDanaController extends Controller
                     }
                 }
 
+                // ── Nominatif: atomic replace ────────────────────────────────────
+                PermohonanDanaItemNominatif::where('permohonan_dana_id', $pd->id)->delete();
+
+                foreach (array_values($nominatifData) as $urutan => $row) {
+                    $item = $pd->items()->where('dja_rincian_biaya_id', $row['dja_rincian_biaya_id'])->first();
+                    if (! $item) {
+                        continue;
+                    }
+
+                    $refNamaId = $row['ref_nama_id'] ?? null;
+                    $pph21 = (float) ($row['pph21_persen'] ?? 0);
+                    $volume = (float) ($row['volume'] ?? 1);
+                    $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
+                    $jumlahBruto = round($volume * $hargaSatuan, 2);
+                    $jumlahPajak = round($jumlahBruto * ($pph21 / 100), 2);
+                    $jumlahDiterima = round($jumlahBruto - $jumlahPajak, 2);
+
+                    $uraian = strtolower($item->uraian ?? '');
+                    $transport = 0;
+                    $uangHarianVol = 0; $uangHarianSatuan = 0; $uangHarianJumlah = 0;
+                    $fullboardVol = 0; $fullboardSatuan = 0; $fullboardJumlah = 0;
+                    $fulldayVol = 0; $fulldaySatuan = 0; $fulldayJumlah = 0;
+                    $representasi = 0; $taksiPp = 0; $tiketPesawat = 0; $hotel = 0;
+
+                    if ($item->isPerjadin()) {
+                        $vol = $volume;
+                        $hs = $hargaSatuan;
+                        $jml = round($vol * $hs, 2);
+                        if (preg_match('/fullboard/i', $uraian)) {
+                            $fullboardVol = $vol; $fullboardSatuan = $hs; $fullboardJumlah = $jml;
+                        } elseif (preg_match('/fullday|full\s*day/i', $uraian)) {
+                            $fulldayVol = $vol; $fulldaySatuan = $hs; $fulldayJumlah = $jml;
+                        } elseif (preg_match('/uang\s*harian/i', $uraian)) {
+                            $uangHarianVol = $vol; $uangHarianSatuan = $hs; $uangHarianJumlah = $jml;
+                        } elseif (preg_match('/representasi/i', $uraian)) {
+                            $representasi = $jml;
+                        } elseif (preg_match('/tiket\s*pesawat/i', $uraian)) {
+                            $tiketPesawat = $jml;
+                        } elseif (preg_match('/biaya\s*penginapan|hotel|akomodasi/i', $uraian)) {
+                            $hotel = $jml;
+                        } elseif (preg_match('/taksi/i', $uraian)) {
+                            $taksiPp = $jml;
+                        } elseif (preg_match('/transport/i', $uraian)) {
+                            $transport = $jml;
+                        }
+                    }
+
+                    $jumlahPerjadin = $transport + $uangHarianJumlah + $fullboardJumlah
+                                    + $fulldayJumlah + $representasi + $taksiPp
+                                    + $tiketPesawat + $hotel;
+
+                    PermohonanDanaItemNominatif::create([
+                        'permohonan_dana_item_id' => $item->id,
+                        'permohonan_dana_id' => $pd->id,
+                        'ref_nama_id' => $refNamaId ?: null,
+                        'nama' => $row['nama'],
+                        'nip' => $row['nip'] ?? null,
+                        'nik' => $row['nik'] ?? null,
+                        'npwp' => $row['npwp'] ?? null,
+                        'gol_ruang' => $row['gol_ruang'] ?? null,
+                        'nama_rekening' => $row['nama_rekening'] ?? null,
+                        'no_rekening' => $row['no_rekening'] ?? null,
+                        'nama_bank' => $row['nama_bank'] ?? null,
+                        'email' => $row['email'] ?? null,
+                        'pph21_persen' => $pph21,
+                        'jabatan' => $row['jabatan'] ?? null,
+                        'volume' => $volume,
+                        'harga_satuan' => $hargaSatuan,
+                        'jumlah_bruto' => $jumlahBruto,
+                        'jumlah_pajak' => $jumlahPajak,
+                        'jumlah_diterima' => $jumlahDiterima,
+                        'transport' => $transport,
+                        'uang_harian_vol' => $uangHarianVol,
+                        'uang_harian_satuan' => $uangHarianSatuan,
+                        'uang_harian_jumlah' => $uangHarianJumlah,
+                        'fullboard_vol' => $fullboardVol,
+                        'fullboard_satuan' => $fullboardSatuan,
+                        'fullboard_jumlah' => $fullboardJumlah,
+                        'fullday_vol' => $fulldayVol,
+                        'fullday_satuan' => $fulldaySatuan,
+                        'fullday_jumlah' => $fulldayJumlah,
+                        'representasi' => $representasi,
+                        'taksi_pp' => $taksiPp,
+                        'tiket_pesawat' => $tiketPesawat,
+                        'hotel' => $hotel,
+                        'jumlah_perjadin' => $jumlahPerjadin,
+                        'urutan' => $urutan,
+                    ]);
+                }
+
+                // Recalculate total after nominatif affects items
                 $pd->update([
                     'total_anggaran' => $pd->items()->sum('total'),
                     'wizard_step' => max($pd->wizard_step, 4),
