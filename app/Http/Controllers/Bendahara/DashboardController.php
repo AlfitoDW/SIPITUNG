@@ -88,4 +88,35 @@ class DashboardController extends Controller
             'riwayatCair' => $riwayatCair,
         ]);
     }
+
+    public function verifikasiLpj(): Response
+    {
+        $tahun = TahunAnggaran::forSession();
+
+        $base = $tahun ? PermohonanDana::with('timKerja')
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('status', 'dicairkan')
+            ->orderByDesc('dicairkan_at') : null;
+
+        $permohonan = $base ? $base->get()->map(function ($pd) {
+            return [
+                'id' => $pd->id,
+                'nomor_permohonan' => $pd->nomor_permohonan,
+                'keperluan' => $pd->keperluan,
+                'total_anggaran' => $pd->total_anggaran,
+                'dicairkan_at' => $pd->dicairkan_at?->toDateString(),
+                'tgl_pertanggungjawaban' => $pd->tgl_pertanggungjawaban?->toDateString(),
+                'tim_kerja_nama' => $pd->tim_kerja_nama,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
+                'lpj_file_name' => $pd->lpj_file_name,
+                'bukti_bayar_path' => $pd->bukti_bayar_path,
+            ];
+        }) : collect();
+
+        return Inertia::render('Bendahara/VerifikasiLPJ', [
+            'tahun' => $tahun,
+            'permohonan' => $permohonan,
+        ]);
+    }
 }

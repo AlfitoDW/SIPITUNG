@@ -132,7 +132,7 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
         Route::patch('laporan/{laporan}/reopen', [PengukuranController::class, 'laporanReopen'])->name('laporan.reopen');
     });
 
-    Route::get('/pertanggungjawaban', fn () => Inertia::render('SuperAdmin/Pertanggungjawaban'))->name('pertanggungjawaban');
+    Route::get('/pertanggungjawaban', [KeuanganController::class, 'pertanggungjawaban'])->name('pertanggungjawaban');
     Route::get('/validasi', fn () => Inertia::render('SuperAdmin/Validasi'))->name('validasi');
     Route::get('/dokumen', fn () => Inertia::render('SuperAdmin/Dokumen'))->name('dokumen');
     Route::get('/laporan', fn () => Inertia::render('SuperAdmin/Laporan'))->name('laporan');

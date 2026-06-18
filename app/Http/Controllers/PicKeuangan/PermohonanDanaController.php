@@ -21,9 +21,11 @@ class PermohonanDanaController extends Controller
     public function index(): Response
     {
         $tahun = TahunAnggaran::forSession();
+        $user = auth()->user();
 
         $baseQuery = PermohonanDana::with(['items'])
             ->where('tahun_anggaran_id', $tahun->id)
+            ->where('pic_keuangan_id', $user->id)
             ->orderByDesc('created_at');
 
         $mapFn = function ($pd) {
@@ -85,6 +87,8 @@ class PermohonanDanaController extends Controller
 
     public function show(PermohonanDana $pd): Response
     {
+        abort_if($pd->pic_keuangan_id !== auth()->id(), 403, 'Anda tidak ditugaskan sebagai PIC Keuangan untuk permohonan ini.');
+
         $pd->load([
             'dokumens', 'timKerja',
         ]);
@@ -141,6 +145,13 @@ class PermohonanDanaController extends Controller
                 'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
                 'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
+                'bukti_bayar_path' => $pd->bukti_bayar_path,
+                'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
+                'bukti_bayar_uploaded_by_name' => $pd->bukti_bayar_uploaded_by_name,
+                'lpj_file_path' => $pd->lpj_file_path,
+                'lpj_file_name' => $pd->lpj_file_name,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
                 ...$pd->djaDisplayPayload(),
                 'kapokja' => ['id' => $pd->kapokja_id, 'nama_lengkap' => $pd->kapokja_name],
                 'pic_keuangan' => ['id' => $pd->pic_keuangan_id, 'nama_lengkap' => $pd->pic_keuangan_name],

@@ -28,7 +28,7 @@ interface Pegawai {
     nik: string | null;
     npwp: string | null;
     gol_ruang: string | null;
-    status_kepegawaian: 'PNS' | 'Non-PNS';
+    status_kepegawaian: 'PNS' | 'Non-PNS' | 'P3K';
     nama_rekening: string | null;
     no_rekening: string | null;
     nama_bank: string | null;
@@ -45,7 +45,7 @@ const BANK_OPTIONS = ['BNI', 'BRI', 'Mandiri', 'BTN', 'BSI', 'BCA', 'Lainnya'];
 
 const INIT = {
     nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
-    status_kepegawaian: 'PNS' as 'PNS' | 'Non-PNS',
+    status_kepegawaian: 'PNS' as 'PNS' | 'Non-PNS' | 'P3K',
     nama_rekening: '', no_rekening: '', nama_bank: '', email: '',
 };
 
@@ -147,6 +147,7 @@ function PegawaiForm({
                         <SelectContent>
                             <SelectItem value="PNS">PNS</SelectItem>
                             <SelectItem value="Non-PNS">Non-PNS</SelectItem>
+                            <SelectItem value="P3K">P3K</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -220,7 +221,7 @@ export default function RefNamaIndex({ pegawai }: Props) {
     const addForm = useForm(INIT);
     const editForm = useForm(INIT);
 
-    const [jenisFilter, setJenisFilter] = useState<'all' | 'PNS' | 'Non-PNS'>('all');
+    const [jenisFilter, setJenisFilter] = useState<'all' | 'PNS' | 'Non-PNS' | 'P3K'>('all');
 
     const filteredPegawai = useMemo(() => {
         if (jenisFilter === 'all') return pegawai;
@@ -281,7 +282,7 @@ export default function RefNamaIndex({ pegawai }: Props) {
         });
     };
 
-    const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+    const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : s === 'P3K' ? 'bg-violet-100 text-violet-700' : 'bg-orange-100 text-orange-700';
     const isLoading = useNavigationLoading();
 
     return (
@@ -327,12 +328,13 @@ export default function RefNamaIndex({ pegawai }: Props) {
                 </div>
 
                 {/* Stat */}
-                <div className="grid grid-cols-4 gap-3 max-w-sm">
+                <div className="grid grid-cols-5 gap-3 max-w-md">
                     {[
                         ['Total', pegawai.length],
                         ['Aktif', pegawai.filter(p => p.is_aktif).length],
                         ['PNS', pegawai.filter(p => p.status_kepegawaian === 'PNS').length],
                         ['Non-PNS', pegawai.filter(p => p.status_kepegawaian === 'Non-PNS').length],
+                        ['P3K', pegawai.filter(p => p.status_kepegawaian === 'P3K').length],
                     ].map(([l, v]) => (
                         <div key={l} className="bg-white border rounded-lg px-3 py-2 text-center">
                             <p className="text-lg font-bold text-gray-800">{v}</p>
@@ -369,6 +371,7 @@ export default function RefNamaIndex({ pegawai }: Props) {
                             <SelectItem value="all">Semua Jenis</SelectItem>
                             <SelectItem value="PNS">PNS</SelectItem>
                             <SelectItem value="Non-PNS">Non-PNS</SelectItem>
+                            <SelectItem value="P3K">P3K</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

@@ -101,7 +101,7 @@ class RefNamaSeeder extends Seeder
                 'nama_bank' => 'Mandiri',
                 'email' => 'nur.aini@lldikti3.id',
             ],
-            // Non-PNS + NPWP → PPh21 3%
+            // Non-PNS → PPh21 2.5% flat
             [
                 'nama' => 'Dr. Irwan Kusuma, M.Sc.',
                 'nip' => null,
@@ -126,7 +126,7 @@ class RefNamaSeeder extends Seeder
                 'nama_bank' => 'BCA',
                 'email' => 'rina.fitriani@consultant.id',
             ],
-            // Non-PNS tanpa NPWP → PPh21 2.5%
+            // Non-PNS → PPh21 2.5% flat
             [
                 'nama' => 'Hendrik Prasetyo',
                 'nip' => null,

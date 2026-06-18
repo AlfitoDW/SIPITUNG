@@ -68,6 +68,8 @@ class PermohonanDana extends Model
         'created_by_nip',
         // Bukti bayar
         'bukti_bayar_path', 'bukti_bayar_nama_file', 'bukti_bayar_uploaded_at', 'bukti_bayar_uploaded_by', 'bukti_bayar_uploaded_by_name',
+        // LPJ
+        'lpj_file_path', 'lpj_file_name', 'lpj_uploaded_at', 'lpj_uploaded_by', 'lpj_uploaded_by_name',
         // Pembukaan kunci
         'dibuka_kunci_by', 'dibuka_kunci_at', 'dibuka_kunci_by_name', 'alasan_pembukaan_kunci',
     ];
@@ -89,6 +91,7 @@ class PermohonanDana extends Model
         'dicairkan_at' => 'datetime',
         'rejected_at' => 'datetime',
         'bukti_bayar_uploaded_at' => 'datetime',
+        'lpj_uploaded_at' => 'datetime',
         'dibuka_kunci_at' => 'datetime',
         'wizard_step' => 'integer',
     ];
@@ -139,6 +142,16 @@ class PermohonanDana extends Model
     public function isEditable(): bool
     {
         return in_array($this->status, ['draft', 'rejected']);
+    }
+
+    /** Upload dokumen pendukung tetap bisa selama approval, diblokir setelah dicairkan DAN LPJ diupload */
+    public function canUploadDocuments(): bool
+    {
+        if ($this->status === 'dicairkan' && $this->lpj_uploaded_at) {
+            return false;
+        }
+
+        return true;
     }
 
     /** Label status untuk tampilan */

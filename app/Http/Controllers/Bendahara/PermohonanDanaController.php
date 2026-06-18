@@ -187,6 +187,11 @@ class PermohonanDanaController extends Controller
                 'bukti_bayar_path' => $pd->bukti_bayar_path,
                 'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
                 'bukti_bayar_uploaded_by_name' => $pd->bukti_bayar_uploaded_by_name,
+                // LPJ
+                'lpj_file_path' => $pd->lpj_file_path,
+                'lpj_file_name' => $pd->lpj_file_name,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
             ],
         ]);
     }

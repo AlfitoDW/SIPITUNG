@@ -231,6 +231,7 @@ export default function EditPegawaiDialog({
                                 <SelectContent>
                                     <SelectItem value="PNS">PNS</SelectItem>
                                     <SelectItem value="Non-PNS">Non-PNS</SelectItem>
+                                    <SelectItem value="P3K">P3K</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

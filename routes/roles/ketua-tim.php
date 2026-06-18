@@ -65,7 +65,7 @@ Route::prefix('ketua-tim')->middleware('role:ketua_tim_kerja')->name('ketua-tim.
     // Monitoring — lihat data semua tim (read-only)
     Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring');
 
-    Route::get('/lpj', fn () => Inertia::render('KetuaTim/LPJ'))->name('lpj');
+    Route::get('/lpj', [DashboardController::class, 'lpj'])->name('lpj');
     Route::get('/dokumen', fn () => Inertia::render('KetuaTim/Dokumen'))->name('dokumen');
     Route::get('/notifikasi', fn () => Inertia::render('KetuaTim/Notifikasi'))->name('notifikasi');
 });

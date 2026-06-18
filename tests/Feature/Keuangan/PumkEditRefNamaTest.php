@@ -47,7 +47,6 @@ describe('PUMK can edit ref nama (master data pegawai)', function () {
         $pegawai = RefNama::factory()->create([
             'status_kepegawaian' => 'PNS',
             'gol_ruang' => 'III/a',
-            'npwp' => '123',
         ]);
 
         expect((float) $pegawai->pph21_persen)->toBe(5.0);
@@ -71,6 +70,27 @@ describe('PUMK can edit ref nama (master data pegawai)', function () {
 
         $pegawai->refresh();
         expect((float) $pegawai->pph21_persen)->toBe(15.0);
+    });
+
+    it('computes flat 2.5% pph21 for Non-PNS regardless of NPWP', function () {
+        $pegawai = RefNama::factory()->create([
+            'status_kepegawaian' => 'Non-PNS',
+            'gol_ruang' => null,
+            'npwp' => '1234567890',
+            'pph21_persen' => RefNama::hitungPph21('Non-PNS', null, '1234567890'),
+        ]);
+
+        expect((float) $pegawai->pph21_persen)->toBe(2.5);
+    });
+
+    it('computes flat 2.5% pph21 for P3K', function () {
+        $pegawai = RefNama::factory()->create([
+            'status_kepegawaian' => 'P3K',
+            'gol_ruang' => null,
+            'pph21_persen' => RefNama::hitungPph21('P3K', null, null),
+        ]);
+
+        expect((float) $pegawai->pph21_persen)->toBe(2.5);
     });
 
     it('allows PUMK to toggle pegawai status (soft deactivate)', function () {

@@ -29,6 +29,8 @@ interface Pd {
     no_sk?: string | null; tgl_sk?: string | null;
     no_st?: string | null; tgl_st?: string | null;
     dokumens: Dokumen[];
+    lpj_file_path?: string | null; lpj_file_name?: string | null;
+    lpj_uploaded_at?: string | null; lpj_uploaded_by_name?: string | null;
 }
 interface KapokjaItem {
     id: number;
@@ -943,12 +945,40 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
     const goToStep = (n: number) => setStep(n);
 
     const isEditable = pd.status === 'draft' || pd.status === 'rejected';
+    const canUpload = pd.status !== 'dicairkan';
 
     // Step tertinggi yang bisa dijangkau:
     // - Saat readonly (sudah disubmit): semua step bisa dikunjungi bebas (maxReached=4)
     // - Saat draft/edit: hanya sampai wizard_step yang tersimpan di DB
     const maxReached = isEditable ? Math.max(step, pd.wizard_step ?? 1) : 4;
     const isLoading = useNavigationLoading();
+
+    // LPJ state
+    const lpjFileRef = useRef<HTMLInputElement>(null);
+    const [lpjUploading, setLpjUploading] = useState(false);
+    const [lpjDeleting, setLpjDeleting] = useState(false);
+    const [showDeleteLpj, setShowDeleteLpj] = useState(false);
+
+    const handleLpjUpload = () => {
+        if (!lpjFileRef.current?.files?.[0]) return;
+        const file = lpjFileRef.current.files[0];
+        if (file.size > 10 * 1024 * 1024) { toast.error('Ukuran file maksimal 10 MB.'); return; }
+        setLpjUploading(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        router.post(`/pumk/permohonan-dana/${pd.id}/upload-lpj`, fd, {
+            onSuccess: () => { setLpjUploading(false); toast.success('LPJ berhasil diupload.'); },
+            onError: () => { setLpjUploading(false); toast.error('Gagal upload LPJ.'); },
+        });
+    };
+
+    const handleLpjDelete = () => {
+        setLpjDeleting(true);
+        router.post(`/pumk/permohonan-dana/${pd.id}/hapus-lpj`, {}, {
+            onSuccess: () => { setLpjDeleting(false); setShowDeleteLpj(false); toast.success('LPJ berhasil dihapus.'); },
+            onError: () => { setLpjDeleting(false); toast.error('Gagal menghapus LPJ.'); },
+        });
+    };
 
     return (
         <AppLayout>
@@ -971,7 +1001,7 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                     <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                         <Lock className="h-4 w-4 shrink-0 text-blue-600" />
                         <span>
-                            <strong>Permohonan sudah dikunci.</strong> Data tidak dapat diubah karena permohonan sedang dalam proses persetujuan ({pd.status_label}).
+                            <strong>Permohonan sudah dalam proses persetujuan.</strong> Data tidak dapat diubah{canUpload && ', namun dokumen pendukung masih dapat diunggah'} ({pd.status_label}).
                         </span>
                     </div>
                 )}
@@ -983,6 +1013,57 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                     </div>
                 )}
 
+                {/* LPJ — hanya tampil setelah dicairkan */}
+                {pd.status === 'dicairkan' && (
+                    <Card className="border-emerald-200 bg-emerald-50/30">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-emerald-800">
+                                <FileText className="h-4 w-4" /> Laporan Pertanggungjawaban (LPJ)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {pd.lpj_file_path ? (
+                                <>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <a href={`/files/lpj/${pd.id}`} target="_blank" rel="noopener noreferrer"
+                                            className="text-sm text-blue-600 hover:underline font-medium">
+                                            {pd.lpj_file_name}
+                                        </a>
+                                        <span className="text-xs text-gray-500">
+                                            Diupload oleh {pd.lpj_uploaded_by_name} pada{' '}
+                                            {pd.lpj_uploaded_at ? new Date(pd.lpj_uploaded_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                                        </span>
+                                    </div>
+                                    <Button variant="outline" size="sm" disabled={lpjDeleting}
+                                        onClick={() => setShowDeleteLpj(true)}
+                                        className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50">
+                                        <Trash2 className="h-4 w-4" /> Hapus LPJ
+                                    </Button>
+                                    {showDeleteLpj && (
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <span className="text-xs text-red-600">Yakin hapus LPJ?</span>
+                                            <Button size="sm" variant="destructive" disabled={lpjDeleting} onClick={handleLpjDelete}>Ya</Button>
+                                            <Button size="sm" variant="outline" onClick={() => setShowDeleteLpj(false)}>Batal</Button>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="space-y-3">
+                                    <p className="text-sm text-gray-600">Permohonan telah dicairkan. Silakan upload LPJ.</p>
+                                    <div className="flex items-center gap-3">
+                                        <Input ref={lpjFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="max-w-xs" />
+                                        <Button size="sm" onClick={handleLpjUpload} disabled={lpjUploading}
+                                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                                            {lpjUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                            Upload LPJ
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
                 <StepBar current={step} maxReached={maxReached} onGoto={goToStep} />
 
                 {step === 1 && <Step1 pd={pd} onNext={() => goToStep(2)} />}
@@ -991,7 +1072,7 @@ export default function Wizard({ pd, kapokjaList, picList, rincianBiaya, jenisDo
                 {step === 2 && <Step2 key={`s2-${pd.tanggal_mulai}-${pd.kapokja_id}-${pd.pic_keuangan_id}`}
                     pd={pd} kapokjaList={kapokjaList} picList={picList} readonly={!isEditable}
                     onPrev={() => goToStep(1)} onNext={() => goToStep(3)} />}
-                {step === 3 && <Step3 pd={pd} jenisDokumen={jenisDokumen} readonly={!isEditable} onPrev={() => goToStep(2)} onNext={() => goToStep(4)} />}
+                {step === 3 && <Step3 pd={pd} jenisDokumen={jenisDokumen} readonly={!canUpload} onPrev={() => goToStep(2)} onNext={() => goToStep(4)} />}
                 {step === 4 && <Step4 pd={pd} rincianBiaya={rincianBiaya} readonly={!isEditable} onPrev={() => goToStep(3)} />}
             </div>
             )}

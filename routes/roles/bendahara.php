@@ -8,7 +8,7 @@ Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->gr
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/laporan', fn () => \Inertia\Inertia::render('Bendahara/Laporan'))->name('laporan');
-    Route::get('/verifikasi-lpj', fn () => \Inertia\Inertia::render('Bendahara/VerifikasiLPJ'))->name('verifikasi-lpj');
+    Route::get('/verifikasi-lpj', [DashboardController::class, 'verifikasiLpj'])->name('verifikasi-lpj');
 
     // ─── Permohonan Dana — Pencairan (step 5) ────────────────────────────────────
     Route::prefix('permohonan-dana')->name('permohonan-dana.')->group(function () {

@@ -5,6 +5,7 @@ import {
     ChartNoAxesColumn,
     HandCoins,
     Activity,
+    FileText,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
@@ -74,6 +75,11 @@ const ketuaTimNav: NavGroup[] = [
                 title: 'Approval Permohonan',
                 href: '/ketua-tim/keuangan/permohonan-dana',
                 icon: HandCoins,
+            },
+            {
+                title: 'Pertanggungjawaban (LPJ)',
+                href: '/ketua-tim/lpj',
+                icon: FileText,
             },
         ],
     },

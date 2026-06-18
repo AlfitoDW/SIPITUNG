@@ -29,6 +29,10 @@ Route::prefix('pumk')->middleware('role:pumk')->name('pumk.')->group(function ()
         // Print Preview
         Route::get('/{pd}/print', [PermohonanDanaController::class, 'print'])->name('print');
 
+        // LPJ
+        Route::post('/{pd}/upload-lpj', [PermohonanDanaController::class, 'uploadLpj'])->name('lpj.upload');
+        Route::post('/{pd}/hapus-lpj', [PermohonanDanaController::class, 'hapusLpj'])->name('lpj.hapus');
+
         // Nominatif
         Route::get('/{pd}/nominatif', [NominatifController::class, 'index'])->name('nominatif');
         Route::post('/{pd}/nominatif/simpan', [NominatifController::class, 'store'])->name('nominatif.store');

@@ -30,12 +30,12 @@ class RefNama extends Model
 
     /**
      * Hitung tarif PPh21 otomatis berdasarkan golongan & status kepegawaian.
-     * Sesuai aturan SIPITUNG lama.
+     * PNS Gol IV=15%, III=5%, I-II=0%. Non-PNS & P3K=2.5% flat.
      */
     public static function hitungPph21(string $status, ?string $gol, ?string $npwp): float
     {
-        if ($status === 'Non-PNS') {
-            return $npwp ? 3.0 : 2.5;
+        if ($status === 'Non-PNS' || $status === 'P3K') {
+            return 2.5;
         }
 
         // PNS — berdasarkan golongan

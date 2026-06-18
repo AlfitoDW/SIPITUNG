@@ -22,6 +22,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('files.bukti-bayar');
     Route::get('/files/dokumen/{dokumen}', [FileController::class, 'downloadDokumen'])
         ->name('files.dokumen');
+    Route::get('/files/lpj/{pd}', [FileController::class, 'downloadLpj'])
+        ->name('files.lpj');
 
     require __DIR__.'/roles/super-admin.php';
     require __DIR__.'/roles/ketua-tim.php';

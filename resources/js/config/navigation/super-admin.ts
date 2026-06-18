@@ -8,6 +8,7 @@ import {
     BellRingIcon,
     Users,
     UserCog,
+    FileText,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import type { NavGroup } from '@/types';
@@ -80,6 +81,11 @@ const superAdminNav: NavGroup[] = [
                     { title: 'Monitoring', href: '/super-admin/keuangan/permohonan-dana' },
                     { title: 'Master Anggaran DJA', href: '/super-admin/keuangan/master-anggaran' },
                 ],
+            },
+            {
+                title: 'Pertanggungjawaban',
+                href: '/super-admin/pertanggungjawaban',
+                icon: FileText,
             },
         ],
     },

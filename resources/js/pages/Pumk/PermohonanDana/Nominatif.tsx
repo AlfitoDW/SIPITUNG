@@ -119,13 +119,11 @@ const fmt = (n: number | string | null | undefined) => {
     return new Intl.NumberFormat('id-ID').format(Number.isNaN(num) ? 0 : num);
 };
 
-const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+const statusColor = (s: string) => s === 'PNS' ? 'bg-blue-100 text-blue-700' : s === 'P3K' ? 'bg-violet-100 text-violet-700' : 'bg-orange-100 text-orange-700';
 
 // Hitung tarif PPh21 real-time (mirror logic PHP RefNama::hitungPph21)
 function hitungPph21(status: string, gol: string | null, npwp: string | null): number {
-    if (status === 'Non-PNS') {
-        return npwp ? 3.0 : 2.5;
-    }
+    if (status === 'Non-PNS' || status === 'P3K') return 2.5;
     if (!gol) return 0;
     const g = gol.toUpperCase();
     if (g.startsWith('IV')) return 15.0;

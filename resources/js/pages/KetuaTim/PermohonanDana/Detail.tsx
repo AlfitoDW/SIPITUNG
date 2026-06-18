@@ -73,6 +73,10 @@ interface Pd {
     catatan_ppk: string | null;
     catatan_pic: string | null;
     catatan_pencairan: string | null;
+    lpj_file_path: string | null;
+    lpj_file_name: string | null;
+    lpj_uploaded_at: string | null;
+    lpj_uploaded_by_name: string | null;
     dja_program?: { nama: string } | null;
     dja_sasaran?: { nama: string } | null;
     dja_kro?: { kode: string; nama: string } | null;
@@ -146,7 +150,7 @@ export default function Detail({ pd }: Props) {
     const { data, setData, post, processing, reset } = useForm({ catatan: '' });
 
     const isKapokja = pd.kapokja?.id === currentUserId;
-    const canApprove = isKapokja && pd.status === 'submitted';
+    const canApprove = isKapokja && pd.status === 'submitted' && step === 4;
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 
     const openPreview = (dok: Pd['dokumens'][number]) => {
@@ -204,6 +208,19 @@ export default function Detail({ pd }: Props) {
                                     </Link>
                                 </TooltipTrigger>
                                 <TooltipContent>Cetak permohonan dana</TooltipContent>
+                            </Tooltip>
+                        )}
+                        {/* LPJ — view only */}
+                        {pd.lpj_file_path && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <a href={`/files/lpj/${pd.id}`} target="_blank" rel="noopener noreferrer">
+                                        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-violet-600 border-violet-200 hover:bg-violet-50">
+                                            <FileText className="h-4 w-4" /> LPJ
+                                        </Button>
+                                    </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Lihat Laporan Pertanggungjawaban</TooltipContent>
                             </Tooltip>
                         )}
                         {/* Approve / Reject — hanya jika user adalah kapokja dan status submitted */}

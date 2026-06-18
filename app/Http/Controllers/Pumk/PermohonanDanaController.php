@@ -46,6 +46,10 @@ class PermohonanDanaController extends Controller
                 'dicairkan_at' => $pd->dicairkan_at?->toIso8601String(),
                 'rejected_at' => $pd->rejected_at?->toIso8601String(),
                 'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
+                'lpj_file_path' => $pd->lpj_file_path,
+                'lpj_file_name' => $pd->lpj_file_name,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
                 // actor names — snapshot only, no fallback live
                 'created_by_name' => $pd->created_by_name,
                 'katim_approved_by_name' => $pd->katim_approved_by_name,
@@ -295,7 +299,7 @@ class PermohonanDanaController extends Controller
     public function uploadDokumen(Request $request, PermohonanDana $pd): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
+        abort_if(! $pd->canUploadDocuments(), 403, 'Dokumen tidak dapat diupload karena permohonan sudah dicairkan.');
 
         $request->validate([
             'jenis_dokumen_id' => 'required|integer|between:1,8',
@@ -348,7 +352,7 @@ class PermohonanDanaController extends Controller
     public function hapusDokumen(Request $request, PermohonanDana $pd, PermohonanDanaDokumen $dokumen): RedirectResponse
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
-        abort_if(! $pd->isEditable(), 403, 'Permohonan tidak dapat diubah pada status ini.');
+        abort_if(! $pd->canUploadDocuments(), 403, 'Dokumen tidak dapat dihapus karena permohonan sudah dicairkan.');
         abort_if($dokumen->permohonan_dana_id !== $pd->id, 403);
 
         Storage::disk('local')->delete($dokumen->path_file);
@@ -364,6 +368,55 @@ class PermohonanDanaController extends Controller
         return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
             ->with('success', 'Dokumen dihapus.')
             ->with('wizard_step', 3);
+    }
+
+    // ─── LPJ (Laporan Pertanggungjawaban) ──────────────────────────────────────────
+
+    public function uploadLpj(Request $request, PermohonanDana $pd): RedirectResponse
+    {
+        abort_if($pd->created_by !== $request->user()->id, 403);
+        abort_if($pd->status !== 'dicairkan', 422, 'LPJ hanya dapat diupload setelah permohonan dicairkan.');
+        abort_if($pd->lpj_uploaded_at, 422, 'LPJ sudah pernah diupload.');
+
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store("permohonan_dana/{$pd->id}/lpj", 'local');
+        $user = $request->user();
+
+        \DB::transaction(function () use ($pd, $path, $file, $user) {
+            $pd->update([
+                'lpj_file_path' => $path,
+                'lpj_file_name' => $file->getClientOriginalName(),
+                'lpj_uploaded_at' => now(),
+                'lpj_uploaded_by' => $user->id,
+                'lpj_uploaded_by_name' => $user->nama_lengkap,
+            ]);
+        });
+
+        return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+            ->with('success', 'LPJ berhasil diupload.');
+    }
+
+    public function hapusLpj(Request $request, PermohonanDana $pd): RedirectResponse
+    {
+        abort_if($pd->created_by !== $request->user()->id, 403);
+        abort_if(! $pd->lpj_uploaded_at, 422, 'Belum ada LPJ yang diupload.');
+
+        Storage::disk('local')->delete($pd->lpj_file_path);
+
+        $pd->update([
+            'lpj_file_path' => null,
+            'lpj_file_name' => null,
+            'lpj_uploaded_at' => null,
+            'lpj_uploaded_by' => null,
+            'lpj_uploaded_by_name' => null,
+        ]);
+
+        return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+            ->with('success', 'LPJ berhasil dihapus.');
     }
 
     // ─── Update Step 4 — Rincian Biaya ───────────────────────────────────────────

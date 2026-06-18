@@ -35,7 +35,7 @@ class RefNamaController extends Controller
             'nik' => 'nullable|string|max:20',
             'npwp' => 'nullable|string|max:20',
             'gol_ruang' => 'nullable|string|max:10',
-            'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS'])],
+            'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS', 'P3K'])],
             'nama_rekening' => 'nullable|string|max:150',
             'no_rekening' => 'nullable|string|max:30',
             'nama_bank' => 'nullable|string|max:100',
@@ -61,7 +61,7 @@ class RefNamaController extends Controller
             'nik' => 'nullable|string|max:20',
             'npwp' => 'nullable|string|max:20',
             'gol_ruang' => 'nullable|string|max:10',
-            'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS'])],
+            'status_kepegawaian' => ['required', Rule::in(['PNS', 'Non-PNS', 'P3K'])],
             'nama_rekening' => 'nullable|string|max:150',
             'no_rekening' => 'nullable|string|max:30',
             'nama_bank' => 'nullable|string|max:100',
@@ -114,9 +114,9 @@ class RefNamaController extends Controller
 
         // Sample data rows (contoh, user bisa hapus)
         $samples = [
-            [1, 'Budi Santoso', '198501012010011001', '3273010101850001', '123456789012345', 'PNS', 'III/a', 'Budi Santoso', '0012345678', 'BNI', '=(IF(LEFT(G2,3)="III","5%",IF(LEFT(G2,3)="NON","2,5%",IF(LEFT(G2,3)="IV/","15%","0%"))))', 'budi@contoh.com'],
-            [2, 'Ani Wijaya', null, '3273010202860002', null, 'Non-PNS', null, 'Ani Wijaya', '0087654321', 'BRI', '=(IF(LEFT(G3,3)="III","5%",IF(LEFT(G3,3)="NON","2,5%",IF(LEFT(G3,3)="IV/","15%","0%"))))', 'ani@contoh.com'],
-            [3, 'Citra Lestari', '197803152003122002', '3273011503780003', '987654321098765', 'PNS', 'IV/b', 'Citra Lestari', '0022334455', 'Mandiri', '=(IF(LEFT(G4,3)="III","5%",IF(LEFT(G4,3)="NON","2,5%",IF(LEFT(G4,3)="IV/","15%","0%"))))', 'citra@contoh.com'],
+            [1, 'Budi Santoso', '198501012010011001', '3273010101850001', '123456789012345', 'PNS', 'III/a', 'Budi Santoso', '0012345678', 'BNI', '=(IF(LEFT(G2,3)="III","5%",IF(LEFT(G2,3)="IV/","15%","2,5%")))', 'budi@contoh.com'],
+            [2, 'Ani Wijaya', null, '3273010202860002', null, 'Non-PNS', null, 'Ani Wijaya', '0087654321', 'BRI', '=(IF(LEFT(G3,3)="III","5%",IF(LEFT(G3,3)="IV/","15%","2,5%")))', 'ani@contoh.com'],
+            [3, 'Citra Lestari', '197803152003122002', '3273011503780003', '987654321098765', 'PNS', 'IV/b', 'Citra Lestari', '0022334455', 'Mandiri', '=(IF(LEFT(G4,3)="III","5%",IF(LEFT(G4,3)="IV/","15%","2,5%")))', 'citra@contoh.com'],
         ];
         foreach ($samples as $r => $row) {
             foreach ($row as $c => $val) {
@@ -134,7 +134,7 @@ class RefNamaController extends Controller
         $statusValidation->setErrorStyle(DataValidation::STYLE_STOP);
         $statusValidation->setAllowBlank(true);
         $statusValidation->setShowDropDown(true);
-        $statusValidation->setFormula1('"PNS,Non-PNS"');
+        $statusValidation->setFormula1('"PNS,Non-PNS,P3K"');
         for ($row = 2; $row <= 1000; $row++) {
             $sheet->getCell('F'.$row)->setDataValidation($statusValidation);
         }
@@ -211,7 +211,7 @@ class RefNamaController extends Controller
             $nik = $this->nullableString($row['D']);
             $npwp = $this->nullableString($row['E']);
             $statusRaw = trim((string) ($row['F'] ?? ''));
-            $status = in_array($statusRaw, ['PNS', 'Non-PNS']) ? $statusRaw : 'PNS';
+            $status = in_array($statusRaw, ['PNS', 'Non-PNS', 'P3K']) ? $statusRaw : 'PNS';
             $golRuang = $this->nullableString($row['G']);
             $namaRekening = $this->nullableString($row['H']);
             $noRekening = $this->nullableString($row['I']);

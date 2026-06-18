@@ -132,7 +132,7 @@ export default function Detail({ pd, role }: Props) {
     const { data, setData, post, processing, reset } = useForm({ catatan: '' });
 
     const isKabag = role === 'kabag_umum';
-    const canApprove = !isKabag && pd.status === 'pic_approved';
+    const canApprove = !isKabag && pd.status === 'pic_approved' && step === 4;
     const nextLabel = 'Bendahara';
     const { cls: statusCls, dot: statusDot } = statusMeta(pd.status);
 

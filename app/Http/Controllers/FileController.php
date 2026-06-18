@@ -36,6 +36,16 @@ class FileController extends Controller
         return $this->serveFile($dokumen->path_file, $request->boolean('download'), $dokumen->nama_file);
     }
 
+    public function downloadLpj(Request $request, PermohonanDana $pd): StreamedResponse
+    {
+        $this->authorizeAccess($pd);
+
+        abort_if(! $pd->lpj_file_path, 404, 'LPJ tidak ditemukan.');
+        abort_if(! Storage::disk('local')->exists($pd->lpj_file_path), 404, 'File tidak ditemukan di storage.');
+
+        return $this->serveFile($pd->lpj_file_path, $request->boolean('download'), $pd->lpj_file_name);
+    }
+
     /**
      * Check if the authenticated user is authorized to access files
      * belonging to the given permohonan dana.
@@ -58,9 +68,15 @@ class FileController extends Controller
             return;
         }
 
-        // Ketua tim kerja: scoped to their tim kerja
-        if ($user->isKetuaTimKerja() && $pd->tim_kerja_id === $user->tim_kerja_id) {
-            return;
+        // Ketua tim kerja: scoped to their tim kerja, kecuali TK-PK yang lihat semua
+        if ($user->isKetuaTimKerja()) {
+            if ($user->timkerja?->kode === 'TK-PK') {
+                return;
+            }
+            if ($pd->tim_kerja_id === $user->tim_kerja_id) {
+                return;
+            }
+            abort(403, 'Anda tidak memiliki akses ke file ini.');
         }
 
         // PUMK: own permohonan only

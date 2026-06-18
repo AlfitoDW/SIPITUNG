@@ -76,6 +76,10 @@ interface Pd {
     bukti_bayar_path: string | null;
     bukti_bayar_uploaded_at: string | null;
     bukti_bayar_uploaded_by_name: string | null;
+    lpj_file_path: string | null;
+    lpj_file_name: string | null;
+    lpj_uploaded_at: string | null;
+    lpj_uploaded_by_name: string | null;
     dja_program?: { nama: string } | null;
     dja_sasaran?: { nama: string } | null;
     dja_kro?: { kode: string; nama: string } | null;
@@ -145,7 +149,7 @@ export default function Detail({ pd }: Props) {
     const [showBukaKunci, setShowBukaKunci] = useState(false);
 
     const canPrint = !['draft', 'rejected'].includes(pd.status);
-    const canAct = pd.status === 'ppk_approved';
+    const canAct = pd.status === 'ppk_approved' && step === 4;
     const canUploadBuktiBayar = pd.status === 'dicairkan' && !pd.bukti_bayar_path;
 
     const user = (usePage().props as unknown as { auth: { user: { role: string } } }).auth.user;
@@ -258,6 +262,19 @@ export default function Detail({ pd }: Props) {
                                     </a>
                                 </TooltipTrigger>
                                 <TooltipContent>Lihat Bukti Bayar</TooltipContent>
+                            </Tooltip>
+                        )}
+                        {/* LPJ — view only */}
+                        {pd.lpj_file_path && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <a href={`/files/lpj/${pd.id}`} target="_blank" rel="noopener noreferrer">
+                                        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-violet-600 border-violet-200 hover:bg-violet-50">
+                                            <FileText className="h-4 w-4" /> LPJ
+                                        </Button>
+                                    </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Lihat Laporan Pertanggungjawaban</TooltipContent>
                             </Tooltip>
                         )}
                         {pd.status === 'dicairkan' && pd.bukti_bayar_path && (

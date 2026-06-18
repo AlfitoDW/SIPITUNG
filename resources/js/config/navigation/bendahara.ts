@@ -1,6 +1,7 @@
 import {
     LayoutDashboard,
     BellRingIcon,
+    ClipboardCheck,
     HandCoins,
 } from 'lucide-react';
 import type { NavGroup } from '@/types';
@@ -24,11 +25,11 @@ const bendaharaNav: NavGroup[] = [
                 href: '/bendahara/permohonan-dana',
                 icon: HandCoins,
             },
-            // {
-            //     title: 'Verifikasi LPJ',
-            //     href: '/bendahara/verifikasi-lpj',
-            //     icon: ClipboardCheck,
-            // },
+            {
+                title: 'Verifikasi LPJ',
+                href: '/bendahara/verifikasi-lpj',
+                icon: ClipboardCheck,
+            },
             // {
             //     title: 'Laporan Keuangan',
             //     href: '/bendahara/laporan',

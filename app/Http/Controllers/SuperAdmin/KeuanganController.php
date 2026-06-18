@@ -152,6 +152,15 @@ class KeuanganController extends Controller
                 'dibuka_kunci_at' => $pd->dibuka_kunci_at?->toIso8601String(),
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
                 'alasan_pembukaan_kunci' => $pd->alasan_pembukaan_kunci,
+                // Bukti bayar
+                'bukti_bayar_path' => $pd->bukti_bayar_path,
+                'bukti_bayar_uploaded_at' => $pd->bukti_bayar_uploaded_at?->toIso8601String(),
+                'bukti_bayar_uploaded_by_name' => $pd->bukti_bayar_uploaded_by_name,
+                // LPJ
+                'lpj_file_path' => $pd->lpj_file_path,
+                'lpj_file_name' => $pd->lpj_file_name,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
                 // DJA
                 ...$pd->djaDisplayPayload(),
                 'items' => $items->map(fn ($i) => [
@@ -188,5 +197,35 @@ class KeuanganController extends Controller
         $service->bukaKunci($pd, $request->user(), $request->alasan);
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.");
+    }
+
+    public function pertanggungjawaban(): Response
+    {
+        $tahun = TahunAnggaran::forSession();
+
+        $base = $tahun ? PermohonanDana::with('timKerja')
+            ->where('tahun_anggaran_id', $tahun->id)
+            ->where('status', 'dicairkan')
+            ->orderByDesc('dicairkan_at') : null;
+
+        $permohonan = $base ? $base->get()->map(function ($pd) {
+            return [
+                'id' => $pd->id,
+                'nomor_permohonan' => $pd->nomor_permohonan,
+                'keperluan' => $pd->keperluan,
+                'total_anggaran' => $pd->total_anggaran,
+                'dicairkan_at' => $pd->dicairkan_at?->toDateString(),
+                'tgl_pertanggungjawaban' => $pd->tgl_pertanggungjawaban?->toDateString(),
+                'tim_kerja_nama' => $pd->tim_kerja_nama,
+                'lpj_uploaded_at' => $pd->lpj_uploaded_at?->toIso8601String(),
+                'lpj_uploaded_by_name' => $pd->lpj_uploaded_by_name,
+                'lpj_file_name' => $pd->lpj_file_name,
+            ];
+        }) : collect();
+
+        return Inertia::render('SuperAdmin/Pertanggungjawaban', [
+            'tahun' => $tahun,
+            'permohonan' => $permohonan,
+        ]);
     }
 }

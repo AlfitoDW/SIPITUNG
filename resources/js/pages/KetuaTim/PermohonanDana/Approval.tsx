@@ -1,19 +1,13 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Eye, History, Printer, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Eye, History, Printer, FileText } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -124,15 +118,6 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
     const [pageSize,     setPageSize]     = useState(10);
     const [page,         setPage]         = useState(1);
     const [historyTarget, setHistoryTarget] = useState<PD | null>(null);
-    const [actionTarget,  setActionTarget]  = useState<{ pd: PD; action: 'approve' | 'reject' } | null>(null);
-
-    const { data, setData, post, processing, reset } = useForm({ catatan: '' });
-
-    const handleConfirm = () => {
-        if (!actionTarget) return;
-        const url = `/ketua-tim/keuangan/permohonan-dana/${actionTarget.pd.id}/${actionTarget.action}`;
-        post(url, { onSuccess: () => { reset(); setActionTarget(null); } });
-    };
 
     const tabCount    = (tab: Tab) => tab.statuses ? permohonan.filter(pd => tab.statuses!.includes(pd.status)).length : permohonan.length;
     const handleTab   = (key: string) => { setActiveTab(key); setPage(1); };
@@ -375,31 +360,6 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
                                                                         <TooltipContent>Cetak</TooltipContent>
                                                                     </Tooltip>
                                                                 )}
-                                                                {/* Setujui / Tolak — langsung dari list */}
-                                                                {canApprove && (
-                                                                    <>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger asChild>
-                                                                                <Button variant="ghost" size="icon"
-                                                                                    className="h-7 w-7 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50"
-                                                                                    onClick={() => { reset(); setActionTarget({ pd, action: 'approve' }); }}>
-                                                                                    <CheckCircle2 className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent>Setujui</TooltipContent>
-                                                                        </Tooltip>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger asChild>
-                                                                                <Button variant="ghost" size="icon"
-                                                                                    className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                                                    onClick={() => { reset(); setActionTarget({ pd, action: 'reject' }); }}>
-                                                                                    <XCircle className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent>Tolak</TooltipContent>
-                                                                        </Tooltip>
-                                                                    </>
-                                                                )}
                                                                 {/* Lihat Detail — selalu tampil */}
                                                                 {canView && (
                                                                     <Tooltip>
@@ -490,42 +450,6 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
 
             <ApprovalTimeline pd={historyTarget} open={!!historyTarget} onClose={() => setHistoryTarget(null)} />
 
-            {/* Approve / Reject Dialog */}
-            <AlertDialog open={!!actionTarget} onOpenChange={(o) => !o && setActionTarget(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {actionTarget?.action === 'approve' ? 'Setujui Permohonan' : 'Tolak Permohonan'}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {actionTarget?.action === 'approve'
-                                ? `Setujui ${actionTarget?.pd.nomor_permohonan} dan teruskan ke Kabag Umum?`
-                                : `Tolak ${actionTarget?.pd.nomor_permohonan}? PUMK perlu merevisi dan mengajukan ulang.`}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="px-6 pb-2 space-y-1.5">
-                        <Label className="text-sm">
-                            Catatan {actionTarget?.action === 'reject' && <span className="text-red-500">*</span>}
-                        </Label>
-                        <Textarea
-                            rows={3}
-                            value={data.catatan}
-                            onChange={e => setData('catatan', e.target.value)}
-                            placeholder={actionTarget?.action === 'approve' ? 'Catatan persetujuan (opsional)' : 'Alasan penolakan (wajib diisi)'}
-                        />
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleConfirm}
-                            disabled={processing || (actionTarget?.action === 'reject' && !data.catatan.trim())}
-                            className={actionTarget?.action === 'reject' ? 'bg-red-600 hover:bg-red-700' : ''}
-                        >
-                            {processing ? 'Memproses...' : actionTarget?.action === 'approve' ? 'Setujui' : 'Tolak'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </AppLayout>
     );
 }
