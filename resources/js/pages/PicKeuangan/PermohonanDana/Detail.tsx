@@ -1,8 +1,8 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
-    ArrowLeft, CheckCircle2, XCircle, FileText, Calendar,
+    ArrowLeft, CheckCircle2, Download, FileText, Calendar,
     User, MapPin, ClipboardList, Banknote, Eye,
-    Printer,
+    Printer, XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -223,6 +223,18 @@ export default function Detail({ pd }: Props) {
                                     </Link>
                                 </TooltipTrigger>
                                 <TooltipContent>Cetak permohonan dana</TooltipContent>
+                            </Tooltip>
+                        )}
+                        {canPrint && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <a href={`/pic-keuangan/permohonan-dana/${pd.id}/nominatif`}>
+                                        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-blue-600 border-blue-200 hover:bg-blue-50">
+                                            <Download className="h-4 w-4" /> Nominatif
+                                        </Button>
+                                    </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Download Nominatif</TooltipContent>
                             </Tooltip>
                         )}
                         {/* Bukti Bayar — view only */}

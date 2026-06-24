@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\PicKeuangan;
 
+use App\Exports\NominatifExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
@@ -250,5 +251,10 @@ class PermohonanDanaController extends Controller
         $pd->invalidateTerpakaiCache();
 
         return back()->with('success', "Permohonan {$pd->nomor_permohonan} ditolak.");
+    }
+
+    public function nominatif(PermohonanDana $pd)
+    {
+        return (new NominatifExport($pd))->download();
     }
 }

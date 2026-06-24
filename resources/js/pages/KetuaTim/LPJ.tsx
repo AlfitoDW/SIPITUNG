@@ -1,11 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import { FileText, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import AppLayout from '@/layouts/app-layout';
 
 interface PermohonanItem {
     id: number;

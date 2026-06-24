@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardCheck } from 'lucide-react';
+import { FileText, LayoutDashboard, ClipboardCheck } from 'lucide-react';
 import type { NavGroup } from '@/types';
 
 const picKeuanganNav: NavGroup[] = [
@@ -19,6 +19,11 @@ const picKeuanganNav: NavGroup[] = [
                 title: 'Verifikasi Permohonan',
                 href: '/pic-keuangan/permohonan-dana',
                 icon: ClipboardCheck,
+            },
+            {
+                title: 'Verifikasi LPJ',
+                href: '/pic-keuangan/verifikasi-lpj',
+                icon: FileText,
             },
         ],
     },

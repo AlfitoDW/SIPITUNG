@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Eye, History, Printer } from 'lucide-react';
+import { Download, Eye, History, Printer } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
 import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
@@ -300,6 +300,19 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props)
                                                                         </Link>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>Cetak</TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                            {canPrint && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <a href={`/pic-keuangan/permohonan-dana/${pd.id}/nominatif`} target="_blank" rel="noopener noreferrer">
+                                                                            <Button variant="ghost" size="icon"
+                                                                                className="h-7 w-7 text-teal-500 hover:text-teal-700 hover:bg-teal-50">
+                                                                                <Download className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </a>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>Download Nominatif</TooltipContent>
                                                                 </Tooltip>
                                                             )}
                                                             <Tooltip>

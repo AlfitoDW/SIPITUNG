@@ -15,6 +15,8 @@ class NominatifExport
 
     private ?User $bendahara;
 
+    private ?User $picKeuangan;
+
     private string $tglNominatif;
 
     private const HONOR_AKUN = ['521115', '521213', '522151'];
@@ -53,6 +55,7 @@ class NominatifExport
             'headerEndCol' => 'P',
             'footerStartCol' => 'A',
             'footerEndCol' => 'P',
+            'picMidCol' => 'G',
         ],
         '521213' => [
             'format' => 'B',
@@ -71,6 +74,7 @@ class NominatifExport
             'headerEndCol' => 'Q',
             'footerStartCol' => 'A',
             'footerEndCol' => 'Q',
+            'picMidCol' => 'G',
         ],
         '522151' => [
             'format' => 'B',
@@ -89,6 +93,7 @@ class NominatifExport
             'headerEndCol' => 'Q',
             'footerStartCol' => 'A',
             'footerEndCol' => 'Q',
+            'picMidCol' => 'G',
         ],
         '524111' => [
             'format' => 'C',
@@ -107,6 +112,7 @@ class NominatifExport
             'headerEndCol' => 'U',
             'footerStartCol' => 'B',
             'footerEndCol' => 'U',
+            'picMidCol' => 'J',
         ],
         '524114' => [
             'format' => 'C',
@@ -125,6 +131,7 @@ class NominatifExport
             'headerEndCol' => 'S',
             'footerStartCol' => 'B',
             'footerEndCol' => 'S',
+            'picMidCol' => 'I',
         ],
         '524113' => [
             'format' => 'C',
@@ -143,6 +150,7 @@ class NominatifExport
             'headerEndCol' => 'S',
             'footerStartCol' => 'B',
             'footerEndCol' => 'S',
+            'picMidCol' => 'I',
         ],
         '524119' => [
             'format' => 'C',
@@ -161,15 +169,17 @@ class NominatifExport
             'headerEndCol' => 'U',
             'footerStartCol' => 'B',
             'footerEndCol' => 'U',
+            'picMidCol' => 'J',
         ],
     ];
 
     public function __construct(PermohonanDana $pd)
     {
         $this->pd = $pd;
-        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy']);
+        $this->pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja', 'djaKegiatan', 'ppkApprovedBy', 'picKeuangan']);
         $this->ppk = $this->pd->ppkApprovedBy;
         $this->bendahara = User::where('role', 'bendahara')->where('is_active', true)->first();
+        $this->picKeuangan = $this->pd->picKeuangan;
         $this->tglNominatif = $this->pd->tgl_nominatif
             ? $this->pd->tgl_nominatif->locale('id')->isoFormat('D MMMM YYYY')
             : now()->locale('id')->isoFormat('D MMMM YYYY');
@@ -470,6 +480,10 @@ class NominatifExport
         // Pejabat Pembuat Komitmen
         $sheet->setCellValue("{$colA}{$pejabatRow}", 'Pejabat Pembuat Komitmen');
 
+        // PIC Keuangan — middle signature
+        $picMidCol = $cfg['picMidCol'];
+        $sheet->setCellValue("{$picMidCol}{$mengetahuiRow}", 'Mengetahui,');
+        $sheet->setCellValue("{$picMidCol}{$anKuasaRow}", 'PIC Keuangan,');
         // PPK and Bendahara names
         $activePpk = User::where('role', 'pimpinan')
             ->where('pimpinan_type', 'ppk')
@@ -485,6 +499,12 @@ class NominatifExport
 
         $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
         $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
+
+        $picNip = $this->picKeuangan?->nip ?: $this->lookupNipFromRefNama($this->picKeuangan?->nama_lengkap);
+        $sheet->setCellValue("{$picMidCol}{$ppkNameRow}", $this->picKeuangan?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$picMidCol}{$ppkNipRow}", 'NIP. '.($picNip ?: '-'));
+        $sheet->getStyle("{$picMidCol}{$ppkNameRow}")->getFont()->setBold(true);
+        $sheet->getStyle("{$picMidCol}{$ppkNipRow}")->getFont()->setBold(true);
     }
 
     private function updateJumlahRow(Worksheet $sheet, string $kodeAkun, int $row, $rows, float $totalDiterima): void

@@ -252,7 +252,7 @@ class PermohonanDanaController extends Controller
                         // Nominatif info — tipe & jumlah peserta yang sudah diisi
                         'tipe_nominatif' => $existing?->tipe_nominatif ?? 'non_nominatif',
                         'nominatif_count' => $existing ? $existing->nominatif()->count() : 0,
-                        'nominatif' => $existing ? $existing->nominatif->map(fn($n) => [
+                        'nominatif' => $existing ? $existing->nominatif->map(fn ($n) => [
                             'id' => $n->id,
                             'ref_nama_id' => $n->ref_nama_id,
                             'nama' => $n->nama,
@@ -505,6 +505,7 @@ class PermohonanDanaController extends Controller
 
         if ($itemsWithNominatif->isNotEmpty()) {
             $item = $itemsWithNominatif->first();
+
             return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                 ->with('error',
                     "Item [{$item->kode_akun}] {$item->uraian} sudah memiliki data nominatif. "
@@ -614,21 +615,36 @@ class PermohonanDanaController extends Controller
 
                     $uraian = strtolower($item->uraian ?? '');
                     $transport = 0;
-                    $uangHarianVol = 0; $uangHarianSatuan = 0; $uangHarianJumlah = 0;
-                    $fullboardVol = 0; $fullboardSatuan = 0; $fullboardJumlah = 0;
-                    $fulldayVol = 0; $fulldaySatuan = 0; $fulldayJumlah = 0;
-                    $representasi = 0; $taksiPp = 0; $tiketPesawat = 0; $hotel = 0;
+                    $uangHarianVol = 0;
+                    $uangHarianSatuan = 0;
+                    $uangHarianJumlah = 0;
+                    $fullboardVol = 0;
+                    $fullboardSatuan = 0;
+                    $fullboardJumlah = 0;
+                    $fulldayVol = 0;
+                    $fulldaySatuan = 0;
+                    $fulldayJumlah = 0;
+                    $representasi = 0;
+                    $taksiPp = 0;
+                    $tiketPesawat = 0;
+                    $hotel = 0;
 
                     if ($item->isPerjadin()) {
                         $vol = $volume;
                         $hs = $hargaSatuan;
                         $jml = round($vol * $hs, 2);
                         if (preg_match('/fullboard/i', $uraian)) {
-                            $fullboardVol = $vol; $fullboardSatuan = $hs; $fullboardJumlah = $jml;
+                            $fullboardVol = $vol;
+                            $fullboardSatuan = $hs;
+                            $fullboardJumlah = $jml;
                         } elseif (preg_match('/fullday|full\s*day/i', $uraian)) {
-                            $fulldayVol = $vol; $fulldaySatuan = $hs; $fulldayJumlah = $jml;
+                            $fulldayVol = $vol;
+                            $fulldaySatuan = $hs;
+                            $fulldayJumlah = $jml;
                         } elseif (preg_match('/uang\s*harian/i', $uraian)) {
-                            $uangHarianVol = $vol; $uangHarianSatuan = $hs; $uangHarianJumlah = $jml;
+                            $uangHarianVol = $vol;
+                            $uangHarianSatuan = $hs;
+                            $uangHarianJumlah = $jml;
                         } elseif (preg_match('/representasi/i', $uraian)) {
                             $representasi = $jml;
                         } elseif (preg_match('/tiket\s*pesawat/i', $uraian)) {

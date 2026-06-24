@@ -219,7 +219,7 @@ export default function VerifikasiLPJ({ permohonan }: Props) {
                                                             )}
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Link href={`/bendahara/permohonan-dana/${p.id}`}>
+                                                                    <Link href={`/pic-keuangan/permohonan-dana/${p.id}`}>
                                                                         <Button size="sm" variant="ghost" className="h-7">
                                                                             <ArrowRight className="h-4 w-4" />
                                                                         </Button>

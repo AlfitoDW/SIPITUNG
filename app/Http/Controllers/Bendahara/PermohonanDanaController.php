@@ -322,8 +322,6 @@ class PermohonanDanaController extends Controller
 
     public function nominatif(PermohonanDana $pd)
     {
-        abort_if(! in_array($pd->status, ['pic_approved', 'ppk_approved', 'dicairkan']), 403, 'Nominatif hanya tersedia setelah diverifikasi PIC.');
-
         return (new NominatifExport($pd))->download();
     }
 }
