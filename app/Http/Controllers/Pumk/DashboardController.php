@@ -80,6 +80,25 @@ class DashboardController extends Controller
                 ->get(['id', 'nomor_permohonan', 'keperluan', 'total_anggaran', 'dicairkan_at', 'tim_kerja_id']);
         }
 
+        // ─── Perlu Upload LPJ ────────────────────────────────────────────
+        $perluLpj = collect();
+        if ($tahunId) {
+            $perluLpj = PermohonanDana::with('timKerja')
+                ->where('tahun_anggaran_id', $tahunId)
+                ->where('created_by', $user->id)
+                ->where('status', 'dicairkan')
+                ->whereNull('lpj_uploaded_at')
+                ->orderByDesc('dicairkan_at')
+                ->get([
+                    'id',
+                    'nomor_permohonan',
+                    'keperluan',
+                    'total_anggaran',
+                    'dicairkan_at',
+                    'tim_kerja_id',
+                ]);
+        }
+
         $user->load('timkerja');
 
         return Inertia::render('Pumk/Dashboard', [
@@ -88,6 +107,7 @@ class DashboardController extends Controller
             'pipeline' => $pipeline,
             'tugasHariIni' => $tugasHariIni,
             'riwayatCair' => $riwayatCair,
+            'perluLpj' => $perluLpj,
             'nilaiDraft' => (float) $nilaiDraft,
             'nilaiProses' => (float) $nilaiProses,
             'nilaiRejected' => (float) $nilaiRejected,

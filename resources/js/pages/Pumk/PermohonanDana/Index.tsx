@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap, FileWarning } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
@@ -61,6 +61,9 @@ type PD = {
     // bukti bayar
     bukti_bayar_path: string | null;
     bukti_bayar_uploaded_at: string | null;
+    // lpj
+    lpj_uploaded_at: string | null;
+    lpj_file_name: string | null;
     // next approver
     next_approver_role: string | null;
     next_approver_name: string | null;
@@ -499,12 +502,20 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                         {fmtDate(pd.submitted_at)}
                                                     </td>
                                                     <td className="px-3 py-3 text-center">
-                                                        <span className={cn(
-                                                            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
-                                                            statusColor(pd.status),
-                                                        )}>
-                                                            {pd.status_label}
-                                                        </span>
+                                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                            <span className={cn(
+                                                                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                                                                statusColor(pd.status),
+                                                            )}>
+                                                                {pd.status_label}
+                                                            </span>
+                                                            {pd.status === 'dicairkan' && !pd.lpj_uploaded_at && (
+                                                                <Badge className="border-amber-300 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 animate-pulse">
+                                                                    <FileWarning className="h-3 w-3 mr-1" />
+                                                                    Perlu LPJ
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="px-3 py-3 text-center">
                                                         {pd.next_approver_role ? (

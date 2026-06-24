@@ -2,11 +2,12 @@ import { Head, Link } from '@inertiajs/react';
 import {
     HandCoins, FileText, CheckCircle2, XCircle, Clock, AlertCircle,
     ChevronRight, Inbox, PlusCircle, ArrowRight, TrendingUp,
-    Loader2, Shield, Wallet,
+    Loader2, Shield, Wallet, FileWarning,
 } from 'lucide-react';
 import { SkeletonDashboard } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
@@ -54,6 +55,15 @@ type RiwayatItem = {
     tim_kerja: TimKerja;
 };
 
+type PerluLpjItem = {
+    id: number;
+    nomor_permohonan: string;
+    keperluan: string;
+    total_anggaran: number;
+    dicairkan_at: string;
+    tim_kerja: TimKerja;
+};
+
 type UserInfo = {
     nama: string;
     nip: string | null;
@@ -68,6 +78,7 @@ type Props = {
     pipeline: PipelineStats;
     tugasHariIni: TugasItem[];
     riwayatCair: RiwayatItem[];
+    perluLpj: PerluLpjItem[];
     nilaiDraft: number;
     nilaiProses: number;
     nilaiRejected: number;
@@ -79,6 +90,14 @@ const fmt = (n: number) =>
 
 const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const hariLalu = (dateString: string): number => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+};
 
 /* ─── Summary Card ─────────────────────────────────────────────────── */
 function SummaryCard({
@@ -172,9 +191,57 @@ function TugasCard({ item }: { item: TugasItem }) {
     );
 }
 
+/* ─── LPJ Item Card ────────────────────────────────────────────────── */
+function LpjCard({ item }: { item: PerluLpjItem }) {
+    const daysAgo = hariLalu(item.dicairkan_at);
+    const isUrgent = daysAgo >= 7;
+
+    return (
+        <div className="flex items-center gap-4 px-5 py-4 hover:bg-muted/40 transition-colors border-b last:border-b-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/20">
+                <FileWarning className={`h-5 w-5 ${isUrgent ? 'text-amber-600' : 'text-amber-500'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-mono font-semibold text-foreground">{item.nomor_permohonan}</span>
+                    {item.tim_kerja && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                            {item.tim_kerja.kode}
+                        </Badge>
+                    )}
+                    {isUrgent && (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 animate-pulse">
+                            Urgent
+                        </span>
+                    )}
+                </div>
+                <p className="text-sm text-muted-foreground truncate mt-0.5">{item.keperluan}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                        {fmt(item.total_anggaran)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">·</span>
+                    <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-muted-foreground/50" />
+                        <span className={`text-xs ${isUrgent ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground'}`}>
+                            Dicairkan {daysAgo} hari lalu
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <Link href={`/pumk/permohonan-dana/${item.id}/wizard`}>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/20">
+                    Upload LPJ
+                    <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+            </Link>
+        </div>
+    );
+}
+
 /* ─── Main Component ───────────────────────────────────────────────── */
 export default function Dashboard({
-    tahun, stats, pipeline, tugasHariIni, riwayatCair,
+    tahun, stats, pipeline, tugasHariIni, riwayatCair, perluLpj,
     nilaiDraft, nilaiProses, nilaiRejected, userInfo,
 }: Props) {
     const pdTotal = Object.values(pipeline).reduce((a, b) => a + b, 0);
@@ -230,6 +297,46 @@ export default function Dashboard({
                         </div>
                     </div>
                 </div>
+
+                {/* ═══ LPJ WARNING CARD ════════════════════════════════════ */}
+                {perluLpj.length > 0 && (
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                        <div className="h-1 w-full bg-amber-500" />
+                        <div className="p-5">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/20">
+                                        <FileWarning className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold">Upload LPJ</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {perluLpj.length} permohonan perlu upload Laporan Pertanggungjawaban
+                                        </p>
+                                    </div>
+                                </div>
+                                <Link href="/pumk/permohonan-dana">
+                                    <Button variant="outline" size="sm" className="text-xs h-8 gap-1">
+                                        Lihat Semua
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                    </Button>
+                                </Link>
+                            </div>
+
+                            <div className="overflow-hidden rounded-lg border">
+                                {perluLpj.slice(0, 5).map((item) => (
+                                    <LpjCard key={item.id} item={item} />
+                                ))}
+                            </div>
+
+                            {perluLpj.length > 5 && (
+                                <p className="text-xs text-muted-foreground mt-2 text-center">
+                                    ... dan {perluLpj.length - 5} permohonan lainnya
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* ═══ SUMMARY CARDS + CTA ══════════════════════════════ */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
