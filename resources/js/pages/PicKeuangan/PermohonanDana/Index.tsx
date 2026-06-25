@@ -253,7 +253,7 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props)
                                                     </td>
                                                     <td className="px-3 py-3 max-w-xs">
                                                         <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
-                                                        {pd.catatan_penolakan && (
+                                                        {pd.status === 'rejected' && pd.catatan_penolakan && (
                                                             <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
                                                         )}
                                                     </td>
@@ -292,14 +292,14 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat }: Props)
                                                             {canPrint && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <Link href={`/pic-keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
+                                                                        <a href={`/pic-keuangan/permohonan-dana/${pd.id}/print`}>
                                                                             <Button variant="ghost" size="icon"
                                                                                 className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50">
-                                                                                <Printer className="h-4 w-4" />
+                                                                                <Download className="h-4 w-4" />
                                                                             </Button>
-                                                                        </Link>
+                                                                        </a>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>Cetak</TooltipContent>
+                                                                    <TooltipContent>Download Surat</TooltipContent>
                                                                 </Tooltip>
                                                             )}
                                                             {canPrint && (

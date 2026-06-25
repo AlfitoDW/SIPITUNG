@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Eye, History, Printer, FileText } from 'lucide-react';
+import { Eye, History, Printer, Download, FileText } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
 import { Badge } from '@/components/ui/badge';
@@ -286,7 +286,7 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
                                                         </td>
                                                         <td className="px-3 py-3 max-w-xs">
                                                             <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
-                                                            {pd.catatan_penolakan && (
+                                                            {pd.status === 'rejected' && pd.catatan_penolakan && (
                                                                 <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
                                                             )}
                                                             {pd.catatan_katim && pd.status !== 'submitted' && (
@@ -350,14 +350,14 @@ export default function Approval({ tahun, menunggu, permohonan }: Props) {
                                                                 {!['draft','rejected'].includes(pd.status) && (
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
-                                                                            <Link href={`/ketua-tim/keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
+                                                                            <a href={`/ketua-tim/keuangan/permohonan-dana/${pd.id}/print`}>
                                                                                 <Button variant="ghost" size="icon"
                                                                                     className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50">
-                                                                                    <Printer className="h-4 w-4" />
+                                                                                    <Download className="h-4 w-4" />
                                                                                 </Button>
-                                                                            </Link>
+                                                                            </a>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent>Cetak</TooltipContent>
+                                                                        <TooltipContent>Download Surat</TooltipContent>
                                                                     </Tooltip>
                                                                 )}
                                                                 {/* Lihat Detail — selalu tampil */}

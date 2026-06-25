@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Pumk;
 
+use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\DjaKegiatan;
 use App\Models\DjaKomponen;
@@ -793,6 +794,10 @@ class PermohonanDanaController extends Controller
                     'submitted_at' => now(),
                     'created_by_name' => $user->nama_lengkap,
                     'created_by_nip' => $user->nip,
+                    // Clear rejection fields on re-submit (history preserved in permohonan_dana_rejections table)
+                    'catatan_penolakan' => null,
+                    'rejected_at_step' => null,
+                    'rejected_at' => null,
                 ]);
             });
         } catch (\Exception $e) {
@@ -807,21 +812,13 @@ class PermohonanDanaController extends Controller
             ->with('success', "Permohonan {$pd->nomor_permohonan} berhasil diajukan ke KA.TIM.");
     }
 
-    // ─── Print Preview ────────────────────────────────────────────────────────────
+    // ─── Download Surat Permohonan Dana (Excel) ────────────────────────────────────
 
-    public function print(Request $request, PermohonanDana $pd): Response
+    public function print(Request $request, PermohonanDana $pd): \Illuminate\Http\Response
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
 
-        $pd->load([
-            'items', 'dokumens',
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'kapokja', 'picKeuangan',
-        ]);
-
-        return Inertia::render('Pumk/PermohonanDana/PrintPreview', [
-            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-        ]);
+        return (new PermohonanDanaExport($pd))->download();
     }
 
     // ─── Destroy ──────────────────────────────────────────────────────────────────

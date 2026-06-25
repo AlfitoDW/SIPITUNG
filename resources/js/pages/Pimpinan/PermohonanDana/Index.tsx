@@ -274,7 +274,7 @@ export default function PermohonanDanaIndex({ tahun, menunggu, riwayat, role }: 
                                                             </td>
                                                             <td className="px-3 py-3 max-w-xs">
                                                                 <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
-                                                                {pd.catatan_penolakan && (
+                                                                {pd.status === 'rejected' && pd.catatan_penolakan && (
                                                                     <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
                                                                 )}
                                                             </td>

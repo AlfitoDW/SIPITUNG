@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
-    Eye, ClipboardList, Printer, History, FileText
+    Eye, ClipboardList, Printer, Download, History, FileText
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import ApprovalTimeline from '@/components/ApprovalTimeline';
@@ -293,7 +293,7 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                                                     </td>
                                                     <td className="px-3 py-3 max-w-xs">
                                                         <p className="font-medium truncate">{pd.judul_pekerjaan ?? pd.keperluan}</p>
-                                                        {pd.catatan_penolakan && (
+                                                        {pd.status === 'rejected' && pd.catatan_penolakan && (
                                                             <p className="text-xs text-red-500 mt-0.5 truncate">↳ {pd.catatan_penolakan}</p>
                                                         )}
                                                     </td>
@@ -335,14 +335,14 @@ export default function PermohonanDanaIndex({ tahun, permohonan, timKerjaList }:
                                                             {!['draft', 'rejected'].includes(pd.status) && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <Link href={`/super-admin/keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
+                                                                        <a href={`/super-admin/keuangan/permohonan-dana/${pd.id}/print`}>
                                                                             <Button variant="ghost" size="icon"
                                                                                 className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                                                                                <Printer className="h-3.5 w-3.5" />
+                                                                                <Download className="h-3.5 w-3.5" />
                                                                             </Button>
-                                                                        </Link>
+                                                                        </a>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>Cetak permohonan</TooltipContent>
+                                                                    <TooltipContent>Download surat</TooltipContent>
                                                                 </Tooltip>
                                                             )}
                                                             <Tooltip>
