@@ -50,7 +50,7 @@ interface Dokumen     { id:number; jenis_dokumen_id:number; nama_jenis:string; n
 type RefNama = PegawaiComboboxRefNama;
 
 interface NominatifRow {
-    item_id: number;
+    dja_rincian_biaya_id: number;
     ref_nama_id: number | string | null;
     nama: string;
     nip: string;
@@ -149,7 +149,7 @@ function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number,
         defaultJabatan = jabatanOptions[0] ?? '';
     }
     return {
-        item_id: itemId, ref_nama_id: null,
+        dja_rincian_biaya_id: itemId, ref_nama_id: null,
         nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
         nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
         jabatan: defaultJabatan, volume: '1', satuan: satuan, harga_satuan: String(hargaDefault),
@@ -161,7 +161,7 @@ function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number,
 
 function makeEmptyPerjadinRow(itemId: number, satuan: string, hargaSatuan: number): NominatifRow {
     return {
-        item_id: itemId, ref_nama_id: null,
+        dja_rincian_biaya_id: itemId, ref_nama_id: null,
         nama: '', nip: '', nik: '', npwp: '', gol_ruang: '',
         nama_rekening: '', no_rekening: '', nama_bank: '', email: '', pph21_persen: '0',
         jabatan: '', volume: '1', satuan: satuan, harga_satuan: String(hargaSatuan),
@@ -183,7 +183,7 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         (parseFloat(String(nom.hotel)) || 0);
     const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
     return {
-        item_id: itemId, ref_nama_id: nom.ref_nama_id,
+        dja_rincian_biaya_id: itemId, ref_nama_id: nom.ref_nama_id,
         nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
         npwp: nom.npwp ?? '', gol_ruang: nom.gol_ruang ?? '',
         nama_rekening: nom.nama_rekening ?? '', no_rekening: nom.no_rekening ?? '',
@@ -831,7 +831,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
             if (!isNominatifItem(item)) continue;
             const rows = nominatifRows[item.id] ?? [];
             for (const row of rows) {
-                result.push({ ...row, item_id: item.id });
+                result.push({ ...row, dja_rincian_biaya_id: item.id });
             }
         }
         return result;

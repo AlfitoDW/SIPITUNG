@@ -482,8 +482,7 @@ class NominatifExport
 
         // PIC Keuangan — middle signature
         $picMidCol = $cfg['picMidCol'];
-        $sheet->setCellValue("{$picMidCol}{$mengetahuiRow}", 'Mengetahui,');
-        $sheet->setCellValue("{$picMidCol}{$anKuasaRow}", 'PIC Keuangan,');
+        $sheet->setCellValue("{$picMidCol}{$mengetahuiRow}", 'Pembuat daftar,');
         // PPK and Bendahara names
         $activePpk = User::where('role', 'pimpinan')
             ->where('pimpinan_type', 'ppk')
