@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap, FileWarning } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, ClipboardList, Printer, Download, History, CheckCircle2, XCircle, Clock, CircleDot, FileCheck, Zap, FileWarning } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import {
@@ -570,14 +570,14 @@ export default function PermohonanDanaIndex({ tahun, permohonan }: Props) {
                                                             {canPrint && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <Link href={`/pumk/permohonan-dana/${pd.id}/print`} target="_blank">
+                                                                        <a href={`/pumk/permohonan-dana/${pd.id}/print`}>
                                                                             <Button variant="ghost" size="icon"
                                                                                 className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                                                                                <Printer className="h-3.5 w-3.5" />
+                                                                                <Download className="h-3.5 w-3.5" />
                                                                             </Button>
-                                                                        </Link>
+                                                                        </a>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>Cetak permohonan dana</TooltipContent>
+                                                                    <TooltipContent>Download surat permohonan</TooltipContent>
                                                                 </Tooltip>
                                                             )}
                                                             {pd.bukti_bayar_path && (

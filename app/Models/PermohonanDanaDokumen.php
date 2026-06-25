@@ -23,6 +23,7 @@ class PermohonanDanaDokumen extends Model
         6 => 'Kuitansi / Bukti Pembayaran',
         7 => 'SPK / Surat Perjanjian',
         8 => 'Dokumen Lainnya',
+        9 => 'Dokumen Materi Narsum/Hasil Pembahasan',
     ];
 
     public function permohonanDana(): BelongsTo

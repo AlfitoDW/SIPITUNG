@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SuperAdmin;
 
+use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
@@ -92,7 +93,7 @@ class KeuanganController extends Controller
         ]);
 
         $items = \App\Models\PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
-            ->with('djaRincianBiaya')
+            ->with(['djaRincianBiaya', 'nominatif'])
             ->get();
 
         $djaIds = $items->pluck('dja_rincian_biaya_id')->filter()->unique()->values();
@@ -170,6 +171,18 @@ class KeuanganController extends Controller
                     'sbm' => $i->djaRincianBiaya?->harga_satuan ?? $i->harga_satuan,
                     'terpakai' => $terpakaiMap[$i->dja_rincian_biaya_id] ?? 0,
                     'sisa_anggaran' => max(0, ($i->djaRincianBiaya?->pagu_total ?? 0) - ($terpakaiMap[$i->dja_rincian_biaya_id] ?? 0)),
+                    'nominatif' => $i->nominatif->map(fn ($n) => [
+                        'id' => $n->id, 'nama' => $n->nama, 'nip' => $n->nip, 'nik' => $n->nik, 'npwp' => $n->npwp,
+                        'gol_ruang' => $n->gol_ruang, 'nama_rekening' => $n->nama_rekening, 'no_rekening' => $n->no_rekening,
+                        'nama_bank' => $n->nama_bank, 'email' => $n->email, 'pph21_persen' => $n->pph21_persen,
+                        'jabatan' => $n->jabatan, 'volume' => $n->volume, 'harga_satuan' => $n->harga_satuan,
+                        'jumlah_bruto' => $n->jumlah_bruto, 'jumlah_pajak' => $n->jumlah_pajak,
+                        'jumlah_diterima' => $n->jumlah_diterima, 'transport' => $n->transport,
+                        'uang_harian_jumlah' => $n->uang_harian_jumlah, 'fullboard_jumlah' => $n->fullboard_jumlah,
+                        'fullday_jumlah' => $n->fullday_jumlah, 'representasi' => $n->representasi,
+                        'taksi_pp' => $n->taksi_pp, 'tiket_pesawat' => $n->tiket_pesawat, 'hotel' => $n->hotel,
+                        'jumlah_perjadin' => $n->jumlah_perjadin,
+                    ])->values(),
                 ])->values(),
                 'dokumens' => $pd->dokumens->map(fn ($d) => [
                     'id' => $d->id, 'nama_jenis' => $d->nama_jenis, 'nama_file' => $d->nama_file, 'path_file' => $d->path_file,
@@ -178,25 +191,23 @@ class KeuanganController extends Controller
         ]);
     }
 
-    public function printPermohonanDana(PermohonanDana $pd): Response
+    public function printPermohonanDana(PermohonanDana $pd): \Illuminate\Http\Response
     {
-        $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'items', 'dokumens',
-        ]);
-
-        return Inertia::render('Pumk/PermohonanDana/PrintPreview', [
-            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-        ]);
+        return (new PermohonanDanaExport($pd))->download();
     }
 
     public function bukaKunci(Request $request, PermohonanDana $pd, PermohonanDanaService $service): RedirectResponse
     {
         $request->validate(['alasan' => 'nullable|string|max:1000']);
 
+        $oldStatus = $pd->status;
         $service->bukaKunci($pd, $request->user(), $request->alasan);
 
-        return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.");
+        $message = $oldStatus === 'dicairkan'
+            ? "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Menunggu Pencairan (PPK Approved)."
+            : "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.";
+
+        return back()->with('success', $message);
     }
 
     public function pertanggungjawaban(): Response

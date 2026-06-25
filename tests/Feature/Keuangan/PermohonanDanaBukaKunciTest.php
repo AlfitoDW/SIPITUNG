@@ -99,3 +99,30 @@ it('allows buka kunci without alasan', function () {
 
     expect($pd->fresh()->status)->toBe('rejected');
 });
+
+it('allows buka kunci for dicairkan without bukti bayar and reverts to ppk_approved', function () {
+    $pd = PermohonanDana::factory()->dicairkan()->create([
+        'tahun_anggaran_id' => $this->tahunAnggaran->id,
+        'tim_kerja_id' => $this->timKerja->id,
+        'created_by' => $this->pumk->id,
+        'pic_keuangan_id' => $this->pic->id,
+        'bukti_bayar_path' => null, // No bukti bayar yet
+        'dicairkan_by' => $this->bendahara->id,
+        'dicairkan_at' => now(),
+        'catatan_pencairan' => 'Dicairkan untuk kegiatan',
+    ]);
+
+    $this->actingAs($this->bendahara)
+        ->post(route('bendahara.permohonan-dana.buka-kunci', $pd), [
+            'alasan' => 'Perlu koreksi sebelum transfer',
+        ])
+        ->assertRedirect();
+
+    $fresh = $pd->fresh();
+    expect($fresh->status)->toBe('ppk_approved')
+        ->and($fresh->dicairkan_by)->toBeNull()
+        ->and($fresh->dicairkan_at)->toBeNull()
+        ->and($fresh->catatan_pencairan)->toBeNull()
+        ->and($fresh->dibuka_kunci_by)->toBe($this->bendahara->id)
+        ->and($fresh->alasan_pembukaan_kunci)->toBe('Perlu koreksi sebelum transfer');
+});

@@ -1,13 +1,17 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft, FileText, Calendar, User, MapPin, ClipboardList,
-    Banknote, Eye, Printer, XCircle, CheckCircle2,
+    Banknote, Eye, Printer, Download, XCircle, CheckCircle2,
     Unlock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import DocPreviewModal from '@/components/DocPreviewModal';
 import InfoRow from '@/components/InfoRow';
+import Step1Informasi from '@/components/PermohonanDanaDetail/Step1Informasi';
+import Step2Waktu from '@/components/PermohonanDanaDetail/Step2Waktu';
+import Step3Dokumen from '@/components/PermohonanDanaDetail/Step3Dokumen';
+import RincianBiayaTable from '@/components/RincianBiayaTable';
 import { SkeletonDetailPage } from '@/components/skeletons';
 import StepBar from '@/components/StepBar';
 import {
@@ -86,6 +90,21 @@ interface Pd {
         volume: string; satuan: string; harga_satuan: string; total: string;
         pagu_total: string | number; sbm: string | number;
         terpakai: string | number; sisa_anggaran: string | number;
+        nominatif?: Array<{
+            id: number; nama: string; nip: string | null; nik: string | null;
+            npwp: string | null; gol_ruang: string | null;
+            nama_rekening: string | null; no_rekening: string | null;
+            nama_bank: string | null; email: string | null;
+            pph21_persen: string | number; jabatan: string | null;
+            volume: string | number; harga_satuan: string | number;
+            jumlah_bruto: string | number; jumlah_pajak: string | number;
+            jumlah_diterima: string | number;
+            transport: string | number; uang_harian_jumlah: string | number;
+            fullboard_jumlah: string | number; fullday_jumlah: string | number;
+            representasi: string | number; taksi_pp: string | number;
+            tiket_pesawat: string | number; hotel: string | number;
+            jumlah_perjadin: string | number;
+        }>;
     }[];
     dokumens: {
         id: number; nama_jenis: string; nama_file: string; path_file: string;
@@ -175,13 +194,13 @@ export default function Detail({ pd }: Props) {
                         {canPrint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Link href={`/super-admin/keuangan/permohonan-dana/${pd.id}/print`} target="_blank">
+                                    <a href={`/super-admin/keuangan/permohonan-dana/${pd.id}/print`}>
                                         <Button size="sm" variant="outline" className="gap-1.5 h-8 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-                                            <Printer className="h-4 w-4" /> Cetak
+                                            <Download className="h-4 w-4" /> Download Surat
                                         </Button>
-                                    </Link>
+                                    </a>
                                 </TooltipTrigger>
-                                <TooltipContent>Cetak permohonan dana</TooltipContent>
+                                <TooltipContent>Download surat permohonan</TooltipContent>
                             </Tooltip>
                         )}
                         {canBukaKunci && (
@@ -229,99 +248,13 @@ export default function Detail({ pd }: Props) {
                 <StepBar steps={STEPS} active={step} onChange={setStep} />
 
                 {/* Step 1: Informasi Kegiatan */}
-                {step === 1 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                                <ClipboardList className="h-4 w-4 text-blue-600" /> Informasi Kegiatan
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-0">
-                            <InfoRow label="No. Permohonan" value={pd.nomor_permohonan} mono />
-                            <InfoRow label="Tim Kerja" value={pd.tim_kerja ? `${pd.tim_kerja.kode} — ${pd.tim_kerja.nama}` : null} />
-                            <InfoRow label="Diajukan Oleh" value={pd.created_by_name} />
-                            <InfoRow label="Judul Pekerjaan" value={pd.judul_pekerjaan ?? pd.keperluan} />
-                            <InfoRow label="Program" value={pd.dja_program?.nama} />
-                            <InfoRow label="Sasaran" value={pd.dja_sasaran?.nama} />
-                            <InfoRow label="KRO" value={pd.dja_kro ? `${pd.dja_kro.kode} — ${pd.dja_kro.nama}` : null} />
-                            <InfoRow label="RO" value={pd.dja_ro?.nama} />
-                            <InfoRow label="Komponen" value={pd.dja_komponen?.nama} />
-                            <InfoRow label="Kegiatan" value={pd.dja_kegiatan ? `${pd.dja_kegiatan.kode} — ${pd.dja_kegiatan.nama}` : null} />
-                        </CardContent>
-                    </Card>
-                )}
+                {step === 1 && <Step1Informasi pd={pd} />}
 
                 {/* Step 2: Waktu & PJ */}
-                {step === 2 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                                <Calendar className="h-4 w-4 text-blue-600" /> Waktu & Penanggung Jawab
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-0">
-                            <InfoRow label="Tanggal Pelaksanaan Awal" value={fmtDate(pd.tanggal_mulai)} />
-                            <InfoRow label="Tanggal Pelaksanaan Akhir" value={fmtDate(pd.tanggal_selesai)} />
-                            <InfoRow label="Waktu Pelaksanaan" value={pd.jam_pelaksanaan} />
-                            <InfoRow label="Tempat" value={pd.tempat && (
-                                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.tempat}</span>
-                            )} />
-                            <InfoRow label="Waktu Penyelesaian Pertanggungjawaban (sesuai RPD)" value={fmtDate(pd.tgl_pertanggungjawaban)} />
-                            <InfoRow label="Ketua Tim Kerja" value={pd.kapokja && (
-                                <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.kapokja.nama_lengkap}</span>
-                            )} />
-                            <InfoRow label="PIC Keuangan" value={pd.pic_keuangan && (
-                                <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-gray-400 shrink-0" />{pd.pic_keuangan.nama_lengkap}</span>
-                            )} />
-                        </CardContent>
-                    </Card>
-                )}
+                {step === 2 && <Step2Waktu pd={pd} />}
 
                 {/* Step 3: Dokumen */}
-                {step === 3 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                                <FileText className="h-4 w-4 text-blue-600" /> Dokumen Pendukung
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {pd.dokumens.length === 0 ? (
-                                <p className="text-sm text-gray-400 text-center py-6">Belum ada dokumen diupload</p>
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                            <th className="text-left py-2 w-8">No</th>
-                                            <th className="text-left py-2">Jenis Dokumen</th>
-                                            <th className="text-left py-2">Nama File</th>
-                                            <th className="text-center py-2 w-16">Lihat</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {pd.dokumens.map((dok, i) => (
-                                            <tr key={dok.id} className="border-b last:border-0 hover:bg-gray-50/60">
-                                                <td className="py-2 text-gray-400">{i + 1}</td>
-                                                <td className="py-2 font-medium">{dok.nama_jenis}</td>
-                                                <td className="py-2 text-gray-600 truncate max-w-xs">{dok.nama_file}</td>
-                                                <td className="py-2 text-center">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button type="button" onClick={() => openPreview(dok)} className="text-blue-500 hover:text-blue-700 transition-colors">
-                                                                <Eye className="w-4 h-4" />
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>Lihat {dok.nama_jenis}</TooltipContent>
-                                                    </Tooltip>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
+                {step === 3 && <Step3Dokumen dokumens={pd.dokumens} onPreview={openPreview} />}
 
                 {/* Step 4: Rincian Biaya */}
                 {step === 4 && (
@@ -332,49 +265,7 @@ export default function Detail({ pd }: Props) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {pd.items.length === 0 ? (
-                                <p className="text-sm text-gray-400 text-center py-6">Belum ada rincian biaya</p>
-                            ) : (
-                                <div className="rounded-lg border overflow-x-auto">
-                                    <table className="w-full text-xs" style={{ minWidth: 1100 }}>
-                                        <thead>
-                                            <tr className="bg-slate-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                                <th className="px-3 py-2.5 text-left">Kode Akun</th>
-                                                <th className="px-3 py-2.5 text-left">Uraian</th>
-                                                <th className="px-3 py-2.5 text-right w-28">Pagu</th>
-                                                <th className="px-3 py-2.5 text-right w-16">Vol</th>
-                                                <th className="px-3 py-2.5 text-left w-14">Sat</th>
-                                                <th className="px-3 py-2.5 text-right w-32">Harga Satuan</th>
-                                                <th className="px-3 py-2.5 text-right w-28 text-orange-600">Terpakai</th>
-                                                <th className="px-3 py-2.5 text-right w-32 text-blue-700">Jml Permintaan</th>
-                                                <th className="px-3 py-2.5 text-right w-28 text-emerald-600">Sisa</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {pd.items.map(item => (
-                                                <tr key={item.id} className="hover:bg-gray-50/60">
-                                                    <td className="px-3 py-2.5 font-mono text-muted-foreground">{item.kode_akun ?? '-'}</td>
-                                                    <td className="px-3 py-2.5">{item.uraian}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums">{fmt(item.pagu_total ?? 0)}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums">{Number(item.volume)}</td>
-                                                    <td className="px-3 py-2.5 text-muted-foreground">{item.satuan}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums">{fmt(item.harga_satuan)}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums text-orange-600">{fmt(item.terpakai ?? 0)}</td>
-                                                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-blue-700">{fmt(item.total)}</td>
-                                                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600">{fmt(Math.max(0, Number(item.sisa_anggaran ?? 0) - Number(item.total ?? 0)))}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="bg-blue-50 border-t font-bold">
-                                                <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-gray-600">Total Permintaan</td>
-                                                <td className="px-3 py-2.5 text-right tabular-nums text-blue-700">{fmt(pd.total_anggaran)}</td>
-                                                <td></td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            )}
+                            <RincianBiayaTable items={pd.items} totalAnggaran={pd.total_anggaran} />
                         </CardContent>
                     </Card>
                 )}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\PicKeuangan;
 
 use App\Exports\NominatifExport;
+use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
@@ -191,16 +192,9 @@ class PermohonanDanaController extends Controller
         ]);
     }
 
-    public function print(PermohonanDana $pd): Response
+    public function print(PermohonanDana $pd): \Illuminate\Http\Response
     {
-        $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'items', 'dokumens',
-        ]);
-
-        return Inertia::render('Pumk/PermohonanDana/PrintPreview', [
-            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-        ]);
+        return (new PermohonanDanaExport($pd))->download();
     }
 
     public function approve(Request $request, PermohonanDana $pd): RedirectResponse

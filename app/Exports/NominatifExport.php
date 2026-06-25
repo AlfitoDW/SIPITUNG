@@ -450,6 +450,7 @@ class NominatifExport
             '524113', '524114' => 'Q',
             default => 'N',
         };
+        $picMidCol = $cfg['picMidCol'];
 
         // Jumlah
         $sheet->setCellValue("B{$jumlahRow}", 'Jumlah');
@@ -475,14 +476,13 @@ class NominatifExport
 
         // an. Kuasa Pengguna Anggaran
         $sheet->setCellValue("{$colA}{$anKuasaRow}", 'an. Kuasa Pengguna Anggaran');
-        $sheet->setCellValue("{$jakartaCol}{$anKuasaRow}", 'Bendahara Pengeluaran,');
+        $sheet->setCellValue("{$picMidCol}{$anKuasaRow}", 'Bendahara Pengeluaran,');
 
         // Pejabat Pembuat Komitmen
         $sheet->setCellValue("{$colA}{$pejabatRow}", 'Pejabat Pembuat Komitmen');
 
         // PIC Keuangan — middle signature
-        $picMidCol = $cfg['picMidCol'];
-        $sheet->setCellValue("{$picMidCol}{$mengetahuiRow}", 'Pembuat daftar,');
+        $sheet->setCellValue("{$jakartaCol}{$mengetahuiRow}", 'Pembuat daftar,');
         // PPK and Bendahara names
         $activePpk = User::where('role', 'pimpinan')
             ->where('pimpinan_type', 'ppk')
@@ -496,14 +496,14 @@ class NominatifExport
         $sheet->setCellValue("{$colA}{$ppkNameRow}", $ppk?->nama_lengkap ?? '___________________________');
         $sheet->setCellValue("{$colA}{$ppkNipRow}", 'NIP. '.($ppkNip ?: '-'));
 
-        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
+        $sheet->setCellValue("{$picMidCol}{$ppkNameRow}", $this->bendahara?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$picMidCol}{$ppkNipRow}", 'NIP. '.($bendNip ?: '-'));
 
         $picNip = $this->picKeuangan?->nip ?: $this->lookupNipFromRefNama($this->picKeuangan?->nama_lengkap);
-        $sheet->setCellValue("{$picMidCol}{$ppkNameRow}", $this->picKeuangan?->nama_lengkap ?? '___________________________');
-        $sheet->setCellValue("{$picMidCol}{$ppkNipRow}", 'NIP. '.($picNip ?: '-'));
-        $sheet->getStyle("{$picMidCol}{$ppkNameRow}")->getFont()->setBold(true);
-        $sheet->getStyle("{$picMidCol}{$ppkNipRow}")->getFont()->setBold(true);
+        $sheet->setCellValue("{$jakartaCol}{$ppkNameRow}", $this->picKeuangan?->nama_lengkap ?? '___________________________');
+        $sheet->setCellValue("{$jakartaCol}{$ppkNipRow}", 'NIP. '.($picNip ?: '-'));
+        $sheet->getStyle("{$jakartaCol}{$ppkNameRow}")->getFont()->setBold(true);
+        $sheet->getStyle("{$jakartaCol}{$ppkNipRow}")->getFont()->setBold(true);
     }
 
     private function updateJumlahRow(Worksheet $sheet, string $kodeAkun, int $row, $rows, float $totalDiterima): void

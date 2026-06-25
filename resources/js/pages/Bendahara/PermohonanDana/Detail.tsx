@@ -243,13 +243,13 @@ export default function Detail({ pd }: Props) {
                         {canPrint && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Link href={`/bendahara/permohonan-dana/${pd.id}/print`} target="_blank">
+                                    <a href={`/bendahara/permohonan-dana/${pd.id}/print`}>
                                         <Button size="sm" variant="outline" className="gap-1.5 h-8 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-                                            <Printer className="h-4 w-4" /> Cetak
+                                            <Download className="h-4 w-4" /> Download Surat
                                         </Button>
-                                    </Link>
+                                    </a>
                                 </TooltipTrigger>
-                                <TooltipContent>Cetak permohonan dana</TooltipContent>
+                                <TooltipContent>Download surat permohonan</TooltipContent>
                             </Tooltip>
                         )}
                         {pd.bukti_bayar_path && (

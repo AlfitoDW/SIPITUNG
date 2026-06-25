@@ -346,7 +346,7 @@ class PermohonanDanaController extends Controller
         abort_if(! $pd->canUploadDocuments(), 403, 'Dokumen tidak dapat diupload karena permohonan sudah dicairkan.');
 
         $request->validate([
-            'jenis_dokumen_id' => 'required|integer|between:1,8',
+            'jenis_dokumen_id' => 'required|integer|between:1,9',
             'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png|max:10240',
         ]);
 

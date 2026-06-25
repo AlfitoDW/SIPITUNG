@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Bendahara;
 
 use App\Exports\NominatifExport;
+use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
@@ -196,16 +197,9 @@ class PermohonanDanaController extends Controller
         ]);
     }
 
-    public function print(PermohonanDana $pd): Response
+    public function print(PermohonanDana $pd): \Illuminate\Http\Response
     {
-        $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'items', 'dokumens',
-        ]);
-
-        return Inertia::render('Bendahara/PermohonanDana/PrintPreview', [
-            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-        ]);
+        return (new PermohonanDanaExport($pd))->download();
     }
 
     public function setujui(Request $request, PermohonanDana $pd): RedirectResponse
@@ -313,9 +307,14 @@ class PermohonanDanaController extends Controller
     {
         $request->validate(['alasan' => 'nullable|string|max:1000']);
 
+        $oldStatus = $pd->status;
         $service->bukaKunci($pd, $request->user(), $request->alasan);
 
-        return back()->with('success', "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.");
+        $message = $oldStatus === 'dicairkan'
+            ? "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Menunggu Pencairan (PPK Approved)."
+            : "Permohonan {$pd->nomor_permohonan} berhasil dibuka kunci. Status dikembalikan ke Revisi.";
+
+        return back()->with('success', $message);
     }
 
     // ─── Download Daftar Nominatif ────────────────────────────────────────────────

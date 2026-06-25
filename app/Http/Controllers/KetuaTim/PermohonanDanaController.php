@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\KetuaTim;
 
+use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
 use App\Models\TahunAnggaran;
@@ -253,7 +254,7 @@ class PermohonanDanaController extends Controller
         ]);
     }
 
-    public function print(Request $request, PermohonanDana $pd): Response
+    public function print(Request $request, PermohonanDana $pd): \Illuminate\Http\Response
     {
         $user = $request->user();
 
@@ -262,14 +263,7 @@ class PermohonanDanaController extends Controller
             abort_if(! $canView, 403, 'Anda tidak memiliki akses ke permohonan ini.');
         }
 
-        $pd->load([
-            'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
-            'items', 'dokumens',
-        ]);
-
-        return Inertia::render('Pumk/PermohonanDana/PrintPreview', [
-            'pd' => array_merge($pd->toArray(), ['status_label' => $pd->status_label]),
-        ]);
+        return (new PermohonanDanaExport($pd))->download();
     }
 
     public function approve(Request $request, PermohonanDana $pd): RedirectResponse
