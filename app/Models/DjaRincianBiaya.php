@@ -13,7 +13,7 @@ class DjaRincianBiaya extends Model
     protected $table = 'dja_rincian_biaya';
 
     protected $fillable = [
-        'kegiatan_id', 'kode_akun', 'nama_akun', 'nama_item',
+        'sub_kegiatan_id', 'nama_item',
         'volume_default', 'satuan', 'harga_satuan', 'pagu_total', 'urutan', 'is_aktif',
         'overbudget_flag',
     ];
@@ -25,9 +25,9 @@ class DjaRincianBiaya extends Model
         'pagu_total' => 'decimal:2',
     ];
 
-    public function kegiatan(): BelongsTo
+    public function subKegiatan(): BelongsTo
     {
-        return $this->belongsTo(DjaKegiatan::class, 'kegiatan_id');
+        return $this->belongsTo(DjaSubKegiatan::class, 'sub_kegiatan_id');
     }
 
     public function getTerpakaiAttribute(): float

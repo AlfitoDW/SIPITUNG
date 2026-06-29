@@ -65,6 +65,12 @@ Route::prefix('super-admin')->middleware('role:super_admin')->name('super-admin.
             Route::patch('/kegiatan/{kegiatan}/toggle', [DjaController::class, 'kegiatanToggle'])->name('kegiatan.toggle');
             Route::delete('/kegiatan/{kegiatan}', [DjaController::class, 'kegiatanDestroy'])->name('kegiatan.destroy');
 
+            // Sub Kegiatan
+            Route::post('/sub-kegiatan', [DjaController::class, 'subKegiatanStore'])->name('sub-kegiatan.store');
+            Route::put('/sub-kegiatan/{subKegiatan}', [DjaController::class, 'subKegiatanUpdate'])->name('sub-kegiatan.update');
+            Route::patch('/sub-kegiatan/{subKegiatan}/toggle', [DjaController::class, 'subKegiatanToggle'])->name('sub-kegiatan.toggle');
+            Route::delete('/sub-kegiatan/{subKegiatan}', [DjaController::class, 'subKegiatanDestroy'])->name('sub-kegiatan.destroy');
+
             // Rincian Biaya
             Route::post('/rincian', [DjaController::class, 'rincianStore'])->name('rincian.store');
             Route::put('/rincian/{rincian}', [DjaController::class, 'rincianUpdate'])->name('rincian.update');

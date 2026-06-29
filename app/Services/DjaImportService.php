@@ -13,6 +13,7 @@ use App\Models\DjaRevisiDetail;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\TahunAnggaran;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -23,7 +24,7 @@ class DjaImportService
     private const SEP = '/';
 
     /** Level enum */
-    private const LEVELS = ['program', 'sasaran', 'kro', 'ro', 'komponen', 'kegiatan', 'rincian_biaya'];
+    private const LEVELS = ['program', 'sasaran', 'kro', 'ro', 'komponen', 'kegiatan', 'sub_kegiatan', 'rincian_biaya'];
 
     /** Regex per level untuk deteksi baris Excel */
     private const REGEX_PROGRAM = '/^\d{3}\.\d{2}\.[A-Z]{2,3}$/';
@@ -89,8 +90,8 @@ class DjaImportService
         $map = [];
         $current = [
             'program' => null, 'sasaran' => null, 'kro' => null,
-            'ro' => null, 'komponen' => null, 'kegiatan' => null,
-            'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0,
+            'ro' => null, 'komponen' => null, 'kegiatan' => null, 'sub_kegiatan' => null,
+            'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0, 'sub_urutan' => 0,
         ];
 
         $paguInt = fn ($v) => (int) preg_replace('/[^\d]/', '', (string) ($v ?? 0));
@@ -169,35 +170,60 @@ class DjaImportService
                 $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}";
                 $path = $parentPath.self::SEP."kegiatan:{$a}";
                 $map[$path] = $this->node('kegiatan', $a, $parentPath, $b, $paguInt($f));
-                $current = array_merge($current, ['kegiatan' => $a, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0]);
+                $current = array_merge($current, ['kegiatan' => $a, 'sub_kegiatan' => null, 'kode_akun' => null, 'nama_akun' => null, 'urutan' => 0, 'sub_urutan' => 0]);
 
                 continue;
             }
 
-            // Kode Akun (hanya set state)
-            if (preg_match(self::REGEX_KODE_AKUN, $a)) {
+            // Kode Akun → Sub Kegiatan
+            if (preg_match(self::REGEX_KODE_AKUN, $a) && $current['kegiatan']) {
+                $current['urutan']++;
                 $current['kode_akun'] = $a;
                 $current['nama_akun'] = $b;
-                $current['urutan'] = 0;
+                $current['sub_urutan'] = 0;
+                
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}".self::SEP."kegiatan:{$current['kegiatan']}";
+                $path = $parentPath.self::SEP."sub_kegiatan:{$a}";
+                
+                // Pagu sub kegiatan akan dihitung dari total rincian atau dari kolom F jika ada
+                $map[$path] = $this->node('sub_kegiatan', $a, $parentPath, $b, $paguInt($f), [
+                    'kode_akun' => $a,
+                    'nama_akun' => $b,
+                    'urutan' => $current['urutan'],
+                ]);
+                
+                $current['sub_kegiatan'] = $a;
 
                 continue;
             }
 
             // Rincian Biaya (A kosong, B adalah nama item)
-            if ($a === '' && $b !== '' && $current['kegiatan'] && $current['kode_akun']) {
-                $current['urutan']++;
-                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}".self::SEP."kegiatan:{$current['kegiatan']}";
-                $kodeRincian = $current['kode_akun'].':'.$b;
-                $path = $parentPath.self::SEP."rincian_biaya:{$kodeRincian}";
-                $map[$path] = $this->node('rincian_biaya', $kodeRincian, $parentPath, $b, $parseDecimal($f), [
-                    'kode_akun' => $current['kode_akun'],
-                    'nama_akun' => $current['nama_akun'] ?? '',
+            if ($a === '' && $b !== '' && $current['sub_kegiatan']) {
+                $current['sub_urutan']++;
+                $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}".self::SEP."kegiatan:{$current['kegiatan']}".self::SEP."sub_kegiatan:{$current['sub_kegiatan']}";
+                $path = $parentPath.self::SEP."rincian_biaya:{$b}";
+                $map[$path] = $this->node('rincian_biaya', $b, $parentPath, $b, $parseDecimal($f), [
                     'harga_satuan' => $parseDecimal($e),
                     'satuan' => $d ?: 'OK',
                     'volume_default' => is_numeric($c) ? (float) $c : 0,
-                    'urutan' => $current['urutan'],
+                    'urutan' => $current['sub_urutan'],
                 ]);
             }
+        }
+
+        foreach ($map as $path => $node) {
+            if (($node['level'] ?? '') !== 'sub_kegiatan' || (float) ($node['pagu'] ?? 0) > 0) {
+                continue;
+            }
+
+            $subtotal = 0;
+            foreach ($map as $childNode) {
+                if (($childNode['level'] ?? '') === 'rincian_biaya' && ($childNode['parent_path'] ?? '') === $path) {
+                    $subtotal += (float) ($childNode['pagu'] ?? 0);
+                }
+            }
+
+            $map[$path]['pagu'] = $subtotal;
         }
 
         return $map;
@@ -239,16 +265,23 @@ class DjaImportService
                                 $kgPath = $kmPath.self::SEP."kegiatan:{$kg->kode}";
                                 $map[$kgPath] = $this->node('kegiatan', $kg->kode, $kmPath, $kg->nama, $kg->pagu, ['id' => $kg->id]);
 
-                                $rincians = DjaRincianBiaya::where('kegiatan_id', $kg->id)->where('is_aktif', true)->get();
-                                foreach ($rincians as $rc) {
-                                    $kodeRincian = $rc->kode_akun.':'.$rc->nama_item;
-                                    $rcPath = $kgPath.self::SEP."rincian_biaya:{$kodeRincian}";
-                                    $map[$rcPath] = $this->node('rincian_biaya', $kodeRincian, $kgPath, $rc->nama_item, $rc->pagu_total, [
-                                        'id' => $rc->id,
-                                        'kode_akun' => $rc->kode_akun,
-                                        'nama_akun' => $rc->nama_akun,
-                                        'terpakai' => (float) ($rc->terpakai ?? 0),
+                                $subKegiatans = DjaSubKegiatan::where('kegiatan_id', $kg->id)->where('is_aktif', true)->get();
+                                foreach ($subKegiatans as $sk) {
+                                    $skPath = $kgPath.self::SEP."sub_kegiatan:{$sk->kode_akun}";
+                                    $map[$skPath] = $this->node('sub_kegiatan', $sk->kode_akun, $kgPath, $sk->nama_akun, $sk->pagu, [
+                                        'id' => $sk->id,
+                                        'kode_akun' => $sk->kode_akun,
+                                        'nama_akun' => $sk->nama_akun,
                                     ]);
+
+                                    $rincians = DjaRincianBiaya::where('sub_kegiatan_id', $sk->id)->where('is_aktif', true)->get();
+                                    foreach ($rincians as $rc) {
+                                        $rcPath = $skPath.self::SEP."rincian_biaya:{$rc->nama_item}";
+                                        $map[$rcPath] = $this->node('rincian_biaya', $rc->nama_item, $skPath, $rc->nama_item, $rc->pagu_total, [
+                                            'id' => $rc->id,
+                                            'terpakai' => (float) ($rc->terpakai ?? 0),
+                                        ]);
+                                    }
                                 }
                             }
                         }
@@ -319,70 +352,6 @@ class DjaImportService
             }
         }
 
-        // ── Second pass: fallback matching untuk rincian biaya ──────────────────
-        // Excel item dengan kode_akun X mungkin match dengan DB item yang
-        // kode_akun-nya kosong (tapi nama_item dan parent_path sama).
-        // Ini menangani kasus DB punya kode_akun empty sementara Excel ada.
-        $fallbackMatched = [];
-        $removedNew = $removed;
-
-        foreach ($added as $idx => $key) {
-            $excelNode = $excelMap[$key];
-            if (($excelNode['level'] ?? '') !== 'rincian_biaya') {
-                continue;
-            }
-
-            $parentPath = $excelNode['parent_path'] ?? '';
-            $namaItem = $excelNode['nama'] ?? '';
-
-            // Cari DB item dengan parent_path sama + nama_item sama + kode_akun kosong
-            foreach ($dbMap as $dbKey => $dbNode) {
-                if (($dbNode['level'] ?? '') !== 'rincian_biaya') {
-                    continue;
-                }
-                if ($dbNode['nama'] !== $namaItem) {
-                    continue;
-                }
-                if (($dbNode['parent_path'] ?? '') !== $parentPath) {
-                    continue;
-                }
-
-                // DB item punya kode_akun kosong → fallback match
-                $dbKodeAkun = $dbNode['kode_akun'] ?? $dbNode['kode'] ?? '';
-                $dbKodeAkun = explode(':', $dbKodeAkun)[0] ?? '';
-                if ($dbKodeAkun !== '') {
-                    continue;
-                }
-
-                // Match ditemukan! Konversi dari tambah → ubah
-                $excelNode['jenis'] = 'ubah';
-                $excelNode['pagu_lama'] = $dbNode['pagu'];
-                $excelNode['pagu_baru'] = $excelNode['pagu'];
-                $excelNode['dbId'] = $dbNode['id'] ?? null;
-                $excelNode['status_eksekusi'] = 'sukses';
-
-                // Proyeksi overbudget
-                if ((float) $excelNode['pagu'] < (float) ($dbNode['pagu'] ?? 0)) {
-                    $terpakai = $dbNode['terpakai'] ?? 0;
-                    if ($terpakai > (float) $excelNode['pagu']) {
-                        $excelNode['overbudget'] = (float) $terpakai - (float) $excelNode['pagu'];
-                        $excelNode['overbudget_label'] = 'Overbudget: Rp '.number_format($excelNode['overbudget'], 0, ',', '.');
-                        $overbudgetCount++;
-                        $overbudgetTotal += $excelNode['overbudget'];
-                    }
-                }
-
-                $result[$key] = $excelNode;
-                $changedCount++;
-                $addedCount--;
-                $fallbackMatched[] = $dbKey;
-
-                continue 2; // lanjut ke added item berikutnya
-            }
-        }
-
-        // Hapus DB items yang sudah di-fallback-match dari list removed
-        $removed = array_diff($removed, $fallbackMatched);
         $excelCount = count($excelMap);
         $dbCount = count($dbMap);
         $isFullReplace = $dbCount > 0 && $excelCount >= ($dbCount * 0.8);
@@ -482,7 +451,7 @@ class DjaImportService
                 // Cache ID untuk child items yang mungkin perlu lookup
                 if ($parentId === null && $level === 'program' && isset($dbMap[$key])) {
                     $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
-                } elseif ($parentId && in_array($level, ['sasaran', 'kro', 'ro', 'komponen', 'kegiatan', 'rincian_biaya']) && isset($dbMap[$key])) {
+                } elseif ($parentId && in_array($level, ['sasaran', 'kro', 'ro', 'komponen', 'kegiatan', 'sub_kegiatan', 'rincian_biaya']) && isset($dbMap[$key])) {
                     $parentIdCache[$key] = $dbMap[$key]['id'] ?? null;
                 }
 
@@ -531,6 +500,19 @@ class DjaImportService
                 );
                 $parentIdCache[$key] = $model->id;
                 $this->logDetail($revisi, $node, 'sukses');
+            } elseif ($level === 'sub_kegiatan' && $parentId) {
+                $extra = $node['extra'] ?? [];
+                $model = DjaSubKegiatan::updateOrCreate(
+                    ['kegiatan_id' => $parentId, 'kode_akun' => $extra['kode_akun'] ?? $kode],
+                    [
+                        'nama_akun' => $extra['nama_akun'] ?? $node['nama'],
+                        'pagu' => $paguInt($node['pagu']),
+                        'urutan' => $extra['urutan'] ?? 0,
+                        'is_aktif' => true,
+                    ]
+                );
+                $parentIdCache[$key] = $model->id;
+                $this->logDetail($revisi, $node, 'sukses');
             } elseif ($level === 'rincian_biaya' && $parentId) {
                 $extra = $node['extra'] ?? [];
 
@@ -538,10 +520,8 @@ class DjaImportService
                 $dbId = $node['dbId'] ?? null;
                 if ($dbId && ($node['status_eksekusi'] ?? '') === 'sukses') {
                     $record = DjaRincianBiaya::find($dbId);
-                    if ($record && $record->kegiatan_id == $parentId) {
+                    if ($record && $record->sub_kegiatan_id == $parentId) {
                         $record->update([
-                            'kode_akun' => $extra['kode_akun'] ?? '',
-                            'nama_akun' => $extra['nama_akun'] ?? '',
                             'volume_default' => $extra['volume_default'] ?? 0,
                             'satuan' => $extra['satuan'] ?? 'OK',
                             'harga_satuan' => $extra['harga_satuan'] ?? 0,
@@ -552,9 +532,8 @@ class DjaImportService
                         $model = $record;
                     } else {
                         $model = DjaRincianBiaya::updateOrCreate(
-                            ['kegiatan_id' => $parentId, 'kode_akun' => $extra['kode_akun'] ?? '', 'nama_item' => $node['nama']],
+                            ['sub_kegiatan_id' => $parentId, 'nama_item' => $node['nama']],
                             [
-                                'nama_akun' => $extra['nama_akun'] ?? '',
                                 'volume_default' => $extra['volume_default'] ?? 0,
                                 'satuan' => $extra['satuan'] ?? 'OK',
                                 'harga_satuan' => $extra['harga_satuan'] ?? 0,
@@ -566,9 +545,8 @@ class DjaImportService
                     }
                 } else {
                     $model = DjaRincianBiaya::updateOrCreate(
-                        ['kegiatan_id' => $parentId, 'kode_akun' => $extra['kode_akun'] ?? '', 'nama_item' => $node['nama']],
+                        ['sub_kegiatan_id' => $parentId, 'nama_item' => $node['nama']],
                         [
-                            'nama_akun' => $extra['nama_akun'] ?? '',
                             'volume_default' => $extra['volume_default'] ?? 0,
                             'satuan' => $extra['satuan'] ?? 'OK',
                             'harga_satuan' => $extra['harga_satuan'] ?? 0,
@@ -612,6 +590,7 @@ class DjaImportService
             if ($dbId) {
                 match ($level) {
                     'rincian_biaya' => DjaRincianBiaya::where('id', $dbId)->update(['is_aktif' => false]),
+                    'sub_kegiatan' => DjaSubKegiatan::where('id', $dbId)->update(['is_aktif' => false]),
                     'kegiatan' => DjaKegiatan::where('id', $dbId)->update(['is_aktif' => false]),
                     'komponen' => DjaKomponen::where('id', $dbId)->update(['is_aktif' => false]),
                     'ro' => DjaRo::where('id', $dbId)->update(['is_aktif' => false]),

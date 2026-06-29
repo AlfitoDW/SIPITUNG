@@ -7,6 +7,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
@@ -27,6 +28,7 @@ beforeEach(function () {
     $this->kapokja = User::factory()->ketuaTim()->create([
         'tim_kerja_id' => $this->timKerja->id,
     ]);
+    $this->pic = User::factory()->picKeuangan()->create();
 
     // Build DJA hierarchy
     $program = DjaProgram::factory()->create(['tahun_anggaran' => $this->tahunAnggaran->tahun]);
@@ -35,9 +37,14 @@ beforeEach(function () {
     $ro = DjaRo::factory()->create(['kro_id' => $kro->id]);
     $komponen = DjaKomponen::factory()->create(['ro_id' => $ro->id]);
     $this->kegiatan = DjaKegiatan::factory()->create(['komponen_id' => $komponen->id]);
+    $this->subKegiatan = DjaSubKegiatan::factory()->create([
+        'kegiatan_id' => $this->kegiatan->id,
+        'kode_akun' => '521211',
+        'nama_akun' => 'Belanja Honor Output Kegiatan',
+    ]);
 
     $this->rincian = DjaRincianBiaya::factory()->create([
-        'kegiatan_id' => $this->kegiatan->id,
+        'sub_kegiatan_id' => $this->subKegiatan->id,
         'pagu_total' => 1000000,
         'harga_satuan' => 100000,
     ]);
@@ -49,6 +56,8 @@ it('rejects item exceeding pagu', function () {
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
         'kapokja_id' => $this->kapokja->id,
+        'pic_keuangan_id' => $this->pic->id,
+        'pic_keuangan_id' => $this->pic->id,
     ]);
 
     $response = $this->actingAs($this->pumk)
@@ -75,6 +84,8 @@ it('allows item within pagu', function () {
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
         'kapokja_id' => $this->kapokja->id,
+        'pic_keuangan_id' => $this->pic->id,
+        'pic_keuangan_id' => $this->pic->id,
     ]);
 
     $this->actingAs($this->pumk)
@@ -102,12 +113,15 @@ it('blocks submit when another request already consumed budget', function () {
         'tim_kerja_id' => $this->timKerja->id,
         'created_by' => $this->pumk->id,
         'kapokja_id' => $this->kapokja->id,
+        'pic_keuangan_id' => $this->pic->id,
+        'tanggal_mulai' => now()->toDateString(),
+        'tanggal_selesai' => now()->toDateString(),
     ]);
 
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd1->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'First item',
         'volume' => 10,
         'satuan' => 'orang',
@@ -153,7 +167,7 @@ it('invalidates terpakai cache on submit', function () {
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -183,7 +197,7 @@ it('invalidates terpakai cache on reject', function () {
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Item',
         'volume' => 5,
         'satuan' => 'orang',

@@ -21,7 +21,7 @@ class NominatifController extends Controller
     {
         abort_if($pd->created_by !== $request->user()->id, 403);
 
-        $pd->load(['items.nominatif', 'items.djaRincianBiaya', 'timKerja']);
+        $pd->load(['items.nominatif', 'items.djaRincianBiaya.subKegiatan', 'timKerja']);
 
         $refNama = RefNama::aktif()
             ->orderBy('nama')
@@ -50,7 +50,7 @@ class NominatifController extends Controller
             $data = [
                 'id' => $item->id, // permohonan_dana_item id (used as item_id in nominatif)
                 'kode_akun' => $item->kode_akun,
-                'nama_akun' => $dja?->nama_akun ?? '-',
+                'nama_akun' => $dja?->subKegiatan?->nama_akun ?? '-',
                 'nama_item' => $item->uraian,
                 'satuan' => $item->satuan,
                 'harga_satuan' => $dja?->harga_satuan ?? 0,
@@ -66,7 +66,7 @@ class NominatifController extends Controller
                 'nominatif' => $item->nominatif,
             ];
 
-            $key = $item->kode_akun.'|'.($dja?->nama_akun ?? '-');
+            $key = $item->kode_akun.'|'.($dja?->subKegiatan?->nama_akun ?? '-');
             $rincianBiaya[$key][] = $data;
         }
 

@@ -39,10 +39,15 @@ interface Kegiatan extends DjaBase {
           program?: { id: number; kode: string; nama: string } } } } }
 }
 
-interface Rincian {
-  id: number; kegiatan_id: number; kode_akun: string; nama_akun: string; nama_item: string;
-  satuan: string; harga_satuan: number; pagu_total: number; urutan: number; is_aktif: boolean;
+interface SubKegiatan {
+  id: number; kegiatan_id: number; kode_akun: string; nama_akun: string; pagu: number; urutan: number; is_aktif: boolean;
   kegiatan?: Kegiatan;
+}
+
+interface Rincian {
+  id: number; sub_kegiatan_id: number; nama_item: string;
+  satuan: string; harga_satuan: number; pagu_total: number; urutan: number; is_aktif: boolean;
+  sub_kegiatan?: SubKegiatan;
 }
 
 interface Tahun { id: number; tahun: string; label: string; }
@@ -86,6 +91,7 @@ interface Props {
   ros: Ro[];
   komponens: Komponen[];
   kegiatans: Kegiatan[];
+  subKegiatans: SubKegiatan[];
   rincians: Rincian[];
   importPreview?: ImportPreview;
   importKey?: string;
@@ -114,6 +120,16 @@ function buildKegiatanPath(k: Kegiatan): string {
 function buildKegiatanLabel(k: Kegiatan): string {
   const path = buildKegiatanPath(k);
   return `${path} — ${k.nama}`;
+}
+
+function buildSubKegiatanLabel(s: SubKegiatan): string {
+  const kegiatanPath = s.kegiatan ? buildKegiatanPath(s.kegiatan) : String(s.kegiatan_id);
+  return `${kegiatanPath} › ${s.kode_akun} — ${s.nama_akun}`;
+}
+
+function buildSubKegiatanPath(s: SubKegiatan): string {
+  const kegiatanPath = s.kegiatan ? buildKegiatanPath(s.kegiatan) : String(s.kegiatan_id);
+  return `${kegiatanPath} › ${s.kode_akun}`;
 }
 
 // ── Import Excel Dialog ─────────────────────────────────────────────────────
@@ -208,6 +224,7 @@ const LEVEL_LABELS: Record<string, string> = {
   ro: 'RO',
   komponen: 'Komponen',
   kegiatan: 'Kegiatan',
+  sub_kegiatan: 'Sub Kegiatan',
   rincian_biaya: 'Rincian Biaya',
 };
 
@@ -801,29 +818,29 @@ function GenericLevelTab({ items, config }: { items: LevelItem[]; config: LevelC
 
 // ── Rincian Biaya Tab with Full Path ───────────────────────────────────────
 
-function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: Kegiatan[] }) {
+function RincianTab({ rincians, subKegiatans }: { rincians: Rincian[]; subKegiatans: SubKegiatan[] }) {
   const { data, setData, post, processing, reset, errors } = useForm({
-    kegiatan_id: '', kode_akun: '', nama_akun: '', nama_item: '',
+    sub_kegiatan_id: '', nama_item: '',
     satuan: 'OK', harga_satuan: '', pagu_total: '', urutan: '',
   });
   const [editing, setEditing] = useState<Rincian | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [filterKegiatan, setFilterKegiatan] = useState<string>('');
+  const [filterSubKegiatan, setFilterSubKegiatan] = useState<string>('');
   const [filterKodeAkun, setFilterKodeAkun] = useState('');
   const [filterNamaItem, setFilterNamaItem] = useState('');
-  const editForm = useForm({ kode_akun: '', nama_akun: '', nama_item: '', satuan: '', harga_satuan: '', pagu_total: '', urutan: '' });
+  const editForm = useForm({ nama_item: '', satuan: '', harga_satuan: '', pagu_total: '', urutan: '' });
 
   // Filter rincians
   const filteredRincians = useMemo(() => {
     return rincians.filter(r => {
-      if (filterKegiatan && String(r.kegiatan_id) !== filterKegiatan) return false;
-      if (filterKodeAkun && !r.kode_akun.toLowerCase().includes(filterKodeAkun.toLowerCase())) return false;
+      if (filterSubKegiatan && String(r.sub_kegiatan_id) !== filterSubKegiatan) return false;
+      if (filterKodeAkun && !r.sub_kegiatan?.kode_akun.toLowerCase().includes(filterKodeAkun.toLowerCase())) return false;
       if (filterNamaItem && !r.nama_item.toLowerCase().includes(filterNamaItem.toLowerCase())) return false;
       return true;
     });
-  }, [rincians, filterKegiatan, filterKodeAkun, filterNamaItem]);
+  }, [rincians, filterSubKegiatan, filterKodeAkun, filterNamaItem]);
 
-  const table = usePaginatedTable(filteredRincians, ['kode_akun', 'nama_akun', 'nama_item', 'kegiatan.kode'], { pageSize: 25 });
+  const table = usePaginatedTable(filteredRincians, ['sub_kegiatan.kode_akun', 'sub_kegiatan.nama_akun', 'nama_item'], { pageSize: 25 });
 
   const store = (e: React.FormEvent) => {
     e.preventDefault();
@@ -833,7 +850,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
   const startEdit = (r: Rincian) => {
     setEditing(r);
     editForm.setData({
-      kode_akun: r.kode_akun, nama_akun: r.nama_akun, nama_item: r.nama_item,
+      nama_item: r.nama_item,
       satuan: r.satuan, harga_satuan: String(r.harga_satuan),
       pagu_total: String(r.pagu_total), urutan: String(r.urutan),
     });
@@ -847,7 +864,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
 
   const SATUAN_OPTIONS = ['OK', 'OH', 'OJ', 'OB', 'ORKAL', 'KEG', 'PAKET', 'ls', 'buah'];
 
-  const hasFilters = filterKegiatan || filterKodeAkun || filterNamaItem;
+  const hasFilters = filterSubKegiatan || filterKodeAkun || filterNamaItem;
 
   return (
     <div className="space-y-4">
@@ -856,14 +873,14 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
         <Filter className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">Filter:</span>
 
-        <Select value={filterKegiatan} onValueChange={setFilterKegiatan}>
+        <Select value={filterSubKegiatan} onValueChange={setFilterSubKegiatan}>
           <SelectTrigger className="h-auto min-h-8 text-xs max-w-[20rem] w-full [&>span]:whitespace-normal [&>span]:break-words">
-            <SelectValue placeholder="Semua Kegiatan" />
+            <SelectValue placeholder="Semua Sub Kegiatan" />
           </SelectTrigger>
           <SelectContent className="max-h-72 max-w-[24rem]">
-            {kegiatans.map(k => (
-              <SelectItem key={k.id} value={String(k.id)} className="text-xs whitespace-normal">
-                <span className="text-xs break-words">{buildKegiatanLabel(k)}</span>
+            {subKegiatans.map(s => (
+              <SelectItem key={s.id} value={String(s.id)} className="text-xs whitespace-normal">
+                <span className="text-xs break-words">{buildSubKegiatanLabel(s)}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -884,7 +901,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
         />
 
         {hasFilters && (
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => { setFilterKegiatan(''); setFilterKodeAkun(''); setFilterNamaItem(''); }}>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => { setFilterSubKegiatan(''); setFilterKodeAkun(''); setFilterNamaItem(''); }}>
             <X className="w-3 h-3" /> Reset
           </Button>
         )}
@@ -896,27 +913,19 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
           <form onSubmit={store} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs">Kegiatan <span className="text-red-500">*</span></Label>
-                <Select value={data.kegiatan_id} onValueChange={v => setData('kegiatan_id', v)}>
+                <Label className="text-xs">Sub Kegiatan <span className="text-red-500">*</span></Label>
+                <Select value={data.sub_kegiatan_id} onValueChange={v => setData('sub_kegiatan_id', v)}>
                   <SelectTrigger className="mt-1 h-auto min-h-8 text-xs [&>span]:whitespace-normal [&>span]:break-words">
-                    <SelectValue placeholder="Pilih Kegiatan..." />
+                    <SelectValue placeholder="Pilih Sub Kegiatan..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-72 max-w-[24rem]">
-                    {kegiatans.map(k => (
-                      <SelectItem key={k.id} value={String(k.id)} className="text-xs whitespace-normal">
-                        <span className="text-xs break-words">{buildKegiatanLabel(k)}</span>
+                    {subKegiatans.map(s => (
+                      <SelectItem key={s.id} value={String(s.id)} className="text-xs whitespace-normal">
+                        <span className="text-xs break-words">{buildSubKegiatanLabel(s)}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Kode Akun <span className="text-red-500">*</span></Label>
-                <Input className="mt-1 h-8 text-sm font-mono" value={data.kode_akun} onChange={e => setData('kode_akun', e.target.value)} placeholder="521213" />
-              </div>
-              <div>
-                <Label className="text-xs">Nama Akun <span className="text-red-500">*</span></Label>
-                <Input className="mt-1 h-8 text-sm" value={data.nama_akun} onChange={e => setData('nama_akun', e.target.value)} placeholder="Belanja Honor Output Kegiatan" />
               </div>
             </div>
             <div>
@@ -969,9 +978,9 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
             {table.paginated.map(r => (
               <tr key={r.id} className={cn('border-b last:border-0', !r.is_aktif && 'opacity-50')}>
                 <td className="px-3 py-2 text-gray-600 text-[10px] max-w-[12rem] break-words">
-                  {r.kegiatan ? buildKegiatanPath(r.kegiatan) : r.kegiatan_id}
+                  {r.sub_kegiatan ? buildSubKegiatanPath(r.sub_kegiatan) : r.sub_kegiatan_id}
                 </td>
-                <td className="px-3 py-2 font-mono text-blue-700 font-semibold break-words">{r.kode_akun}</td>
+                <td className="px-3 py-2 font-mono text-blue-700 font-semibold break-words">{r.sub_kegiatan?.kode_akun ?? '-'}</td>
                 <td className="px-3 py-2 text-gray-700 max-w-xs break-words">{r.nama_item}</td>
                 <td className="px-2 py-2 text-center text-gray-500">{r.satuan}</td>
                 <td className="px-3 py-2 text-right">{fmt(r.harga_satuan)}</td>
@@ -1001,25 +1010,21 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
           <AlertDialogHeader><AlertDialogTitle>Edit Rincian Biaya</AlertDialogTitle></AlertDialogHeader>
 
           {/* Parent Info Panel */}
-          {editing?.kegiatan && (
+          {editing?.sub_kegiatan && (
             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-2">
               <div className="text-xs text-blue-700">
-                <span className="font-medium">Kegiatan:</span>{' '}
-                <span className="font-mono">{editing.kegiatan.kode}</span>
+                <span className="font-medium">Sub Kegiatan:</span>{' '}
+                <span className="font-mono">{editing.sub_kegiatan.kode_akun}</span>
                 <ChevronRight className="w-3 h-3 inline mx-0.5" />
-                <span>{editing.kegiatan.nama}</span>
+                <span>{editing.sub_kegiatan.nama_akun}</span>
               </div>
               <div className="text-[10px] text-blue-600 mt-0.5 font-mono break-words">
-                {buildKegiatanPath(editing.kegiatan)}
+                {buildSubKegiatanPath(editing.sub_kegiatan)}
               </div>
             </div>
           )}
 
           <form onSubmit={update} className="space-y-3 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-sm">Kode Akun</Label><Input className="mt-1 font-mono" value={editForm.data.kode_akun} onChange={e => editForm.setData('kode_akun', e.target.value)} /></div>
-              <div><Label className="text-sm">Nama Akun</Label><Input className="mt-1" value={editForm.data.nama_akun} onChange={e => editForm.setData('nama_akun', e.target.value)} /></div>
-            </div>
             <div><Label className="text-sm">Nama Item</Label><Input className="mt-1" value={editForm.data.nama_item} onChange={e => editForm.setData('nama_item', e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-sm">Satuan</Label><Input className="mt-1" value={editForm.data.satuan} onChange={e => editForm.setData('satuan', e.target.value)} /></div>
@@ -1048,7 +1053,7 @@ function RincianTab({ rincians, kegiatans }: { rincians: Rincian[]; kegiatans: K
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, ros, komponens, kegiatans, rincians, importPreview, importKey }: Props) {
+export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, ros, komponens, kegiatans, subKegiatans, rincians, importPreview, importKey }: Props) {
     const isLoading = useNavigationLoading();
     return (
         <AppLayout>
@@ -1071,7 +1076,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
           <ImportDialog preview={importPreview} importKey={importKey} />
         </div>
 
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-8 gap-3">
           {[
             ['Program', programs.length],
             ['Sasaran', sasarans.length],
@@ -1079,6 +1084,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
             ['RO', ros.length],
             ['Komponen', komponens.length],
             ['Kegiatan', kegiatans.length],
+            ['Sub Kegiatan', subKegiatans.length],
             ['Rincian', rincians.length],
           ].map(([label, count]) => (
             <div key={label} className="bg-white border rounded-lg px-3 py-2 text-center">
@@ -1096,6 +1102,7 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
             <TabsTrigger value="ro">RO</TabsTrigger>
             <TabsTrigger value="komponen">Komponen</TabsTrigger>
             <TabsTrigger value="kegiatan">Kegiatan</TabsTrigger>
+            <TabsTrigger value="sub-kegiatan">Sub Kegiatan</TabsTrigger>
             <TabsTrigger value="rincian">Rincian Biaya</TabsTrigger>
           </TabsList>
 
@@ -1146,8 +1153,25 @@ export default function MasterAnggaranIndex({ tahun, programs, sasarans, kros, r
             />
           </TabsContent>
 
+          <TabsContent value="sub-kegiatan" className="mt-4">
+            <GenericLevelTab
+              items={subKegiatans.map(s => ({
+                id: s.id,
+                parent_id: s.kegiatan_id,
+                kode: s.kode_akun,
+                nama: s.nama_akun,
+                pagu: s.pagu,
+                is_aktif: s.is_aktif,
+                parent: s.kegiatan,
+              }))}
+              config={{ label: 'Sub Kegiatan', parentLabel: 'Kegiatan', parentKey: 'kegiatan_id',
+                parents: kegiatans.map(k => ({ id: k.id, kode: k.kode, nama: k.nama })),
+                baseUrl: '/super-admin/keuangan/master-anggaran/sub-kegiatan' }}
+            />
+          </TabsContent>
+
           <TabsContent value="rincian" className="mt-4">
-            <RincianTab rincians={rincians} kegiatans={kegiatans} />
+            <RincianTab rincians={rincians} subKegiatans={subKegiatans} />
           </TabsContent>
         </Tabs>
       </div>

@@ -9,6 +9,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\TahunAnggaran;
 use Illuminate\Console\Command;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -48,8 +49,7 @@ class ImportDjaCommand extends Command
         $currentRo = null;
         $currentKomponen = null;
         $currentKegiatan = null;
-        $currentKodeAkun = null;
-        $currentNamaAkun = null;
+        $currentSubKegiatan = null;
         $urutan = 0;
         $imported = 0;
 
@@ -138,7 +138,7 @@ class ImportDjaCommand extends Command
                     ['komponen_id' => $currentKomponen->id, 'kode' => $a],
                     ['nama' => $b, 'pagu' => $paguInt($f), 'is_aktif' => true]
                 );
-                $currentKodeAkun = $currentNamaAkun = null;
+                $currentSubKegiatan = null;
                 $urutan = 0;
                 $imported++;
 
@@ -146,22 +146,28 @@ class ImportDjaCommand extends Command
             }
 
             // Kode Akun
-            if (preg_match('/^\d{6}$/', $a)) {
-                $currentKodeAkun = $a;
-                $currentNamaAkun = $b;
+            if (preg_match('/^\d{6}$/', $a) && $currentKegiatan) {
+                $currentSubKegiatan = DjaSubKegiatan::updateOrCreate(
+                    ['kegiatan_id' => $currentKegiatan->id, 'kode_akun' => $a],
+                    [
+                        'nama_akun' => $b,
+                        'pagu' => $paguInt($f),
+                        'urutan' => $urutan + 1,
+                        'is_aktif' => true,
+                    ]
+                );
                 $urutan = 0;
+                $imported++;
 
                 continue;
             }
 
             // Rincian Biaya
-            if ($a === '' && $b !== '' && $currentKegiatan && $currentKodeAkun) {
+            if ($a === '' && $b !== '' && $currentSubKegiatan) {
                 $urutan++;
                 DjaRincianBiaya::updateOrCreate(
-                    ['kegiatan_id' => $currentKegiatan->id, 'nama_item' => $b],
+                    ['sub_kegiatan_id' => $currentSubKegiatan->id, 'nama_item' => $b],
                     [
-                        'kode_akun' => $currentKodeAkun,
-                        'nama_akun' => $currentNamaAkun ?? '',
                         'volume_default' => is_numeric(str_replace(['.', ','], ['', '.'], $c)) ? (float) str_replace(['.', ','], ['', '.'], $c) : 0,
                         'satuan' => $d ?: 'OK',
                         'harga_satuan' => $parseDecimal($e),
@@ -183,6 +189,7 @@ class ImportDjaCommand extends Command
         $this->info('  - RO: '.DjaRo::count());
         $this->info('  - Komponen: '.DjaKomponen::count());
         $this->info('  - Kegiatan: '.DjaKegiatan::count());
+        $this->info('  - Sub Kegiatan: '.DjaSubKegiatan::count());
         $this->info('  - Rincian Biaya: '.DjaRincianBiaya::count());
 
         return self::SUCCESS;

@@ -10,6 +10,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\RedirectResponse;
@@ -37,7 +38,18 @@ class DjaController extends Controller
      */
     private function kegiatanHasActivePermohonanDana(int $kegiatanId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya', fn ($q) => $q->where('kegiatan_id', $kegiatanId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan', fn ($q) => $q->where('kegiatan_id', $kegiatanId))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->exists();
+    }
+
+    /**
+     * Cek apakah ada permohonan dana aktif yang menggunakan
+     * rincian biaya di bawah suatu sub kegiatan.
+     */
+    private function subKegiatanHasActivePermohonanDana(int $subKegiatanId): bool
+    {
+        return PermohonanDanaItem::whereHas('djaRincianBiaya', fn ($q) => $q->where('sub_kegiatan_id', $subKegiatanId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -48,7 +60,7 @@ class DjaController extends Controller
      */
     private function komponenHasActivePermohonanDana(int $komponenId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan', fn ($q) => $q->where('komponen_id', $komponenId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan.kegiatan', fn ($q) => $q->where('komponen_id', $komponenId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -59,7 +71,7 @@ class DjaController extends Controller
      */
     private function roHasActivePermohonanDana(int $roId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen', fn ($q) => $q->where('ro_id', $roId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan.kegiatan.komponen', fn ($q) => $q->where('ro_id', $roId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -70,7 +82,7 @@ class DjaController extends Controller
      */
     private function kroHasActivePermohonanDana(int $kroId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro', fn ($q) => $q->where('kro_id', $kroId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan.kegiatan.komponen.ro', fn ($q) => $q->where('kro_id', $kroId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -81,7 +93,7 @@ class DjaController extends Controller
      */
     private function sasaranHasActivePermohonanDana(int $sasaranId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro.kro', fn ($q) => $q->where('sasaran_id', $sasaranId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan.kegiatan.komponen.ro.kro', fn ($q) => $q->where('sasaran_id', $sasaranId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -92,7 +104,7 @@ class DjaController extends Controller
      */
     private function programHasActivePermohonanDana(int $programId): bool
     {
-        return PermohonanDanaItem::whereHas('djaRincianBiaya.kegiatan.komponen.ro.kro.sasaran', fn ($q) => $q->where('program_id', $programId))
+        return PermohonanDanaItem::whereHas('djaRincianBiaya.subKegiatan.kegiatan.komponen.ro.kro.sasaran', fn ($q) => $q->where('program_id', $programId))
             ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
             ->exists();
     }
@@ -137,7 +149,7 @@ class DjaController extends Controller
             ->orderBy('kode')
             ->get(['id', 'komponen_id', 'kode', 'nama', 'pagu', 'is_aktif']);
 
-        $rincians = DjaRincianBiaya::with([
+        $subKegiatans = DjaSubKegiatan::with([
             'kegiatan:id,kode,nama,komponen_id',
             'kegiatan.komponen:id,kode,nama,ro_id',
             'kegiatan.komponen.ro:id,kode,nama,kro_id',
@@ -147,6 +159,19 @@ class DjaController extends Controller
         ])
             ->whereHas('kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('kode_akun')
+            ->orderBy('urutan')
+            ->get(['id', 'kegiatan_id', 'kode_akun', 'nama_akun', 'pagu', 'urutan', 'is_aktif']);
+
+        $rincians = DjaRincianBiaya::with([
+            'subKegiatan:id,kegiatan_id,kode_akun,nama_akun',
+            'subKegiatan.kegiatan:id,kode,nama,komponen_id',
+            'subKegiatan.kegiatan.komponen:id,kode,nama,ro_id',
+            'subKegiatan.kegiatan.komponen.ro:id,kode,nama,kro_id',
+            'subKegiatan.kegiatan.komponen.ro.kro:id,kode,nama,sasaran_id',
+            'subKegiatan.kegiatan.komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'subKegiatan.kegiatan.komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
+            ->whereHas('subKegiatan.kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('urutan')
             ->get();
 
@@ -158,6 +183,7 @@ class DjaController extends Controller
             'ros' => $ros,
             'komponens' => $komponens,
             'kegiatans' => $kegiatans,
+            'subKegiatans' => $subKegiatans,
             'rincians' => $rincians,
         ]);
     }
@@ -441,14 +467,77 @@ class DjaController extends Controller
         return back()->with('success', 'Kegiatan dihapus.');
     }
 
+    // ─── Sub Kegiatan CRUD ────────────────────────────────────────────────────────
+
+    public function subKegiatanStore(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'kegiatan_id' => 'required|exists:dja_kegiatan,id',
+            'kode_akun' => 'nullable|string|max:10',
+            'nama_akun' => 'nullable|string|max:150',
+            'kode' => 'nullable|string|max:10',
+            'nama' => 'nullable|string|max:150',
+            'pagu' => 'required|integer|min:0',
+            'urutan' => 'nullable|integer|min:0',
+        ]);
+        
+        DjaSubKegiatan::create([
+            'kegiatan_id' => $request->kegiatan_id,
+            'kode_akun' => $request->kode_akun ?? $request->kode,
+            'nama_akun' => $request->nama_akun ?? $request->nama,
+            'pagu' => $request->pagu,
+            'urutan' => $request->urutan ?? 0,
+            'is_aktif' => true,
+        ]);
+
+        return back()->with('success', 'Sub Kegiatan berhasil ditambahkan.');
+    }
+
+    public function subKegiatanUpdate(Request $request, DjaSubKegiatan $subKegiatan): RedirectResponse
+    {
+        $request->validate([
+            'kode_akun' => 'nullable|string|max:10',
+            'nama_akun' => 'nullable|string|max:150',
+            'kode' => 'nullable|string|max:10',
+            'nama' => 'nullable|string|max:150',
+            'pagu' => 'required|integer|min:0',
+            'urutan' => 'nullable|integer|min:0',
+        ]);
+        
+        $subKegiatan->update([
+            'kode_akun' => $request->kode_akun ?? $request->kode,
+            'nama_akun' => $request->nama_akun ?? $request->nama,
+            'pagu' => $request->pagu,
+            'urutan' => $request->urutan ?? 0,
+        ]);
+
+        return back()->with('success', 'Sub Kegiatan berhasil diperbarui.');
+    }
+
+    public function subKegiatanToggle(DjaSubKegiatan $subKegiatan): RedirectResponse
+    {
+        $subKegiatan->update(['is_aktif' => ! $subKegiatan->is_aktif]);
+
+        return back()->with('success', 'Status sub kegiatan diperbarui.');
+    }
+
+    public function subKegiatanDestroy(DjaSubKegiatan $subKegiatan): RedirectResponse
+    {
+        if ($this->subKegiatanHasActivePermohonanDana($subKegiatan->id)) {
+            return back()->withErrors(['delete' => 'Sub Kegiatan tidak dapat dihapus karena masih memiliki rincian biaya yang digunakan oleh permohonan dana. Nonaktifkan saja jika tidak lagi digunakan.']);
+        }
+
+        $subKegiatan->delete();
+
+        return back()->with('success', 'Sub Kegiatan dihapus.');
+    }
+
     // ─── Rincian Biaya CRUD ───────────────────────────────────────────────────────
 
     public function rincianStore(Request $request): RedirectResponse
     {
         $request->validate([
-            'kegiatan_id' => 'required|exists:dja_kegiatan,id',
-            'kode_akun' => 'required|string|max:10',
-            'nama_akun' => 'required|string|max:150',
+            'sub_kegiatan_id' => 'required|exists:dja_sub_kegiatan,id',
             'nama_item' => 'required|string|max:300',
             'satuan' => 'required|string|max:20',
             'harga_satuan' => 'required|numeric|min:0',
@@ -456,7 +545,7 @@ class DjaController extends Controller
             'urutan' => 'nullable|integer|min:0',
         ]);
         DjaRincianBiaya::create($request->only(
-            'kegiatan_id', 'kode_akun', 'nama_akun', 'nama_item',
+            'sub_kegiatan_id', 'nama_item',
             'satuan', 'harga_satuan', 'pagu_total', 'urutan'
         ) + ['is_aktif' => true]);
 
@@ -466,8 +555,6 @@ class DjaController extends Controller
     public function rincianUpdate(Request $request, DjaRincianBiaya $rincian): RedirectResponse
     {
         $request->validate([
-            'kode_akun' => 'required|string|max:10',
-            'nama_akun' => 'required|string|max:150',
             'nama_item' => 'required|string|max:300',
             'satuan' => 'required|string|max:20',
             'harga_satuan' => 'required|numeric|min:0',
@@ -475,7 +562,7 @@ class DjaController extends Controller
             'urutan' => 'nullable|integer|min:0',
         ]);
         $rincian->update($request->only(
-            'kode_akun', 'nama_akun', 'nama_item',
+            'nama_item',
             'satuan', 'harga_satuan', 'pagu_total', 'urutan'
         ));
 
@@ -608,7 +695,7 @@ class DjaController extends Controller
             ->orderBy('kode')
             ->get(['id', 'komponen_id', 'kode', 'nama', 'pagu', 'is_aktif']);
 
-        $rincians = DjaRincianBiaya::with([
+        $subKegiatans = DjaSubKegiatan::with([
             'kegiatan:id,kode,nama,komponen_id',
             'kegiatan.komponen:id,kode,nama,ro_id',
             'kegiatan.komponen.ro:id,kode,nama,kro_id',
@@ -618,6 +705,19 @@ class DjaController extends Controller
         ])
             ->whereHas('kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('kode_akun')
+            ->orderBy('urutan')
+            ->get(['id', 'kegiatan_id', 'kode_akun', 'nama_akun', 'pagu', 'urutan', 'is_aktif']);
+
+        $rincians = DjaRincianBiaya::with([
+            'subKegiatan:id,kegiatan_id,kode_akun,nama_akun',
+            'subKegiatan.kegiatan:id,kode,nama,komponen_id',
+            'subKegiatan.kegiatan.komponen:id,kode,nama,ro_id',
+            'subKegiatan.kegiatan.komponen.ro:id,kode,nama,kro_id',
+            'subKegiatan.kegiatan.komponen.ro.kro:id,kode,nama,sasaran_id',
+            'subKegiatan.kegiatan.komponen.ro.kro.sasaran:id,kode,nama,program_id',
+            'subKegiatan.kegiatan.komponen.ro.kro.sasaran.program:id,kode,nama',
+        ])
+            ->whereHas('subKegiatan.kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('urutan')
             ->get();
 
@@ -629,6 +729,7 @@ class DjaController extends Controller
             'ros' => $ros,
             'komponens' => $komponens,
             'kegiatans' => $kegiatans,
+            'subKegiatans' => $subKegiatans,
             'rincians' => $rincians,
             'importPreview' => $preview,
             'importKey' => $importKey,

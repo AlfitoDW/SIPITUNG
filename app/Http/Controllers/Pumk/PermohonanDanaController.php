@@ -11,6 +11,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaDokumen;
 use App\Models\PermohonanDanaItemNominatif;
@@ -182,7 +183,7 @@ class PermohonanDanaController extends Controller
         abort_if($pd->created_by !== $request->user()->id, 403);
 
         $pd->load([
-            'items.djaRincianBiaya', 'items.nominatif', 'dokumens',
+            'items.djaRincianBiaya.subKegiatan', 'items.nominatif', 'dokumens',
             'djaProgram', 'djaSasaran', 'djaKro', 'djaRo', 'djaKomponen', 'djaKegiatan',
             'kapokja', 'picKeuangan',
         ]);
@@ -218,15 +219,19 @@ class PermohonanDanaController extends Controller
             ->where('is_active', true)
             ->get(['id', 'nama_lengkap']);
 
-        // Rincian biaya per kegiatan (grouped by kode_akun)
+        // Rincian biaya per kegiatan (grouped by sub kegiatan)
         $rincianBiaya = [];
         if ($pd->dja_kegiatan_id) {
-            $items = DjaRincianBiaya::where('kegiatan_id', $pd->dja_kegiatan_id)
+            $subKegiatans = DjaSubKegiatan::with(['rincianBiayas' => fn ($q) => $q
                 ->where('is_aktif', true)
-                ->orderBy('kode_akun')
+                ->orderBy('urutan')])
+                ->where('kegiatan_id', $pd->dja_kegiatan_id)
+                ->where('is_aktif', true)
                 ->orderBy('urutan')
-                ->get()
-                ->map(function ($item) use ($pd) {
+                ->get();
+
+            foreach ($subKegiatans as $subKegiatan) {
+                $items = $subKegiatan->rincianBiayas->map(function ($item) use ($pd, $subKegiatan) {
                     $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $item->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
                             ->whereNotIn('status', ['draft', 'rejected'])
@@ -237,8 +242,8 @@ class PermohonanDanaController extends Controller
 
                     return [
                         'id' => $item->id,
-                        'kode_akun' => $item->kode_akun,
-                        'nama_akun' => $item->nama_akun,
+                        'kode_akun' => $subKegiatan->kode_akun,
+                        'nama_akun' => $subKegiatan->nama_akun,
                         'nama_item' => $item->nama_item,
                         'satuan' => $item->satuan,
                         'harga_satuan' => $item->harga_satuan,
@@ -250,7 +255,6 @@ class PermohonanDanaController extends Controller
                         'status_anggaran' => $terpakai > $item->pagu_total ? 'overbudget' : ($terpakai == $item->pagu_total ? 'habis' : ($terpakai > 0 ? 'tersedia' : 'belum_terpakai')),
                         'volume_diminta' => $existing?->volume ?? 0,
                         'jumlah_permintaan' => $existing?->jumlah_permintaan ?? 0,
-                        // Nominatif info — tipe & jumlah peserta yang sudah diisi
                         'tipe_nominatif' => $existing?->tipe_nominatif ?? 'non_nominatif',
                         'nominatif_count' => $existing ? $existing->nominatif()->count() : 0,
                         'nominatif' => $existing ? $existing->nominatif->map(fn ($n) => [
@@ -282,12 +286,19 @@ class PermohonanDanaController extends Controller
                             'hotel' => (string) $n->hotel,
                         ])->values() : [],
                     ];
-                });
+                })->values();
 
-            // Group by kode_akun
-            foreach ($items as $item) {
-                $key = $item['kode_akun'].'|'.$item['nama_akun'];
-                $rincianBiaya[$key][] = $item;
+                $rincianBiaya[] = [
+                    'sub_kegiatan' => [
+                        'id' => $subKegiatan->id,
+                        'kode_akun' => $subKegiatan->kode_akun,
+                        'nama_akun' => $subKegiatan->nama_akun,
+                        'pagu' => $subKegiatan->pagu,
+                        'total_rincian' => $items->sum(fn ($item) => (float) $item['pagu_total']),
+                        'terpakai' => $items->sum(fn ($item) => (float) $item['terpakai']),
+                    ],
+                    'items' => $items,
+                ];
             }
         }
 
@@ -517,11 +528,11 @@ class PermohonanDanaController extends Controller
 
         // ── Validasi: harga satuan tidak boleh melebihi SBM ─────────────────────
         foreach ($request->items as $item) {
-            $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+            $rincian = DjaRincianBiaya::with('subKegiatan')->find($item['dja_rincian_biaya_id']);
             if ($item['harga_satuan'] > $rincian->harga_satuan) {
                 return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
                     ->with('error',
-                        "Harga satuan [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                        "Harga satuan [{$rincian->subKegiatan?->kode_akun}] {$rincian->nama_item} ".
                         'tidak boleh melebihi SBM (Rp '.number_format($rincian->harga_satuan, 0, ',', '.').').'
                     )
                     ->with('wizard_step', 4);
@@ -536,7 +547,7 @@ class PermohonanDanaController extends Controller
                     if ((float) $item['jumlah_permintaan'] == 0) {
                         continue;
                     }
-                    $rincian = DjaRincianBiaya::lockForUpdate()->find($item['dja_rincian_biaya_id']);
+                    $rincian = DjaRincianBiaya::with('subKegiatan')->lockForUpdate()->find($item['dja_rincian_biaya_id']);
                     $jumlah = (float) $item['jumlah_permintaan'];
 
                     $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
@@ -548,7 +559,7 @@ class PermohonanDanaController extends Controller
                     $sisaAnggaran = max(0, $rincian->pagu_total - $terpakai);
                     if ($jumlah > $sisaAnggaran) {
                         throw new \Exception(
-                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                            "Item [{$rincian->subKegiatan?->kode_akun}] {$rincian->nama_item} ".
                             'memerlukan Rp '.number_format($jumlah, 0, ',', '.').' '.
                             'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
                         );
@@ -570,7 +581,7 @@ class PermohonanDanaController extends Controller
                         continue;
                     }
 
-                    $rincian = DjaRincianBiaya::find($item['dja_rincian_biaya_id']);
+                    $rincian = DjaRincianBiaya::with('subKegiatan')->find($item['dja_rincian_biaya_id']);
                     $existingItem = $pd->items()->where('dja_rincian_biaya_id', $rincian->id)->first();
 
                     if ($existingItem) {
@@ -585,7 +596,7 @@ class PermohonanDanaController extends Controller
                     } else {
                         $pd->items()->create([
                             'dja_rincian_biaya_id' => $rincian->id,
-                            'kode_akun' => $rincian->kode_akun,
+                            'kode_akun' => $rincian->subKegiatan?->kode_akun,
                             'uraian' => $rincian->nama_item,
                             'volume' => $volume,
                             'satuan' => $rincian->satuan,
@@ -768,7 +779,7 @@ class PermohonanDanaController extends Controller
                         continue;
                     }
 
-                    $rincian = DjaRincianBiaya::lockForUpdate()->find($rincian->id);
+                    $rincian = DjaRincianBiaya::with('subKegiatan')->lockForUpdate()->find($rincian->id);
 
                     $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
@@ -780,7 +791,7 @@ class PermohonanDanaController extends Controller
 
                     if ($item->jumlah_permintaan > $sisaAnggaran) {
                         throw new \Exception(
-                            "Item [{$rincian->kode_akun}] {$rincian->nama_item} ".
+                            "Item [{$rincian->subKegiatan?->kode_akun}] {$rincian->nama_item} ".
                             'memerlukan Rp '.number_format($item->jumlah_permintaan, 0, ',', '.').' '.
                             'tetapi sisa pagu hanya Rp '.number_format($sisaAnggaran, 0, ',', '.').'.'
                         );

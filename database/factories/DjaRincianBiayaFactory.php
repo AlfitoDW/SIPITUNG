@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\DjaRincianBiaya;
+use App\Models\DjaSubKegiatan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class DjaRincianBiayaFactory extends Factory
@@ -12,9 +13,7 @@ class DjaRincianBiayaFactory extends Factory
     public function definition(): array
     {
         return [
-            'kegiatan_id' => null,
-            'kode_akun' => fake()->unique()->numerify('######'),
-            'nama_akun' => fake()->words(2, true),
+            'sub_kegiatan_id' => DjaSubKegiatan::factory(),
             'nama_item' => fake()->words(3, true),
             'volume_default' => fake()->numberBetween(1, 10),
             'satuan' => 'orang',

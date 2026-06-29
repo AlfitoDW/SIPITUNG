@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class DjaKegiatan extends Model
 {
@@ -22,8 +23,13 @@ class DjaKegiatan extends Model
         return $this->belongsTo(DjaKomponen::class, 'komponen_id');
     }
 
-    public function rincianBiayas(): HasMany
+    public function subKegiatans(): HasMany
     {
-        return $this->hasMany(DjaRincianBiaya::class, 'kegiatan_id');
+        return $this->hasMany(DjaSubKegiatan::class, 'kegiatan_id');
+    }
+
+    public function rincianBiayas(): HasManyThrough
+    {
+        return $this->hasManyThrough(DjaRincianBiaya::class, DjaSubKegiatan::class, 'kegiatan_id', 'sub_kegiatan_id');
     }
 }

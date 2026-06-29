@@ -104,11 +104,15 @@ interface RincianItem {
         representasi: string; taksi_pp: string; tiket_pesawat: string; hotel: string;
     }>;
 }
+interface RincianGroup {
+    sub_kegiatan: { id: number; kode_akun: string; nama_akun: string; pagu: number; total_rincian: number; terpakai: number };
+    items: RincianItem[];
+}
 interface Props {
     pd: Pd;
     kapokjaList: KapokjaItem[];
     picList: PicItem[];
-    rincianBiaya: RincianItem[][];
+    rincianBiaya: RincianGroup[];
     refNama: RefNama[];
     jenisDokumen: Record<string,string>;
 }
@@ -675,28 +679,29 @@ function Step3({ pd, jenisDokumen, onPrev, onNext, readonly = false }: { pd: Pd;
 
 function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddDialog, onOpenEditDialog }: {
     pd: Pd;
-    rincianBiaya: RincianItem[][];
+    rincianBiaya: RincianGroup[];
     refNama: RefNama[];
     onPrev: () => void;
     readonly?: boolean;
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
+    const allRincianItems = rincianBiaya.flatMap(group => group.items);
     const [volumes, setVolumes] = useState<Record<number, number>>(() => {
         const init: Record<number, number> = {};
-        rincianBiaya.flat().forEach(item => { init[item.id] = item.volume_diminta; });
+        allRincianItems.forEach(item => { init[item.id] = item.volume_diminta; });
         return init;
     });
     const [hargaSatuan, setHargaSatuan] = useState<Record<number, number>>(() => {
         const init: Record<number, number> = {};
-        rincianBiaya.flat().forEach(item => { init[item.id] = item.harga_satuan_aktual; });
+        allRincianItems.forEach(item => { init[item.id] = item.harga_satuan_aktual; });
         return init;
     });
     const [submitting, setSubmitting] = useState(false);
 
     const [expanded, setExpanded] = useState<Set<number>>(() => {
         const s = new Set<number>();
-        rincianBiaya.flat().forEach(item => {
+        allRincianItems.forEach(item => {
             if ((item.tipe_nominatif === 'honor' || item.tipe_nominatif === 'perjadin') && item.volume_diminta > 0) {
                 s.add(item.id);
             }
@@ -706,7 +711,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
 
     const [nominatifRows, setNominatifRows] = useState<Record<number, NominatifRow[]>>(() => {
         const m: Record<number, NominatifRow[]> = {};
-        rincianBiaya.flat().forEach(item => {
+        allRincianItems.forEach(item => {
             if (item.nominatif.length > 0) {
                 m[item.id] = item.nominatif.map(n => rowFromExisting(n, item.id));
             } else if (item.tipe_nominatif === 'honor' && item.volume_diminta > 0) {
@@ -789,17 +794,17 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
     const sisaDinamis = (item: RincianItem) => item.sisa_anggaran - jumlah(item);
 
     const totalAkun  = (group: RincianItem[]) => group.reduce((s, item) => s + jumlah(item), 0);
-    const grandTotal = rincianBiaya.flat().reduce((s, item) => s + jumlah(item), 0);
+    const grandTotal = allRincianItems.reduce((s, item) => s + jumlah(item), 0);
 
     const NOMINATIF_TYPES = ['honor', 'perjadin'] as const;
-    const itemsBelumNominatif = rincianBiaya.flat().filter(
+    const itemsBelumNominatif = allRincianItems.filter(
         item =>
             NOMINATIF_TYPES.includes(item.tipe_nominatif as typeof NOMINATIF_TYPES[number]) &&
             nomJumlah(item) > 0 &&
             (nominatifRows[item.id] ?? []).length === 0,
     );
 
-    const itemsOverBudget = rincianBiaya.flat().filter(
+    const itemsOverBudget = allRincianItems.filter(
         item => jumlah(item) > item.sisa_anggaran,
     );
 
@@ -808,7 +813,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
 
     const buildItems = () => {
         const result: Array<{ dja_rincian_biaya_id: number; volume: number; harga_satuan: number; jumlah_permintaan: number }> = [];
-        for (const item of rincianBiaya.flat()) {
+        for (const item of allRincianItems) {
             if (isNominatifItem(item)) {
                 const rows = nominatifRows[item.id] ?? [];
                 if (rows.length === 0) continue;
@@ -827,7 +832,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
 
     const buildNominatif = () => {
         const result: NominatifRow[] = [];
-        for (const item of rincianBiaya.flat()) {
+        for (const item of allRincianItems) {
             if (!isNominatifItem(item)) continue;
             const rows = nominatifRows[item.id] ?? [];
             for (const row of rows) {
@@ -892,7 +897,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
             <CardContent className="space-y-6">
                 {/* Overbudget Warning */}
                 {(() => {
-                    const allItems = rincianBiaya.flat();
+                    const allItems = allRincianItems;
                     const overbudgetCount = allItems.filter(i => i.status_anggaran === 'overbudget').length;
                     if (overbudgetCount === 0) return null;
                     const totalOverbudget = allItems
@@ -913,15 +918,16 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                     <p className="text-sm text-gray-400 text-center py-8">Tidak ada rincian biaya untuk kegiatan ini.</p>
                 ) : (
                     rincianBiaya.map((group, gi) => {
-                        const first = group[0];
+                        const first = group.items[0];
+                        const subKegiatan = group.sub_kegiatan;
                         return (
                             <div key={gi} className="border rounded-lg overflow-hidden">
                                 <div className="bg-slate-100 px-4 py-2.5 flex items-center justify-between border-b">
                                     <span className="text-sm font-semibold text-gray-700">
-                                        {first.kode_akun} — {first.nama_akun}
+                                        {subKegiatan.kode_akun} — {subKegiatan.nama_akun}
                                     </span>
                                     <span className="text-xs text-gray-500 font-medium">
-                                        Pagu: <span className="text-gray-700 font-bold">Rp {fmt(group.reduce((s, item) => s + Number(item.pagu_total ?? 0), 0))}</span>
+                                         Pagu: <span className="text-gray-700 font-bold">Rp {fmt(subKegiatan.pagu || group.items.reduce((s, item) => s + Number(item.pagu_total ?? 0), 0))}</span>
                                     </span>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -942,7 +948,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {group.map(item => {
+                                            {group.items.map(item => {
                                                 const vol   = volumeDisplay(item);
                                                 const harga = getHarga(item);
                                                 const req   = jumlah(item);
@@ -1049,10 +1055,10 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                         <tfoot>
                                             <tr className="bg-gray-50 border-t">
                                                 <td colSpan={6} className="px-3 py-2 text-right text-xs font-semibold text-gray-600">
-                                                    Total {first.kode_akun}:
+                                                     Total {subKegiatan.kode_akun}:
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-xs font-bold text-blue-700 whitespace-nowrap">
-                                                    Rp {fmt(totalAkun(group))}
+                                                     Rp {fmt(totalAkun(group.items))}
                                                 </td>
                                                 <td></td>
                                             </tr>

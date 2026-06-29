@@ -7,6 +7,7 @@ use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
 use App\Models\DjaRo;
 use App\Models\DjaSasaran;
+use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
@@ -30,8 +31,13 @@ beforeEach(function () {
     $this->ro = DjaRo::factory()->create(['kro_id' => $this->kro->id]);
     $this->komponen = DjaKomponen::factory()->create(['ro_id' => $this->ro->id]);
     $this->kegiatan = DjaKegiatan::factory()->create(['komponen_id' => $this->komponen->id]);
-    $this->rincian = DjaRincianBiaya::factory()->create([
+    $this->subKegiatan = DjaSubKegiatan::factory()->create([
         'kegiatan_id' => $this->kegiatan->id,
+        'kode_akun' => '521213',
+        'nama_akun' => 'Belanja Honor Output Kegiatan',
+    ]);
+    $this->rincian = DjaRincianBiaya::factory()->create([
+        'sub_kegiatan_id' => $this->subKegiatan->id,
         'pagu_total' => 1000000,
         'harga_satuan' => 100000,
     ]);
@@ -50,7 +56,7 @@ it('prevents deleting rincian biaya used by active permohonan dana', function ()
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -87,7 +93,7 @@ it('allows deleting rincian biaya only used by draft permohonan dana', function 
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Draft item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -117,7 +123,7 @@ it('prevents deleting kegiatan that has rincian biaya used by active permohonan 
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -159,7 +165,7 @@ it('prevents deleting komponen that has rincian biaya used by active permohonan 
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -189,7 +195,7 @@ it('prevents deleting ro that has rincian biaya used by active permohonan dana',
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -219,7 +225,7 @@ it('prevents deleting kro that has rincian biaya used by active permohonan dana'
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -249,7 +255,7 @@ it('prevents deleting sasaran that has rincian biaya used by active permohonan d
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',
@@ -279,7 +285,7 @@ it('prevents deleting program that has rincian biaya used by active permohonan d
     PermohonanDanaItem::create([
         'permohonan_dana_id' => $pd->id,
         'dja_rincian_biaya_id' => $this->rincian->id,
-        'kode_akun' => $this->rincian->kode_akun,
+        'kode_akun' => $this->subKegiatan->kode_akun,
         'uraian' => 'Test item',
         'volume' => 5,
         'satuan' => 'orang',

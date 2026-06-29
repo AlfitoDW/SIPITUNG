@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\DjaRincianBiaya;
+use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaItemNominatif;
 use App\Models\TahunAnggaran;
@@ -40,17 +41,21 @@ describe('rincian biaya step 4', function () {
             ])->id,
         ]);
 
-        $rincianA = DjaRincianBiaya::factory()->create([
+        $subKegiatan = DjaSubKegiatan::factory()->create([
             'kegiatan_id' => $kegiatan->id,
             'kode_akun' => '521213',
+            'nama_akun' => 'Belanja Honor Output Kegiatan',
+        ]);
+
+        $rincianA = DjaRincianBiaya::factory()->create([
+            'sub_kegiatan_id' => $subKegiatan->id,
             'nama_item' => 'Honor Output A',
             'pagu_total' => 5_000_000,
             'harga_satuan' => 1_000_000,
         ]);
 
         $rincianB = DjaRincianBiaya::factory()->create([
-            'kegiatan_id' => $kegiatan->id,
-            'kode_akun' => '521213',
+            'sub_kegiatan_id' => $subKegiatan->id,
             'nama_item' => 'Honor Output B',
             'pagu_total' => 5_000_000,
             'harga_satuan' => 500_000,
@@ -157,9 +162,14 @@ describe('rincian biaya step 4', function () {
             ])->id,
         ]);
 
-        $rincianA = DjaRincianBiaya::factory()->create([
+        $subKegiatan = DjaSubKegiatan::factory()->create([
             'kegiatan_id' => $kegiatan->id,
             'kode_akun' => '521213',
+            'nama_akun' => 'Belanja Honor Output Kegiatan',
+        ]);
+
+        $rincianA = DjaRincianBiaya::factory()->create([
+            'sub_kegiatan_id' => $subKegiatan->id,
             'nama_item' => 'Honor Output A',
             'pagu_total' => 5_000_000,
             'harga_satuan' => 1_000_000,
