@@ -11,6 +11,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class PermohonanDanaExport
 {
     private PermohonanDana $pd;
+    private array $sectionRowMap = []; // Track Sheet 2 section row positions
 
     private const DOK_CHECK_MAP = [
         1 => 'Rincian Kebutuhan Biaya',
@@ -42,16 +43,16 @@ class PermohonanDanaExport
 
         $spreadsheet = IOFactory::load($templatePath);
 
-        // Sheet 1: PERMOHONAN DANA
-        $sheet1 = $spreadsheet->getSheetByName('PERMOHONAN DANA');
-        if ($sheet1) {
-            $this->populateSheet1($sheet1);
-        }
-
-        // Sheet 2: RINCIAN ANGGARAN BIAYA
-        $sheet2 = $spreadsheet->getSheetByName('RINCIAN ANGGARAN BIAYA');
+        // IMPORTANT: Populate Sheet 2 FIRST to get section row positions for formula references
+        $sheet2 = $spreadsheet->getSheet(1);
         if ($sheet2) {
             $this->populateSheet2($sheet2);
+        }
+
+        // Then populate Sheet 1 with formula references to Sheet 2
+        $sheet1 = $spreadsheet->getSheet(0);
+        if ($sheet1) {
+            $this->populateSheet1($sheet1);
         }
 
         $nomor = str_replace('/', '-', $this->pd->nomor_permohonan);
@@ -77,101 +78,124 @@ class PermohonanDanaExport
 
     private function populateSheet1(Worksheet $sheet): void
     {
-        $replacements = $this->buildSheet1Replacements();
-
-        $totalRows = $sheet->getHighestDataRow();
-
-        for ($row = 1; $row <= $totalRows; $row++) {
-            for ($colIdx = 1; $colIdx <= 10; $colIdx++) {
-                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
-                $value = $sheet->getCell("{$col}{$row}")->getValue();
-
-                // Convert RichText objects to plain text
-                if ($value instanceof RichText) {
-                    $value = $value->getPlainText();
-                }
-
-                if (is_string($value) && str_contains($value, '{{')) {
-                    $newValue = preg_replace_callback(
-                        '/\{\{([^}]+)\}\}/',
-                        function (array $m) use ($replacements): string {
-                            return (string) ($replacements[$m[1]] ?? $m[0]);
-                        },
-                        $value
-                    );
-                    $sheet->setCellValue("{$col}{$row}", $newValue);
-                }
-            }
-        }
-    }
-
-    private function buildSheet1Replacements(): array
-    {
         $dja = $this->pd->djaDisplayPayload();
 
-        $program = $dja['dja_program']['nama'] ?? '';
-        $sasaran = $dja['dja_sasaran']['nama'] ?? '';
-        $kroNama = $dja['dja_kro']['nama'] ?? '';
-        $roNama = $dja['dja_ro']['nama'] ?? '';
-        $komponen = $dja['dja_komponen']['nama'] ?? '';
-        $kegiatan = ($dja['dja_kegiatan']['kode'] ?? '').' '.($dja['dja_kegiatan']['nama'] ?? '');
+        // Field labels (Column A & C) and values (Column D) - rows 5-15
+        $sheet->setCellValue('A5', '1.');
+        $sheet->setCellValue('C5', ':');
+        $sheet->setCellValue('D5', '693205 Lembaga Layanan Pendidikan Tinggi Wilayah III');
+        
+        $sheet->setCellValue('A6', '2.');
+        $sheet->setCellValue('C6', ':');
+        $sheet->setCellValue('D6', $dja['dja_program']['nama'] ?? '');
+        
+        $sheet->setCellValue('A7', '3.');
+        $sheet->setCellValue('C7', ':');
+        $sheet->setCellValue('D7', $dja['dja_sasaran']['nama'] ?? '');
+        
+        $sheet->setCellValue('A9', '4.');
+        $sheet->setCellValue('C9', ':');
+        $sheet->setCellValue('D9', $dja['dja_kro']['nama'] ?? '');
+        
+        $sheet->setCellValue('A10', '5.');
+        $sheet->setCellValue('C10', ':');
+        $sheet->setCellValue('D10', $dja['dja_ro']['nama'] ?? '');
+        
+        $sheet->setCellValue('A11', '6.');
+        $sheet->setCellValue('C11', ':');
+        $sheet->setCellValue('D11', $dja['dja_komponen']['nama'] ?? '-');
 
-        // Waktu pelaksanaan
-        $waktu = $this->getWaktuPelaksanaan();
+        // Kegiatan (row 12)
+        $kegiatan = trim(($dja['dja_kegiatan']['kode'] ?? '').' '.($dja['dja_kegiatan']['nama'] ?? ''));
+        $sheet->setCellValue('A12', '7.');
+        $sheet->setCellValue('C12', ':');
+        $sheet->setCellValue('D12', $kegiatan);
 
-        // Tempat
+        // IKU (row 13)
+        $sheet->setCellValue('A13', '8.');
+        $sheet->setCellValue('C13', ':');
+        $sheet->setCellValue('D13', $this->pd->iku ?? 'Tiga dosa dan antikorupsi');
+
+        // Waktu (row 14)
+        $sheet->setCellValue('A14', '9.');
+        $sheet->setCellValue('C14', ':');
+        $sheet->setCellValue('D14', $this->getWaktuPelaksanaan());
+
+        // Tempat (row 15)
         $tempat = $this->pd->tempat ?: 'JAKARTA';
         if ($this->pd->judul_pekerjaan) {
-            $tempat = $this->pd->judul_pekerjaan.' - '.$tempat;
+            $tempat = $this->pd->judul_pekerjaan;
+        }
+        $sheet->setCellValue('A15', '10.');
+        $sheet->setCellValue('C15', ':');
+        $sheet->setCellValue('D15', $tempat);
+
+        // Label for Kebutuhan Biaya section (row 19)
+        $sheet->setCellValue('A19', '11.');
+
+        // Document checklist numbers (rows 27-34)
+        for ($i = 1; $i <= 8; $i++) {
+            $sheet->setCellValue('A' . (26 + $i), $i . '.');
         }
 
-        $replacements = [
-            'program' => $program,
-            'sasaran' => $sasaran,
-            'kro' => $kroNama,
-            'ro' => $roNama,
-            'komponen' => $komponen,
-            'kegiatan' => trim($kegiatan),
-            'waktu' => $waktu,
-            'tempat' => $tempat,
-        ];
+        // Kebutuhan Biaya (rows 16-23) - must be called after Sheet 2 is populated
+        $this->populateKebutuhanBiaya($sheet);
 
-        // Kebutuhan Biaya items (11.1 - 11.9)
+        // Signatures (rows 39, 44-46)
+        $this->populateSignatures($sheet);
+    }
+
+    private function getWaktuPelaksanaan(): string
+    {
+        if (! $this->pd->tanggal_mulai || ! $this->pd->tanggal_selesai) {
+            return '';
+        }
+        $m = $this->fmtTgl($this->pd->tanggal_mulai);
+        $s = $this->fmtTgl($this->pd->tanggal_selesai);
+
+        return $m === $s ? $m : "{$m} s.d. {$s}";
+    }
+
+    private function populateKebutuhanBiaya(Worksheet $sheet): void
+    {
         $items = $this->pd->items;
-        $idx = 0;
+        $startRow = 16;
         $grandTotal = 0;
 
-        foreach ($items as $item) {
-            $idx++;
-            $totalItem = (float) ($item->total ?? 0);
-            $grandTotal += $totalItem;
+        foreach ($items as $idx => $item) {
+            if ($idx >= 8) {
+                break; // Max 8 items (rows 16-23)
+            }
 
-            $replacements["item_no_{$idx}"] = "11.{$idx}";
-            $replacements["item_name_{$idx}"] = $item->uraian ?: 'Item '.$idx;
-            $replacements["item_total_{$idx}"] = $this->formatRupiah($totalItem);
+            $row = $startRow + $idx;
+            $sheet->setCellValue("D{$row}", '11.'.($idx + 1));
+            
+            // Use formula reference to Sheet 2 section name (like IPTI template)
+            if (isset($this->sectionRowMap[$idx])) {
+                $sheet2Row = $this->sectionRowMap[$idx];
+                $sheet->setCellValue("E{$row}", "='Rincian Biaya'!B{$sheet2Row}");
+            } else {
+                // Fallback to direct value if section row not found
+                $sheet->setCellValue("E{$row}", $item->uraian ?: 'Item '.($idx + 1));
+            }
+            
+            $sheet->setCellValue("H{$row}", (float) ($item->total ?? 0)); // Numeric only
+
+            $grandTotal += (float) ($item->total ?? 0);
         }
 
-        // Clear unused item placeholders
-        for ($i = $idx + 1; $i <= 9; $i++) {
-            $replacements["item_no_{$i}"] = '';
-            $replacements["item_name_{$i}"] = '';
-            $replacements["item_total_{$i}"] = '';
-        }
+        // Grand total row (row 24) - match IPTI structure
+        $sheet->setCellValue('E24', 'Jumlah');
+        $sheet->setCellValue('H24', $grandTotal);
+    }
 
-        $replacements['grand_total'] = $this->formatRupiah($grandTotal);
-
-        // Document checklist
-        $uploadedJenisIds = $this->pd->dokumens->pluck('jenis_dokumen_id')->unique()->toArray();
-        for ($j = 1; $j <= 8; $j++) {
-            $replacements["dok_{$j}_cek"] = in_array($j, $uploadedJenisIds) ? '☑' : '☐';
-        }
-
-        // Signatures
-        $tglSurat = now()->locale('id')->isoFormat('D MMMM YYYY');
-        if ($this->pd->created_at) {
-            $tglSurat = $this->pd->created_at->locale('id')->isoFormat('D MMMM YYYY');
-        }
-        $replacements['tanggal_surat'] = $tglSurat;
+    private function populateSignatures(Worksheet $sheet): void
+    {
+        // Date (row 39, column H) - "Jakarta, 8 Juni 2026"
+        $tglSurat = $this->pd->created_at
+            ? $this->pd->created_at->locale('id')->isoFormat('D MMMM YYYY')
+            : now()->locale('id')->isoFormat('D MMMM YYYY');
+        $sheet->setCellValue('H39', 'Jakarta, '.$tglSurat);
 
         // PPK: use snapshot first, fallback to active PPK
         $ppkName = $this->pd->ppk_approved_by_name;
@@ -190,23 +214,13 @@ class PermohonanDanaExport
         $pemohonName = $this->pd->created_by_name;
         $pemohonNip = $this->pd->created_by_nip;
 
-        $replacements['ppk_name'] = $ppkName ?: '___________________________';
-        $replacements['ppk_nip'] = $ppkNip ?: '-';
-        $replacements['pemohon_name'] = $pemohonName ?: '___________________________';
-        $replacements['pemohon_nip'] = $pemohonNip ?: '-';
+        // PPK signature (left side - column B)
+        $sheet->setCellValue('B44', $ppkName ?: '___________________________');
+        $sheet->setCellValue('B45', $ppkNip ? 'NIP. '.$ppkNip : 'NIP. -');
 
-        return $replacements;
-    }
-
-    private function getWaktuPelaksanaan(): string
-    {
-        if (! $this->pd->tanggal_mulai || ! $this->pd->tanggal_selesai) {
-            return '';
-        }
-        $m = $this->fmtTgl($this->pd->tanggal_mulai);
-        $s = $this->fmtTgl($this->pd->tanggal_selesai);
-
-        return $m === $s ? $m : "{$m} s.d. {$s}";
+        // Pemohon signature (right side - column H)
+        $sheet->setCellValue('H45', $pemohonName ?: '___________________________');
+        $sheet->setCellValue('H46', $pemohonNip ? 'NIP. '.$pemohonNip : 'NIP. -');
     }
 
     // ============================================================================
@@ -215,19 +229,47 @@ class PermohonanDanaExport
 
     private function populateSheet2(Worksheet $sheet): void
     {
-        // Fill the title
+        // Fill the title (row 2, column B - merged B2:M2 in template)
         $judul = $this->pd->judul_pekerjaan ?: $this->pd->keperluan ?: '';
-        $sheet->setCellValue('A2', $judul);
+        
+        // Check if title has "dengan tema" to split into 2 lines (like IPTI)
+        if (stripos($judul, 'dengan tema') !== false) {
+            $parts = preg_split('/dengan tema/i', $judul, 2);
+            $sheet->setCellValue('B2', trim($parts[0]));
+            if (isset($parts[1])) {
+                $sheet->setCellValue('B3', 'dengan tema' . $parts[1]);
+            }
+        } else {
+            $sheet->setCellValue('B2', $judul);
+        }
+
+        // Set column widths to match IPTI template exactly
+        $sheet->getColumnDimension('A')->setWidth(3.875);
+        $sheet->getColumnDimension('B')->setWidth(26);
+        $sheet->getColumnDimension('C')->setWidth(16.625);
+        $sheet->getColumnDimension('D')->setWidth(19.125);
+        $sheet->getColumnDimension('E')->setWidth(19.375);
+        $sheet->getColumnDimension('F')->setWidth(18.125);
+        $sheet->getColumnDimension('G')->setWidth(24.25);
+        $sheet->getColumnDimension('H')->setWidth(14.75);
+        $sheet->getColumnDimension('I')->setWidth(14);
+        $sheet->getColumnDimension('J')->setWidth(5);
+        $sheet->getColumnDimension('K')->setWidth(10.625);
+        $sheet->getColumnDimension('L')->setWidth(12.875);
+        $sheet->getColumnDimension('M')->setWidth(14);
 
         // Clear template sections (from row 4 onwards)
         $this->clearSheetTwoContent($sheet);
 
-        // Build sections from items
+        // Build sections from items (starting from row 5)
         $items = $this->pd->items;
-        $currentRow = 4;
+        $currentRow = 5;
         $sectionLetters = range('A', 'Z');
 
         foreach ($items as $idx => $item) {
+            // Store section header row position for Sheet 1 formula references
+            $this->sectionRowMap[$idx] = $currentRow;
+            
             $sectionLabel = $sectionLetters[$idx].'.';
             $sectionName = $item->uraian ?: 'Item '.($idx + 1);
             $hasNominatif = $item->nominatif->isNotEmpty();
@@ -275,7 +317,7 @@ class PermohonanDanaExport
 
     private function writeNominatifSection(Worksheet $sheet, int $startRow, string $label, string $name, $item): int
     {
-        // Section header
+        // Section header - match IPTI format
         $sheet->mergeCells("B{$startRow}:K{$startRow}");
         $sheet->setCellValue("A{$startRow}", $label);
         $sheet->setCellValue("B{$startRow}", $name);
@@ -285,7 +327,7 @@ class PermohonanDanaExport
 
         // Table headers
         $headerRow = $startRow + 1;
-        $headers = ['No', 'Nama Pegawai', 'Jabatan', 'NIK', 'NPWP',
+        $headers = ['No', 'Nama Pegawai', 'Jabatan dalam Tugas', 'NIK', 'NPWP',
             'No. Rekening', 'Nama Rekening', 'Nama Bank', 'Email',
             'Vol', 'Satuan', 'Biaya Satuan', 'Total'];
 
@@ -301,18 +343,19 @@ class PermohonanDanaExport
 
         // Data rows
         $dataRow = $headerRow + 1;
-        $totalSection = 0;
+        $firstDataRow = $dataRow;
         $no = 1;
 
         foreach ($item->nominatif as $nom) {
             $this->writeNominatifRow($sheet, $dataRow, $no, $nom);
-            $totalSection += (float) $nom->jumlah_bruto;
             $dataRow++;
             $no++;
         }
+        
+        $lastDataRow = $dataRow - 1;
 
-        // Jumlah row
-        $this->writeJumlahRow($sheet, $dataRow, $totalSection);
+        // Jumlah row with SUM formula (like IPTI template)
+        $this->writeJumlahRow($sheet, $dataRow, $firstDataRow, $lastDataRow);
         $dataRow++;
 
         return $dataRow;
@@ -342,7 +385,7 @@ class PermohonanDanaExport
 
     private function writeNonNominatifSection(Worksheet $sheet, int $startRow, string $label, string $name, $item): int
     {
-        // Section header
+        // Section header - match IPTI format
         $sheet->mergeCells("B{$startRow}:K{$startRow}");
         $sheet->setCellValue("A{$startRow}", $label);
         $sheet->setCellValue("B{$startRow}", $name);
@@ -392,28 +435,30 @@ class PermohonanDanaExport
             $this->thinBorder($sheet, "{$col}{$dataRow}");
         }
 
-        // Jumlah row
+        // Jumlah row with SUM formula
         $jumlahRow = $dataRow + 1;
-        $this->writeJumlahRow($sheet, $jumlahRow, (float) ($item->total ?? 0));
+        $this->writeJumlahRow($sheet, $jumlahRow, $dataRow, $dataRow);
 
         return $jumlahRow + 1;
     }
 
-    private function writeJumlahRow(Worksheet $sheet, int $row, float $total): void
+    private function writeJumlahRow(Worksheet $sheet, int $row, int $firstDataRow, int $lastDataRow): void
     {
-        $sheet->mergeCells("A{$row}:K{$row}");
+        // Merge A-I for "Jumlah" text (based on IPTI template)
+        $sheet->mergeCells("A{$row}:I{$row}");
         $sheet->setCellValue("A{$row}", 'Jumlah');
         $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal('right');
+        $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal('left');
 
-        for ($col = 'A'; $col <= 'L'; $col++) {
+        // Apply borders to all cells in the row
+        for ($col = 'A'; $col <= 'M'; $col++) {
             $this->thinBorder($sheet, "{$col}{$row}");
         }
 
-        $sheet->setCellValue("L{$row}", $this->formatRupiah($total));
-        $sheet->getStyle("L{$row}")->getFont()->setBold(true);
+        // Total in column M with SUM formula (like IPTI template: =SUM(M7:M7))
+        $sheet->setCellValue("M{$row}", "=SUM(M{$firstDataRow}:M{$lastDataRow})");
         $sheet->getStyle("M{$row}")->getFont()->setBold(true);
-        $this->thinBorder($sheet, "M{$row}");
+        $sheet->getStyle("M{$row}")->getNumberFormat()->setFormatCode('#,##0');
 
         $sheet->getRowDimension($row)->setRowHeight(22);
     }
