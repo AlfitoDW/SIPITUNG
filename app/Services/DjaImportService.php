@@ -181,17 +181,17 @@ class DjaImportService
                 $current['kode_akun'] = $a;
                 $current['nama_akun'] = $b;
                 $current['sub_urutan'] = 0;
-                
+
                 $parentPath = "program:{$current['program']}".self::SEP."sasaran:{$current['sasaran']}".self::SEP."kro:{$current['kro']}".self::SEP."ro:{$current['ro']}".self::SEP."komponen:{$current['komponen']}".self::SEP."kegiatan:{$current['kegiatan']}";
                 $path = $parentPath.self::SEP."sub_kegiatan:{$a}";
-                
+
                 // Pagu sub kegiatan akan dihitung dari total rincian atau dari kolom F jika ada
                 $map[$path] = $this->node('sub_kegiatan', $a, $parentPath, $b, $paguInt($f), [
                     'kode_akun' => $a,
                     'nama_akun' => $b,
                     'urutan' => $current['urutan'],
                 ]);
-                
+
                 $current['sub_kegiatan'] = $a;
 
                 continue;

@@ -55,6 +55,35 @@ class DjaController extends Controller
     }
 
     /**
+     * Tambahkan info realisasi anggaran pada koleksi rincian biaya.
+     */
+    private function attachRincianUsage($rincians)
+    {
+        $terpakaiMap = PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $rincians->pluck('id'))
+            ->whereHas('permohonanDana', fn ($q) => $q->whereNotIn('status', ['draft', 'rejected']))
+            ->selectRaw('dja_rincian_biaya_id, SUM(jumlah_permintaan) as total_terpakai')
+            ->groupBy('dja_rincian_biaya_id')
+            ->pluck('total_terpakai', 'dja_rincian_biaya_id');
+
+        return $rincians->map(function ($rincian) use ($terpakaiMap) {
+            $terpakai = (float) ($terpakaiMap[$rincian->id] ?? 0);
+            $pagu = (float) $rincian->pagu_total;
+
+            $rincian->setAttribute('terpakai', $terpakai);
+            $rincian->setAttribute('sisa_anggaran', max(0, $pagu - $terpakai));
+            $rincian->setAttribute('overbudget_amount', max(0, $terpakai - $pagu));
+            $rincian->setAttribute('status_anggaran', match (true) {
+                $terpakai > $pagu => 'overbudget',
+                $terpakai > 0 && $terpakai == $pagu => 'habis',
+                $terpakai > 0 => 'tersedia',
+                default => 'belum_terpakai',
+            });
+
+            return $rincian;
+        });
+    }
+
+    /**
      * Cek apakah ada permohonan dana aktif yang menggunakan
      * rincian biaya di bawah suatu komponen.
      */
@@ -174,6 +203,7 @@ class DjaController extends Controller
             ->whereHas('subKegiatan.kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('urutan')
             ->get();
+        $rincians = $this->attachRincianUsage($rincians);
 
         return Inertia::render('SuperAdmin/Keuangan/MasterAnggaran/Index', [
             'tahun' => $tahun,
@@ -480,7 +510,7 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
             'urutan' => 'nullable|integer|min:0',
         ]);
-        
+
         DjaSubKegiatan::create([
             'kegiatan_id' => $request->kegiatan_id,
             'kode_akun' => $request->kode_akun ?? $request->kode,
@@ -503,7 +533,7 @@ class DjaController extends Controller
             'pagu' => 'required|integer|min:0',
             'urutan' => 'nullable|integer|min:0',
         ]);
-        
+
         $subKegiatan->update([
             'kode_akun' => $request->kode_akun ?? $request->kode,
             'nama_akun' => $request->nama_akun ?? $request->nama,
@@ -720,6 +750,7 @@ class DjaController extends Controller
             ->whereHas('subKegiatan.kegiatan.komponen.ro.kro.sasaran.program', fn ($q) => $q->where('tahun_anggaran', $tahun->tahun))
             ->orderBy('urutan')
             ->get();
+        $rincians = $this->attachRincianUsage($rincians);
 
         return Inertia::render('SuperAdmin/Keuangan/MasterAnggaran/Index', [
             'tahun' => $tahun,

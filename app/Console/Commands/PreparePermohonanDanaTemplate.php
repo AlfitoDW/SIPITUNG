@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PreparePermohonanDanaTemplate extends Command
 {
@@ -29,7 +29,7 @@ class PreparePermohonanDanaTemplate extends Command
         $this->info('Loading IPTI template...');
         $spreadsheet = IOFactory::load($sourceFile);
 
-        $newWorkbook = new Spreadsheet();
+        $newWorkbook = new Spreadsheet;
         $newWorkbook->removeSheetByIndex(0);
 
         // Sheet 1: Permohonan Dana (index 2 in original)

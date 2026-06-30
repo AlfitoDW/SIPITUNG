@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Pencil, Trash2, Power, Plus, Upload, Database, Filter, X, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, Power, Plus, Upload, Database, Filter, X, ChevronRight, MoreVertical } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { DataTableControls } from '@/components/data-table-controls';
 import { DataTablePagination } from '@/components/data-table-pagination';
@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,6 +48,8 @@ interface SubKegiatan {
 interface Rincian {
   id: number; sub_kegiatan_id: number; nama_item: string;
   satuan: string; harga_satuan: number; pagu_total: number; urutan: number; is_aktif: boolean;
+  terpakai?: number; sisa_anggaran?: number; overbudget_amount?: number;
+  status_anggaran?: 'overbudget' | 'habis' | 'tersedia' | 'belum_terpakai';
   sub_kegiatan?: SubKegiatan;
 }
 
@@ -469,6 +472,28 @@ function AktifBadge({ aktif }: { aktif: boolean }) {
   return (
     <Badge variant={aktif ? 'default' : 'secondary'} className={cn('text-xs', aktif ? 'bg-emerald-500' : '')}>
       {aktif ? 'Aktif' : 'Nonaktif'}
+    </Badge>
+  );
+}
+
+function BudgetStatusBadge({ status }: { status?: Rincian['status_anggaran'] }) {
+  const label = status === 'overbudget' ? 'Overbudget'
+    : status === 'habis' ? 'Habis'
+    : status === 'tersedia' ? 'Terpakai'
+    : 'Belum Terpakai';
+
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        'text-[10px] whitespace-nowrap',
+        status === 'overbudget' && 'bg-red-100 text-red-700',
+        status === 'habis' && 'bg-amber-100 text-amber-700',
+        status === 'tersedia' && 'bg-blue-100 text-blue-700',
+        (!status || status === 'belum_terpakai') && 'bg-slate-100 text-slate-600',
+      )}
+    >
+      {label}
     </Badge>
   );
 }
@@ -970,33 +995,61 @@ function RincianTab({ rincians, subKegiatans }: { rincians: Rincian[]; subKegiat
               <th className="text-center px-2 py-2">Sat.</th>
               <th className="text-right px-3 py-2">Harga Satuan</th>
               <th className="text-right px-3 py-2">Pagu Total</th>
+              <th className="text-right px-3 py-2">Terpakai</th>
+              <th className="text-right px-3 py-2">Sisa</th>
+              <th className="text-center px-2 py-2">Status Anggaran</th>
               <th className="text-center px-2 py-2">Status</th>
-              <th className="text-center px-2 py-2 w-24">Aksi</th>
+              <th className="text-center px-2 py-2 w-12">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {table.paginated.map(r => (
-              <tr key={r.id} className={cn('border-b last:border-0', !r.is_aktif && 'opacity-50')}>
-                <td className="px-3 py-2 text-gray-600 text-[10px] max-w-[12rem] break-words">
-                  {r.sub_kegiatan ? buildSubKegiatanPath(r.sub_kegiatan) : r.sub_kegiatan_id}
-                </td>
-                <td className="px-3 py-2 font-mono text-blue-700 font-semibold break-words">{r.sub_kegiatan?.kode_akun ?? '-'}</td>
-                <td className="px-3 py-2 text-gray-700 max-w-xs break-words">{r.nama_item}</td>
-                <td className="px-2 py-2 text-center text-gray-500">{r.satuan}</td>
-                <td className="px-3 py-2 text-right">{fmt(r.harga_satuan)}</td>
-                <td className="px-3 py-2 text-right">{fmt(r.pagu_total)}</td>
-                <td className="px-2 py-2 text-center"><AktifBadge aktif={r.is_aktif} /></td>
-                <td className="px-2 py-2">
-                  <div className="flex justify-center gap-1">
-                    <button onClick={() => startEdit(r)} className="p-1 text-blue-500 hover:text-blue-700"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => router.patch(`/super-admin/keuangan/master-anggaran/rincian/${r.id}/toggle`)} className="p-1 text-amber-500 hover:text-amber-700"><Power className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => setDeleting(r.id)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {table.paginated.map(r => {
+              const terpakai = r.terpakai ?? 0;
+              const sisa = r.sisa_anggaran ?? Math.max(0, r.pagu_total - terpakai);
+              const overbudget = r.status_anggaran === 'overbudget';
+
+              return (
+                <tr key={r.id} className={cn('border-b last:border-0', !r.is_aktif && 'opacity-50', overbudget && 'bg-red-50')}>
+                  <td className="px-3 py-2 text-gray-600 text-[10px] max-w-[12rem] break-words">
+                    {r.sub_kegiatan ? buildSubKegiatanPath(r.sub_kegiatan) : r.sub_kegiatan_id}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-blue-700 font-semibold break-words">{r.sub_kegiatan?.kode_akun ?? '-'}</td>
+                  <td className="px-3 py-2 text-gray-700 max-w-xs break-words">{r.nama_item}</td>
+                  <td className="px-2 py-2 text-center text-gray-500">{r.satuan}</td>
+                  <td className="px-3 py-2 text-right">{fmt(r.harga_satuan)}</td>
+                  <td className="px-3 py-2 text-right">{fmt(r.pagu_total)}</td>
+                  <td className={cn('px-3 py-2 text-right', terpakai > 0 ? 'text-blue-700 font-medium' : 'text-gray-400')}>{fmt(terpakai)}</td>
+                  <td className={cn('px-3 py-2 text-right font-medium', overbudget ? 'text-red-700' : 'text-emerald-700')}>
+                    {fmt(sisa)}
+                    {overbudget && <span className="block text-[10px] text-red-600">Over {fmt(r.overbudget_amount ?? 0)}</span>}
+                  </td>
+                  <td className="px-2 py-2 text-center"><BudgetStatusBadge status={r.status_anggaran} /></td>
+                  <td className="px-2 py-2 text-center"><AktifBadge aktif={r.is_aktif} /></td>
+                  <td className="px-2 py-2 text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => startEdit(r)}>
+                          <Pencil className="h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.patch(`/super-admin/keuangan/master-anggaran/rincian/${r.id}/toggle`)}>
+                          <Power className="h-4 w-4" /> {r.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onClick={() => setDeleting(r.id)}>
+                          <Trash2 className="h-4 w-4" /> Hapus
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              );
+            })}
             {table.paginated.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-6 text-gray-400 text-sm">Tidak ada data</td></tr>
+              <tr><td colSpan={11} className="text-center py-6 text-gray-400 text-sm">Tidak ada data</td></tr>
             )}
           </tbody>
         </table>

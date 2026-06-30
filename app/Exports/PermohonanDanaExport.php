@@ -5,12 +5,12 @@ namespace App\Exports;
 use App\Models\PermohonanDana;
 use App\Models\User;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class PermohonanDanaExport
 {
     private PermohonanDana $pd;
+
     private array $sectionRowMap = []; // Track Sheet 2 section row positions
 
     private const DOK_CHECK_MAP = [
@@ -84,58 +84,53 @@ class PermohonanDanaExport
         $sheet->setCellValue('A5', '1.');
         $sheet->setCellValue('C5', ':');
         $sheet->setCellValue('D5', '693205 Lembaga Layanan Pendidikan Tinggi Wilayah III');
-        
+
         $sheet->setCellValue('A6', '2.');
         $sheet->setCellValue('C6', ':');
         $sheet->setCellValue('D6', $dja['dja_program']['nama'] ?? '');
-        
+
         $sheet->setCellValue('A7', '3.');
         $sheet->setCellValue('C7', ':');
         $sheet->setCellValue('D7', $dja['dja_sasaran']['nama'] ?? '');
-        
+
         $sheet->setCellValue('A9', '4.');
         $sheet->setCellValue('C9', ':');
         $sheet->setCellValue('D9', $dja['dja_kro']['nama'] ?? '');
-        
+
         $sheet->setCellValue('A10', '5.');
         $sheet->setCellValue('C10', ':');
         $sheet->setCellValue('D10', $dja['dja_ro']['nama'] ?? '');
-        
+
         $sheet->setCellValue('A11', '6.');
         $sheet->setCellValue('C11', ':');
         $sheet->setCellValue('D11', $dja['dja_komponen']['nama'] ?? '-');
 
-        // Kegiatan (row 12)
-        $kegiatan = trim(($dja['dja_kegiatan']['kode'] ?? '').' '.($dja['dja_kegiatan']['nama'] ?? ''));
+        // Kegiatan (row 12) - use judul_pekerjaan from wizard
         $sheet->setCellValue('A12', '7.');
         $sheet->setCellValue('C12', ':');
-        $sheet->setCellValue('D12', $kegiatan);
+        $sheet->setCellValue('D12', $this->pd->judul_pekerjaan ?? '');
 
         // IKU (row 13)
         $sheet->setCellValue('A13', '8.');
         $sheet->setCellValue('C13', ':');
-        $sheet->setCellValue('D13', $this->pd->iku ?? 'Tiga dosa dan antikorupsi');
+        $sheet->setCellValue('D13', '');
 
         // Waktu (row 14)
         $sheet->setCellValue('A14', '9.');
         $sheet->setCellValue('C14', ':');
         $sheet->setCellValue('D14', $this->getWaktuPelaksanaan());
 
-        // Tempat (row 15)
-        $tempat = $this->pd->tempat ?: 'JAKARTA';
-        if ($this->pd->judul_pekerjaan) {
-            $tempat = $this->pd->judul_pekerjaan;
-        }
+        // Tempat (row 15) - use actual tempat, not judul_pekerjaan
         $sheet->setCellValue('A15', '10.');
         $sheet->setCellValue('C15', ':');
-        $sheet->setCellValue('D15', $tempat);
+        $sheet->setCellValue('D15', $this->pd->tempat ?: 'JAKARTA');
 
         // Label for Kebutuhan Biaya section (row 19)
         $sheet->setCellValue('A19', '11.');
 
         // Document checklist numbers (rows 27-34)
         for ($i = 1; $i <= 8; $i++) {
-            $sheet->setCellValue('A' . (26 + $i), $i . '.');
+            $sheet->setCellValue('A'.(26 + $i), $i.'.');
         }
 
         // Kebutuhan Biaya (rows 16-23) - must be called after Sheet 2 is populated
@@ -147,13 +142,11 @@ class PermohonanDanaExport
 
     private function getWaktuPelaksanaan(): string
     {
-        if (! $this->pd->tanggal_mulai || ! $this->pd->tanggal_selesai) {
+        if (! $this->pd->tanggal_mulai) {
             return '';
         }
-        $m = $this->fmtTgl($this->pd->tanggal_mulai);
-        $s = $this->fmtTgl($this->pd->tanggal_selesai);
 
-        return $m === $s ? $m : "{$m} s.d. {$s}";
+        return $this->fmtTgl($this->pd->tanggal_mulai);
     }
 
     private function populateKebutuhanBiaya(Worksheet $sheet): void
@@ -162,6 +155,13 @@ class PermohonanDanaExport
         $startRow = 16;
         $grandTotal = 0;
 
+        // Clear rows 16-23 first to remove template formulas/data that cause #REF!
+        for ($row = 16; $row <= 23; $row++) {
+            $sheet->setCellValue("D{$row}", '');
+            $sheet->setCellValue("E{$row}", '');
+            $sheet->setCellValue("H{$row}", '');
+        }
+
         foreach ($items as $idx => $item) {
             if ($idx >= 8) {
                 break; // Max 8 items (rows 16-23)
@@ -169,16 +169,10 @@ class PermohonanDanaExport
 
             $row = $startRow + $idx;
             $sheet->setCellValue("D{$row}", '11.'.($idx + 1));
-            
-            // Use formula reference to Sheet 2 section name (like IPTI template)
-            if (isset($this->sectionRowMap[$idx])) {
-                $sheet2Row = $this->sectionRowMap[$idx];
-                $sheet->setCellValue("E{$row}", "='Rincian Biaya'!B{$sheet2Row}");
-            } else {
-                // Fallback to direct value if section row not found
-                $sheet->setCellValue("E{$row}", $item->uraian ?: 'Item '.($idx + 1));
-            }
-            
+
+            // Use direct value (formula reference to Sheet 2 caused #REF! errors)
+            $sheet->setCellValue("E{$row}", $item->uraian ?: 'Item '.($idx + 1));
+
             $sheet->setCellValue("H{$row}", (float) ($item->total ?? 0)); // Numeric only
 
             $grandTotal += (float) ($item->total ?? 0);
@@ -207,12 +201,27 @@ class PermohonanDanaExport
                 ->where('is_active', true)
                 ->first();
             $ppkName = $activePpk?->nama_lengkap;
-            $ppkNip = $ppkNip ?: $activePpk?->nip;
+            $ppkNip = $activePpk?->nip;
+        }
+
+        // Fallback: if PPK NIP still empty, get from active PPK
+        if (! $ppkNip) {
+            $activePpk = User::where('role', 'pimpinan')
+                ->where('pimpinan_type', 'ppk')
+                ->where('is_active', true)
+                ->first();
+            $ppkNip = $activePpk?->nip;
         }
 
         // Pemohon: use snapshot (creator)
         $pemohonName = $this->pd->created_by_name;
         $pemohonNip = $this->pd->created_by_nip;
+
+        // Fallback: if pemohon NIP empty, get from creator user
+        if (! $pemohonNip && $this->pd->created_by) {
+            $creator = User::find($this->pd->created_by);
+            $pemohonNip = $creator?->nip;
+        }
 
         // PPK signature (left side - column B)
         $sheet->setCellValue('B44', $ppkName ?: '___________________________');
@@ -229,18 +238,46 @@ class PermohonanDanaExport
 
     private function populateSheet2(Worksheet $sheet): void
     {
+        // Clear template sections before writing header/title so title is not wiped.
+        $this->clearSheetTwoContent($sheet);
+
+        // Set "RINCIAN ANGGARAN BIAYA" header in row 1
+        $this->setSheet2Header($sheet);
+
         // Fill the title (row 2, column B - merged B2:M2 in template)
         $judul = $this->pd->judul_pekerjaan ?: $this->pd->keperluan ?: '';
-        
+
         // Check if title has "dengan tema" to split into 2 lines (like IPTI)
         if (stripos($judul, 'dengan tema') !== false) {
             $parts = preg_split('/dengan tema/i', $judul, 2);
             $sheet->setCellValue('B2', trim($parts[0]));
             if (isset($parts[1])) {
-                $sheet->setCellValue('B3', 'dengan tema' . $parts[1]);
+                $sheet->setCellValue('B3', 'dengan tema'.$parts[1]);
             }
         } else {
             $sheet->setCellValue('B2', $judul);
+        }
+
+        // Merge and style judul pekerjaan cells
+        $sheet->mergeCells('B2:M2');
+        $sheet->getStyle('B2')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        // If row 3 has "dengan tema" part, also merge and style it
+        if (stripos($judul, 'dengan tema') !== false) {
+            $sheet->mergeCells('B3:M3');
+            $sheet->getStyle('B3')->applyFromArray([
+                'font' => ['size' => 11],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ]);
         }
 
         // Set column widths to match IPTI template exactly
@@ -258,29 +295,40 @@ class PermohonanDanaExport
         $sheet->getColumnDimension('L')->setWidth(12.875);
         $sheet->getColumnDimension('M')->setWidth(14);
 
-        // Clear template sections (from row 4 onwards)
-        $this->clearSheetTwoContent($sheet);
-
         // Build sections from items (starting from row 5)
         $items = $this->pd->items;
+
+        // Sort: perjadin/honor first (priority 0), others last (priority 1)
+        $sortedItems = $items->sortBy(function ($item) {
+            return ($item->isHonor() || $item->isPerjadin()) ? 0 : 1;
+        })->values();
+
         $currentRow = 5;
         $sectionLetters = range('A', 'Z');
 
-        foreach ($items as $idx => $item) {
+        foreach ($sortedItems as $idx => $item) {
             // Store section header row position for Sheet 1 formula references
             $this->sectionRowMap[$idx] = $currentRow;
-            
+
             $sectionLabel = $sectionLetters[$idx].'.';
             $sectionName = $item->uraian ?: 'Item '.($idx + 1);
             $hasNominatif = $item->nominatif->isNotEmpty();
 
             if ($hasNominatif) {
+                // Has nominatif data (person details) - use full nominatif format
                 $currentRow = $this->writeNominatifSection($sheet, $currentRow, $sectionLabel, $sectionName, $item);
             } else {
-                $currentRow = $this->writeNonNominatifSection($sheet, $currentRow, $sectionLabel, $sectionName, $item);
+                // No nominatif data
+                if ($item->isHonor() || $item->isPerjadin()) {
+                    // Perjadin/Honor without nominatif - use standard non-nominatif format
+                    $currentRow = $this->writeNonNominatifSection($sheet, $currentRow, $sectionLabel, $sectionName, $item);
+                } else {
+                    // Other items (belanja bahan, etc.) - use simpler format
+                    $currentRow = $this->writeSimpleNonNominatifSection($sheet, $currentRow, $sectionLabel, $sectionName, $item);
+                }
             }
 
-            $currentRow += 2; // gap between sections
+            $currentRow += 1; // one blank row between sections
         }
 
         // Set print area
@@ -289,28 +337,74 @@ class PermohonanDanaExport
         $sheet->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
     }
 
+    private function setSheet2Header(Worksheet $sheet): void
+    {
+        // Row 1: "RINCIAN ANGGARAN BIAYA" header with styling
+        $sheet->mergeCells('A1:M1');
+        $sheet->setCellValue('A1', 'RINCIAN ANGGARAN BIAYA');
+
+        // Styling for header
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 14,
+                'color' => ['rgb' => '000000'], // black text
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'D9D9D9'], // gray background
+            ],
+        ]);
+
+        $sheet->getRowDimension(1)->setRowHeight(25);
+    }
+
     private function clearSheetTwoContent(Worksheet $sheet): void
     {
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        $lastColumnIndex = max($highestColumnIndex, 13);
+
+        // Clear rows 2-3 only (row 1 will have header)
+        for ($row = 2; $row <= 3; $row++) {
+            for ($colIndex = 1; $colIndex <= $lastColumnIndex; $colIndex++) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $sheet->setCellValue("{$col}{$row}", '');
+            }
+        }
+
         // Collect merge ranges first to avoid modification during iteration
         $mergeCells = $sheet->getMergeCells();
         foreach ($mergeCells as $range => $_) {
             [$start, $end] = explode(':', $range);
             $startRow = (int) filter_var($start, FILTER_SANITIZE_NUMBER_INT);
-            if ($startRow >= 4) {
+            $startCol = preg_replace('/\d+/', '', $start);
+            $startColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($startCol);
+
+            if ($startRow >= 4 || $startColIndex > 13) {
                 $sheet->unmergeCells($range);
             }
         }
 
-        // Clear everything from row 4 onwards
+        // Clear everything from row 4 onwards, including template fill/styles that can bleed into new tables.
         $lastRow = $sheet->getHighestDataRow();
-        for ($row = 4; $row <= $lastRow; $row++) {
-            for ($col = 'A'; $col <= 'M'; $col++) {
+        for ($row = 1; $row <= $lastRow; $row++) {
+            $firstColIndex = $row >= 4 ? 1 : 14;
+
+            for ($colIndex = $firstColIndex; $colIndex <= $lastColumnIndex; $colIndex++) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
                 $sheet->setCellValue("{$col}{$row}", '');
-                $sheet->getStyle("{$col}{$row}")->applyFromArray([
-                    'borders' => [
-                        'allBorders' => ['style' => 'none'],
-                    ],
-                ]);
+                $style = $sheet->getStyle("{$col}{$row}");
+                $style->getBorders()->getAllBorders()->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE
+                );
+                $style->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE);
+                $style->getFont()->setBold(false)->setItalic(false)->setUnderline(false);
+                $style->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_GENERAL);
+                $style->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_BOTTOM);
             }
         }
     }
@@ -337,6 +431,12 @@ class PermohonanDanaExport
             $cell->setValue($h);
             $cell->getStyle()->getFont()->setBold(true)->setSize(10);
             $cell->getStyle()->getAlignment()->setHorizontal('center')->setVertical('center')->setWrapText(true);
+
+            // Add gray background to header cells
+            $cell->getStyle()->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D9D9D9');
+
             $this->thinBorder($sheet, "{$col}{$headerRow}");
         }
         $sheet->getRowDimension($headerRow)->setRowHeight(30);
@@ -351,7 +451,7 @@ class PermohonanDanaExport
             $dataRow++;
             $no++;
         }
-        
+
         $lastDataRow = $dataRow - 1;
 
         // Jumlah row with SUM formula (like IPTI template)
@@ -409,6 +509,12 @@ class PermohonanDanaExport
             $cell->setValue($h);
             $cell->getStyle()->getFont()->setBold(true)->setSize(10);
             $cell->getStyle()->getAlignment()->setHorizontal('center')->setVertical('center');
+
+            // Add gray background to header cells
+            $cell->getStyle()->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D9D9D9');
+
             $this->thinBorder($sheet, "{$col}{$headerRow}");
         }
 
@@ -417,6 +523,11 @@ class PermohonanDanaExport
         for ($c = 'C'; $c <= 'I'; $c++) {
             $this->thinBorder($sheet, "{$c}{$headerRow}");
         }
+
+        // Apply gray background to merged middle columns header
+        $sheet->getStyle("C{$headerRow}:I{$headerRow}")->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('D9D9D9');
         $sheet->getRowDimension($headerRow)->setRowHeight(24);
 
         // Data row - just the item itself (no nominatif detail rows)
@@ -440,6 +551,77 @@ class PermohonanDanaExport
         $this->writeJumlahRow($sheet, $jumlahRow, $dataRow, $dataRow);
 
         return $jumlahRow + 1;
+    }
+
+    private function writeSimpleNonNominatifSection(Worksheet $sheet, int $startRow, string $label, string $name, $item): int
+    {
+        // Compact table for belanja bahan/items without nominatif details.
+        $sheet->mergeCells("B{$startRow}:F{$startRow}");
+        $sheet->setCellValue("A{$startRow}", $label);
+        $sheet->setCellValue("B{$startRow}", $name);
+        $sheet->getStyle("A{$startRow}")->getFont()->setBold(true);
+        $sheet->getStyle("B{$startRow}")->getFont()->setBold(true);
+        $sheet->getRowDimension($startRow)->setRowHeight(22);
+
+        $headerRow = $startRow + 1;
+        $headerData = [
+            'A' => 'No',
+            'B' => 'Jenis Belanja',
+            'C' => 'Vol',
+            'D' => 'Satuan',
+            'E' => 'Biaya Satuan',
+            'F' => 'Total',
+        ];
+
+        foreach ($headerData as $col => $h) {
+            $cell = $sheet->getCell("{$col}{$headerRow}");
+            $cell->setValue($h);
+            $cell->getStyle()->getFont()->setBold(true)->setSize(10);
+            $cell->getStyle()->getAlignment()->setHorizontal('center')->setVertical('center');
+
+            // Add gray background to header cells
+            $cell->getStyle()->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D9D9D9');
+
+            $this->thinBorder($sheet, "{$col}{$headerRow}");
+        }
+        $sheet->getRowDimension($headerRow)->setRowHeight(24);
+
+        $dataRow = $headerRow + 1;
+        $sheet->setCellValue("A{$dataRow}", 1);
+        $sheet->setCellValue("B{$dataRow}", $item->uraian ?: 'Item');
+        $sheet->setCellValue("C{$dataRow}", (float) ($item->volume ?? 1));
+        $sheet->setCellValue("D{$dataRow}", $item->satuan ?: '');
+        $sheet->setCellValue("E{$dataRow}", (float) ($item->harga_satuan ?? 0));
+        $sheet->setCellValue("F{$dataRow}", (float) ($item->total ?? 0));
+
+        $sheet->getRowDimension($dataRow)->setRowHeight(22);
+        for ($col = 'A'; $col <= 'F'; $col++) {
+            $this->thinBorder($sheet, "{$col}{$dataRow}");
+        }
+
+        $jumlahRow = $dataRow + 1;
+        $this->writeCompactJumlahRow($sheet, $jumlahRow, $dataRow, $dataRow);
+
+        return $jumlahRow + 1;
+    }
+
+    private function writeCompactJumlahRow(Worksheet $sheet, int $row, int $firstDataRow, int $lastDataRow): void
+    {
+        $sheet->mergeCells("A{$row}:E{$row}");
+        $sheet->setCellValue("A{$row}", 'Jumlah');
+        $sheet->getStyle("A{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal('center');
+
+        for ($col = 'A'; $col <= 'F'; $col++) {
+            $this->thinBorder($sheet, "{$col}{$row}");
+        }
+
+        $sheet->setCellValue("F{$row}", "=SUM(F{$firstDataRow}:F{$lastDataRow})");
+        $sheet->getStyle("F{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getRowDimension($row)->setRowHeight(22);
     }
 
     private function writeJumlahRow(Worksheet $sheet, int $row, int $firstDataRow, int $lastDataRow): void

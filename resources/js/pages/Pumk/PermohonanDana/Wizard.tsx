@@ -186,6 +186,7 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         (parseFloat(String(nom.tiket_pesawat)) || 0) +
         (parseFloat(String(nom.hotel)) || 0);
     const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
+    const genericTotal = (parseFloat(String(nom.volume)) || 1) * (parseFloat(String(nom.harga_satuan)) || 0);
     return {
         dja_rincian_biaya_id: itemId, ref_nama_id: nom.ref_nama_id,
         nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
@@ -194,9 +195,9 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         nama_bank: nom.nama_bank ?? '', email: nom.email ?? '',
         pph21_persen: nom.pph21_persen,
         jabatan: nom.jabatan ?? '',
-        volume: isGeneric ? nom.volume : (perjadinTotal > 0 ? '1' : nom.volume),
+        volume: '1',
         satuan: '',
-        harga_satuan: isGeneric ? nom.harga_satuan : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
+        harga_satuan: isGeneric ? String(genericTotal) : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
         transport: nom.transport, uang_harian_vol: nom.uang_harian_vol,
         uang_harian_satuan: nom.uang_harian_satuan,
         fullboard_vol: nom.fullboard_vol, fullboard_satuan: nom.fullboard_satuan,
@@ -725,11 +726,24 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
         return m;
     });
 
-    const toggleExpand = (itemId: number) => {
+    const ensureFirstNominatifRow = (item: RincianItem) => {
+        if (!isNominatifItem(item)) return;
+        setNominatifRows(prev => {
+            if ((prev[item.id] ?? []).length > 0) return prev;
+            const firstRow = item.tipe_nominatif === 'honor'
+                ? makeEmptyHonorRow(item.id, item.satuan, item.harga_satuan_aktual, item.kode_akun)
+                : makeEmptyPerjadinRow(item.id, item.satuan, item.harga_satuan_aktual);
+            return { ...prev, [item.id]: [firstRow] };
+        });
+    };
+
+    const toggleExpand = (item: RincianItem) => {
+        const isOpening = !expanded.has(item.id);
+        if (isOpening) ensureFirstNominatifRow(item);
         setExpanded(prev => {
             const next = new Set(prev);
-            if (next.has(itemId)) next.delete(itemId);
-            else next.add(itemId);
+            if (next.has(item.id)) next.delete(item.id);
+            else next.add(item.id);
             return next;
         });
     };
@@ -778,13 +792,14 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
     const getHarga  = (item: RincianItem) => hargaSatuan[item.id] ?? item.harga_satuan;
     const getVol    = (item: RincianItem) => volumes[item.id] ?? 0;
 
-    const nomVol = (item: RincianItem) => {
-        const rows = nominatifRows[item.id] ?? [];
-        return rows.reduce((s, r) => s + (parseFloat(r.volume) || 0), 0);
-    };
+    const activeNominatifRows = (item: RincianItem) =>
+        (nominatifRows[item.id] ?? []).filter(row => row.nama.trim() && (parseFloat(row.harga_satuan) || 0) > 0);
+
+    const nomVol = (item: RincianItem) => activeNominatifRows(item).length;
+
     const nomJumlah = (item: RincianItem) => {
-        const rows = nominatifRows[item.id] ?? [];
-        return rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+        const rows = activeNominatifRows(item);
+        return rows.reduce((s, r) => s + (parseFloat(r.harga_satuan) || 0), 0);
     };
 
     const isNominatifItem = (item: RincianItem) => item.tipe_nominatif === 'honor' || item.tipe_nominatif === 'perjadin';
@@ -815,7 +830,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
         const result: Array<{ dja_rincian_biaya_id: number; volume: number; harga_satuan: number; jumlah_permintaan: number }> = [];
         for (const item of allRincianItems) {
             if (isNominatifItem(item)) {
-                const rows = nominatifRows[item.id] ?? [];
+                const rows = activeNominatifRows(item);
                 if (rows.length === 0) continue;
                 const vol = nomVol(item);
                 const jml = nomJumlah(item);
@@ -834,9 +849,9 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
         const result: NominatifRow[] = [];
         for (const item of allRincianItems) {
             if (!isNominatifItem(item)) continue;
-            const rows = nominatifRows[item.id] ?? [];
+            const rows = activeNominatifRows(item);
             for (const row of rows) {
-                result.push({ ...row, dja_rincian_biaya_id: item.id });
+                result.push({ ...row, volume: '1', satuan: item.satuan, dja_rincian_biaya_id: item.id });
             }
         }
         return result;
@@ -966,15 +981,18 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                         <td className="px-3 py-2 text-gray-700 leading-snug" colSpan={isNom && isEx ? 8 : 1}>
                                                             {isNom && isEx ? (
                                                                 /* Inline nominatif table */
-                                                                <div>
-                                                                    <button type="button" onClick={() => toggleExpand(item.id)}
-                                                                        className="flex items-center gap-2 w-full text-left mb-2">
-                                                                        <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-                                                                        <span className="font-medium text-sm">{item.nama_item}</span>
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            · {rows.length} peserta · Rp {fmt(req)}
-                                                                        </span>
-                                                                    </button>
+                                                                    <div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleExpand(item)}
+                                                                            className="flex items-center gap-2 w-full text-left mb-2"
+                                                                        >
+                                                                            <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                                                                            <span className="font-medium text-sm">{item.nama_item}</span>
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                · {rows.length} peserta · Vol {fmt(vol)} · Maks SBM Rp {fmt(item.harga_satuan)} · Rp {fmt(req)}
+                                                                            </span>
+                                                                        </button>
                                                                     {item.tipe_nominatif === 'honor' ? (
                                                                         <HonorNominatifTable
                                                                             item={item} rows={rows} refNama={refNama}
@@ -996,7 +1014,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                             ) : (
                                                                 <div className="flex items-center gap-1.5">
                                                                     {isNom ? (
-                                                                        <button type="button" onClick={() => toggleExpand(item.id)} className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                                                                        <button type="button" onClick={() => toggleExpand(item)} className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
                                                                             <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
                                                                             <span>{item.nama_item}</span>
                                                                         </button>
@@ -1005,7 +1023,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                                     )}
                                                                     {isOverbudget && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold">Overbudget</span>}
                                                                     {isHabis && <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded font-semibold">Habis</span>}
-                                                                    {isNom && <span className="text-[10px] text-muted-foreground">· {rows.length} peserta</span>}
+                                                                    {isNom && <span className="text-[10px] text-muted-foreground">· {rows.length} peserta · Vol {fmt(vol)} · Maks SBM {fmt(item.harga_satuan)}</span>}
                                                                 </div>
                                                             )}
                                                         </td>
@@ -1014,7 +1032,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                                 <td className="px-2 py-2 text-right text-gray-600 font-medium whitespace-nowrap">{fmt(item.pagu_total ?? 0)}</td>
                                                                 <td className="px-2 py-2">
                                                                     {isNom ? (
-                                                                        <span className="text-center block text-xs font-medium">{vol}</span>
+                                                                        <span className="text-center block text-xs font-medium">{fmt(vol)}</span>
                                                                     ) : (
                                                                         <input type="number" min={0} step="1" value={vol || ''} placeholder="0"
                                                                             onChange={e => setVolumes(v => ({ ...v, [item.id]: Number(e.target.value) }))}
@@ -1024,7 +1042,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                                 <td className="px-2 py-2 text-center text-gray-500">{item.satuan}</td>
                                                                 <td className="px-2 py-2">
                                                                     {isNom ? (
-                                                                        <span className="block text-right text-xs">SBM: {fmt(item.harga_satuan)}</span>
+                                                                        <span className="block text-right text-xs">Maks SBM: {fmt(item.harga_satuan)}</span>
                                                                     ) : (
                                                                         <div className="flex flex-col gap-0.5">
                                                                             <input type="number" min={0} step="1" value={harga || ''} placeholder="0"
@@ -1114,7 +1132,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                             <span className="text-xs text-amber-800">
                                                 <span className="font-mono font-bold">[{item.kode_akun}]</span>{' '}{item.nama_item}
                                             </span>
-                                            <button type="button" onClick={() => !expanded.has(item.id) && toggleExpand(item.id)}
+                                            <button type="button" onClick={() => !expanded.has(item.id) && toggleExpand(item)}
                                                 className="shrink-0 text-xs font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap">
                                                 → Isi Nominatif
                                             </button>
@@ -1193,29 +1211,27 @@ function HonorNominatifTable({
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
-    const totalNom = rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.harga_satuan) || 0) : 0), 0);
     const jabatanOptions = getJabatanOptions(item.kode_akun);
+    const clampHarga = (value: string) => String(Math.min(Number(value) || 0, Number(item.harga_satuan) || 0));
 
     return (
         <div className="rounded-lg border border-orange-200 overflow-hidden shadow-sm mt-2">
             <div className="overflow-x-auto">
-                <table className="w-full text-xs" style={{ minWidth: 720 }}>
+                <table className="w-full text-xs" style={{ minWidth: 640 }}>
                     <thead>
                         <tr className="border-b bg-orange-100 text-[10px] font-semibold text-amber-800 uppercase tracking-wider">
                             <th className="text-left px-2 py-1.5 w-48 border-r border-orange-200/60">Nama</th>
                             <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60">Jabatan</th>
-                            <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60">Vol</th>
-                            <th className="text-center px-2 py-1.5 w-16 border-r border-orange-200/60">Sat</th>
-                            <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-32 border-r border-orange-200/60">Nominal</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row, idx) => {
-                            const vol = parseFloat(row.volume) || 0;
                             const harga = parseFloat(row.harga_satuan) || 0;
-                            const jumlah = vol * harga;
+                            const jumlah = row.nama.trim() ? harga : 0;
                             return (
                                 <tr key={idx} className="border-b last:border-0 even:bg-orange-50/30 hover:bg-amber-50/60">
                                     <td className="px-2 py-1.5 border-r border-slate-100">
@@ -1233,16 +1249,9 @@ function HonorNominatifTable({
                                         ) : <span className="text-xs text-muted-foreground">-</span>}
                                     </td>
                                     <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="number" min="0" step="0.5" value={row.volume}
-                                            onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
-                                    </td>
-                                    <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="text" value={row.satuan || item.satuan}
-                                            onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
-                                    </td>
-                                    <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="number" min="0" value={row.harga_satuan || String(item.harga_satuan_aktual)}
-                                            onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
+                                        <Input type="number" min="0" max={item.harga_satuan} value={row.harga_satuan || String(item.harga_satuan_aktual)}
+                                            onChange={e => onChange(idx, 'harga_satuan', clampHarga(e.target.value))} className="h-7 text-xs text-right" />
+                                        <span className="block text-[10px] text-muted-foreground text-right mt-0.5">Maks SBM: {fmt(item.harga_satuan)}</span>
                                     </td>
                                     <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700 border-r border-slate-100">{fmt(jumlah)}</td>
                                     <td className="px-2 py-1.5 text-center">
@@ -1256,7 +1265,7 @@ function HonorNominatifTable({
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-t-orange-200 bg-orange-50/60">
-                            <td colSpan={5} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td colSpan={3} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700">{fmt(totalNom)}</td>
                             <td></td>
                         </tr>
@@ -1285,27 +1294,25 @@ function PerjadinNominatifTable({
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
-    const totalNom = rows.reduce((s, r) => s + (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0), 0);
+    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.harga_satuan) || 0) : 0), 0);
+    const clampHarga = (value: string) => String(Math.min(Number(value) || 0, Number(item.harga_satuan) || 0));
 
     return (
         <div className="rounded-lg border border-blue-200 overflow-hidden shadow-sm mt-2">
             <div className="overflow-x-auto">
-                <table className="w-full text-xs" style={{ minWidth: 720 }}>
+                <table className="w-full text-xs" style={{ minWidth: 560 }}>
                     <thead>
                         <tr className="border-b bg-blue-100 text-[10px] font-semibold text-blue-800 uppercase tracking-wider">
                             <th className="text-left px-2 py-1.5 w-48 border-r border-blue-200/60">Nama</th>
-                            <th className="text-right px-2 py-1.5 w-16 border-r border-blue-200/60">Vol</th>
-                            <th className="text-center px-2 py-1.5 w-16 border-r border-blue-200/60">Sat</th>
-                            <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60">Harga Satuan</th>
+                            <th className="text-right px-2 py-1.5 w-32 border-r border-blue-200/60">Nominal</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row, idx) => {
-                            const vol = parseFloat(row.volume) || 0;
                             const harga = parseFloat(row.harga_satuan) || 0;
-                            const jumlah = vol * harga;
+                            const jumlah = row.nama.trim() ? harga : 0;
                             return (
                                 <tr key={idx} className="border-b last:border-0 even:bg-blue-50/30 hover:bg-sky-50/60">
                                     <td className="px-2 py-1.5 border-r border-slate-100">
@@ -1315,16 +1322,9 @@ function PerjadinNominatifTable({
                                             onOpenEditDialog={onOpenEditDialog} />
                                     </td>
                                     <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="number" min="0" step="0.5" value={row.volume}
-                                            onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
-                                    </td>
-                                    <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="text" value={row.satuan || item.satuan}
-                                            onChange={e => onChange(idx, 'satuan', e.target.value)} className="h-7 text-xs text-center" />
-                                    </td>
-                                    <td className="px-2 py-1.5 border-r border-slate-100">
-                                        <Input type="number" min="0" value={row.harga_satuan}
-                                            onChange={e => onChange(idx, 'harga_satuan', e.target.value)} className="h-7 text-xs text-right" />
+                                        <Input type="number" min="0" max={item.harga_satuan} value={row.harga_satuan}
+                                            onChange={e => onChange(idx, 'harga_satuan', clampHarga(e.target.value))} className="h-7 text-xs text-right" />
+                                        <span className="block text-[10px] text-muted-foreground text-right mt-0.5">Maks SBM: {fmt(item.harga_satuan)}</span>
                                     </td>
                                     <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700 border-r border-slate-100">{fmt(jumlah)}</td>
                                     <td className="px-2 py-1.5 text-center">
@@ -1338,7 +1338,7 @@ function PerjadinNominatifTable({
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-t-blue-200 bg-blue-50/60">
-                            <td colSpan={4} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td colSpan={2} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700">{fmt(totalNom)}</td>
                             <td></td>
                         </tr>

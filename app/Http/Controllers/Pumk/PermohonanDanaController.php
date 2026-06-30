@@ -14,6 +14,7 @@ use App\Models\DjaSasaran;
 use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaDokumen;
+use App\Models\PermohonanDanaItem;
 use App\Models\PermohonanDanaItemNominatif;
 use App\Models\RefNama;
 use App\Models\TahunAnggaran;
@@ -239,6 +240,11 @@ class PermohonanDanaController extends Controller
                         ->sum('jumlah_permintaan');
 
                     $existing = $pd->items->firstWhere('dja_rincian_biaya_id', $item->id);
+                    $tipeNominatif = match (true) {
+                        in_array($subKegiatan->kode_akun, PermohonanDanaItem::HONOR_AKUN, true) => 'honor',
+                        in_array($subKegiatan->kode_akun, PermohonanDanaItem::PERJADIN_AKUN, true) => 'perjadin',
+                        default => 'non_nominatif',
+                    };
 
                     return [
                         'id' => $item->id,
@@ -255,7 +261,7 @@ class PermohonanDanaController extends Controller
                         'status_anggaran' => $terpakai > $item->pagu_total ? 'overbudget' : ($terpakai == $item->pagu_total ? 'habis' : ($terpakai > 0 ? 'tersedia' : 'belum_terpakai')),
                         'volume_diminta' => $existing?->volume ?? 0,
                         'jumlah_permintaan' => $existing?->jumlah_permintaan ?? 0,
-                        'tipe_nominatif' => $existing?->tipe_nominatif ?? 'non_nominatif',
+                        'tipe_nominatif' => $tipeNominatif,
                         'nominatif_count' => $existing ? $existing->nominatif()->count() : 0,
                         'nominatif' => $existing ? $existing->nominatif->map(fn ($n) => [
                             'id' => $n->id,
@@ -534,6 +540,28 @@ class PermohonanDanaController extends Controller
                     ->with('error',
                         "Harga satuan [{$rincian->subKegiatan?->kode_akun}] {$rincian->nama_item} ".
                         'tidak boleh melebihi SBM (Rp '.number_format($rincian->harga_satuan, 0, ',', '.').').'
+                    )
+                    ->with('wizard_step', 4);
+            }
+        }
+
+        $rincianById = DjaRincianBiaya::with('subKegiatan')
+            ->whereIn('id', collect($nominatifData)->pluck('dja_rincian_biaya_id')->unique()->filter())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($nominatifData as $row) {
+            $rincian = $rincianById->get($row['dja_rincian_biaya_id'] ?? null);
+            if (! $rincian) {
+                continue;
+            }
+
+            $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
+            if ($hargaSatuan > (float) $rincian->harga_satuan) {
+                return redirect()->route('pumk.permohonan-dana.wizard', $pd->id)
+                    ->with('error',
+                        "Harga satuan nominatif {$row['nama']} untuk [{$rincian->subKegiatan?->kode_akun}] {$rincian->nama_item} ".
+                        'tidak boleh melebihi SBM (Rp '.number_format((float) $rincian->harga_satuan, 0, ',', '.').').'
                     )
                     ->with('wizard_step', 4);
             }
