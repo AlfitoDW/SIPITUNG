@@ -20,15 +20,16 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user = auth()->user();
 
+        // Kabag perlu membuka histori laporan dari Hub Persetujuan; is_active hanya
+        // menentukan periode yang sedang dibuka untuk pengisian.
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->where('is_active', true)
             ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
             ->get();
 
         $periodeId = $request->integer('periode_id');
         $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
-            : $periodes->first();
+            : ($periodes->firstWhere('is_active', true) ?? $periodes->first());
 
         $matrix = [];
         $laporans = [];
