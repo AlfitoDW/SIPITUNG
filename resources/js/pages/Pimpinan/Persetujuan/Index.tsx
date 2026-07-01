@@ -126,8 +126,35 @@ function isPkSelected(s: Selected): s is SelectedPk {
     return s.type === 'pk_awal' || s.type === 'pk_revisi';
 }
 
+function formatIkuLabel(kode: string, nama: string): string {
+    const trimmedKode = kode.trim();
+    const normalizedKode = trimmedKode.toUpperCase().startsWith('IKU') ? trimmedKode : `IKU ${trimmedKode}`;
+
+    return `${normalizedKode} ${nama}`.trim();
+}
+
+function summarizeIkuLabels(labels: string[], fallback: string): string {
+    if (labels.length === 0) return fallback;
+
+    const [first] = labels;
+    const remaining = labels.length - 1;
+
+    return remaining > 0 ? `${first} + ${remaining} IKU lainnya` : first;
+}
+
+function getPkIkuLabels(item: PkItem): string[] {
+    return item.sasarans.flatMap(sasaran => sasaran.indikators.map(iku => formatIkuLabel(iku.kode, iku.nama)));
+}
+
+function getRaIkuLabels(item: RaItem): string[] {
+    return item.indikators.map(iku => formatIkuLabel(iku.kode, iku.nama));
+}
+
 function getItemTitle(item: AnyItem, type: TabType): string {
-    return type === 'laporan' ? (item as LaporanItem).iku_label : item.tim_kerja_nama;
+    if (type === 'laporan') return (item as LaporanItem).iku_label;
+    if (type === 'ra') return summarizeIkuLabels(getRaIkuLabels(item as RaItem), item.tim_kerja_nama);
+
+    return summarizeIkuLabels(getPkIkuLabels(item as PkItem), item.tim_kerja_nama);
 }
 
 // ── Small components ──────────────────────────────────────────────────────────
@@ -548,6 +575,11 @@ function ItemsTable<T extends AnyItem>({
                                             </span>
                                         )}
                                     </div>
+                                    {type !== 'laporan' && getItemTitle(item, type) !== item.tim_kerja_nama && (
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            Tim Kerja: {item.tim_kerja_nama}
+                                        </p>
+                                    )}
                                     {type === 'laporan' && (
                                         <p className="text-[11px] text-muted-foreground mt-0.5">
                                             Tim Kerja: {item.tim_kerja_nama}
@@ -754,7 +786,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                                     <DialogTitle className="flex flex-wrap items-center gap-2">
                                         <span>{typeLabel[type]}</span>
                                         <span className="text-muted-foreground font-normal">—</span>
-                                        <span>{type === 'laporan' ? (item as LaporanItem).iku_label : item.tim_kerja_nama}</span>
+                                        <span>{getItemTitle(item, type)}</span>
                                         <StatusBadge status={item.status} />
                                     </DialogTitle>
                                 </DialogHeader>
