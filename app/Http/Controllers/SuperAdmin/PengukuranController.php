@@ -272,6 +272,9 @@ class PengukuranController extends Controller
                         $twData[$tw] = [
                             'target' => $xlsRaInd?->{"target_{$twKey2}"} ?? $iku->{'target_'.$twKey2},
                             'realisasi' => $r?->realisasi,
+                            'progress_kegiatan' => $r?->progress_kegiatan,
+                            'kendala' => $r?->kendala,
+                            'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
                         ];
                     }
 
@@ -302,7 +305,7 @@ class PengukuranController extends Controller
         $sheet->setTitle('Capaian Kinerja');
 
         // ── Title row ─────────────────────────────────────────────────────────
-        $sheet->mergeCells('A1:Q1');
+        $sheet->mergeCells('A1:AC1');
         $sheet->setCellValue('A1', "Capaian Kinerja — {$tahun->label}");
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
@@ -314,7 +317,7 @@ class PengukuranController extends Controller
 
         // ── Header row 1 (merged TW groups) ───────────────────────────────────
         // Columns: A=No B=Sasaran C=IKU Kode D=Indikator E=Satuan F=Target PK G=PIC H=Diisi Oleh
-        //          I-J=TW1 K-L=TW2 M-N=TW3 O-P=TW4 Q=Status
+        //          I-M=TW1 N-R=TW2 S-W=TW3 X-AB=TW4 AC=Status
         $headerStyle = [
             'font' => ['bold' => true, 'name' => 'Times New Roman', 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
@@ -338,30 +341,33 @@ class PengukuranController extends Controller
             $sheet->getStyle("{$col}2:{$col}3")->applyFromArray($headerStyle);
         }
 
-        // TW group headers (merged 2 cols each)
-        $twCols = ['I' => 'TW1', 'K' => 'TW2', 'M' => 'TW3', 'O' => 'TW4'];
+        // TW group headers (merged 5 cols each)
+        $twCols = ['I' => 'TW1', 'N' => 'TW2', 'S' => 'TW3', 'X' => 'TW4'];
         $twColPairs = [
-            'TW1' => ['I', 'J'],
-            'TW2' => ['K', 'L'],
-            'TW3' => ['M', 'N'],
-            'TW4' => ['O', 'P'],
+            'TW1' => ['I', 'J', 'K', 'L', 'M'],
+            'TW2' => ['N', 'O', 'P', 'Q', 'R'],
+            'TW3' => ['S', 'T', 'U', 'V', 'W'],
+            'TW4' => ['X', 'Y', 'Z', 'AA', 'AB'],
         ];
         $twLabels = ['TW1' => 'Triwulan I', 'TW2' => 'Triwulan II', 'TW3' => 'Triwulan III', 'TW4' => 'Triwulan IV'];
         foreach ($twCols as $startCol => $tw) {
-            [$c1, $c2] = $twColPairs[$tw];
-            $sheet->mergeCells("{$c1}2:{$c2}2");
+            [$c1, $c2, $c3, $c4, $c5] = $twColPairs[$tw];
+            $sheet->mergeCells("{$c1}2:{$c5}2");
             $sheet->setCellValue("{$c1}2", $twLabels[$tw]);
-            $sheet->getStyle("{$c1}2:{$c2}2")->applyFromArray($headerStyle);
+            $sheet->getStyle("{$c1}2:{$c5}2")->applyFromArray($headerStyle);
             // Sub-headers
             $sheet->setCellValue("{$c1}3", 'Target');
             $sheet->setCellValue("{$c2}3", 'Realisasi');
-            $sheet->getStyle("{$c1}3:{$c2}3")->applyFromArray($subHeaderStyle);
+            $sheet->setCellValue("{$c3}3", 'Progress/Kegiatan');
+            $sheet->setCellValue("{$c4}3", 'Kendala/Permasalahan');
+            $sheet->setCellValue("{$c5}3", 'Strategi/Tindak Lanjut');
+            $sheet->getStyle("{$c1}3:{$c5}3")->applyFromArray($subHeaderStyle);
         }
 
         // Status column
-        $sheet->mergeCells('Q2:Q3');
-        $sheet->setCellValue('Q2', 'Status');
-        $sheet->getStyle('Q2:Q3')->applyFromArray($headerStyle);
+        $sheet->mergeCells('AC2:AC3');
+        $sheet->setCellValue('AC2', 'Status');
+        $sheet->getStyle('AC2:AC3')->applyFromArray($headerStyle);
 
         $sheet->getRowDimension(2)->setRowHeight(20);
         $sheet->getRowDimension(3)->setRowHeight(18);
@@ -370,9 +376,11 @@ class PengukuranController extends Controller
         $colWidths = [
             'A' => 5,  'B' => 35, 'C' => 10, 'D' => 50, 'E' => 10,
             'F' => 10, 'G' => 35, 'H' => 25,
-            'I' => 10, 'J' => 12, 'K' => 10, 'L' => 12,
-            'M' => 10, 'N' => 12, 'O' => 10, 'P' => 12,
-            'Q' => 11,
+            'I' => 10, 'J' => 12, 'K' => 35, 'L' => 35, 'M' => 35,
+            'N' => 10, 'O' => 12, 'P' => 35, 'Q' => 35, 'R' => 35,
+            'S' => 10, 'T' => 12, 'U' => 35, 'V' => 35, 'W' => 35,
+            'X' => 10, 'Y' => 12, 'Z' => 35, 'AA' => 35, 'AB' => 35,
+            'AC' => 11,
         ];
         foreach ($colWidths as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
@@ -441,22 +449,34 @@ class PengukuranController extends Controller
                 $sheet->getStyle("H{$currentRow}")->applyFromArray($centerCellStyle);
 
                 // TW columns
-                foreach ($twColPairs as $tw => [$targetCol, $realisasiCol]) {
+                foreach ($twColPairs as $tw => [$targetCol, $realisasiCol, $progressCol, $kendalaCol, $strategiCol]) {
                     $twInfo = $dr['tw'][$tw];
                     $targetV = $twInfo['target'] ?? '-';
                     $realV = $twInfo['realisasi'] ?? '-';
+                    $progressV = $twInfo['progress_kegiatan'] ?? '-';
+                    $kendalaV = $twInfo['kendala'] ?? '-';
+                    $strategiV = $twInfo['strategi_tindak_lanjut'] ?? '-';
 
                     $sheet->setCellValue("{$targetCol}{$currentRow}", $targetV);
                     $sheet->getStyle("{$targetCol}{$currentRow}")->applyFromArray($centerCellStyle);
 
                     $sheet->setCellValue("{$realisasiCol}{$currentRow}", $realV);
                     $sheet->getStyle("{$realisasiCol}{$currentRow}")->applyFromArray($centerCellStyle);
+
+                    $sheet->setCellValue("{$progressCol}{$currentRow}", $progressV);
+                    $sheet->getStyle("{$progressCol}{$currentRow}")->applyFromArray($dataCellStyle);
+
+                    $sheet->setCellValue("{$kendalaCol}{$currentRow}", $kendalaV);
+                    $sheet->getStyle("{$kendalaCol}{$currentRow}")->applyFromArray($dataCellStyle);
+
+                    $sheet->setCellValue("{$strategiCol}{$currentRow}", $strategiV);
+                    $sheet->getStyle("{$strategiCol}{$currentRow}")->applyFromArray($dataCellStyle);
                 }
 
                 // Status
                 $hasAnyReal = collect($dr['tw'])->contains(fn ($t) => $t['realisasi'] !== null && $t['realisasi'] !== '');
-                $sheet->setCellValue("Q{$currentRow}", $hasAnyReal ? 'Ada Isian' : 'Kosong');
-                $sheet->getStyle("Q{$currentRow}")->applyFromArray($centerCellStyle);
+                $sheet->setCellValue("AC{$currentRow}", $hasAnyReal ? 'Ada Isian' : 'Kosong');
+                $sheet->getStyle("AC{$currentRow}")->applyFromArray($centerCellStyle);
 
                 $currentRow++;
             }
