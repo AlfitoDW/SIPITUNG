@@ -305,7 +305,7 @@ class PengukuranController extends Controller
         $sheet->setTitle('Capaian Kinerja');
 
         // ── Title row ─────────────────────────────────────────────────────────
-        $sheet->mergeCells('A1:AC1');
+        $sheet->mergeCells('A1:Q1');
         $sheet->setCellValue('A1', "Capaian Kinerja — {$tahun->label}");
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
@@ -317,7 +317,7 @@ class PengukuranController extends Controller
 
         // ── Header row 1 (merged TW groups) ───────────────────────────────────
         // Columns: A=No B=Sasaran C=IKU Kode D=Indikator E=Satuan F=Target PK G=PIC H=Diisi Oleh
-        //          I-M=TW1 N-R=TW2 S-W=TW3 X-AB=TW4 AC=Status
+        //          I-J=TW1 K-L=TW2 M-N=TW3 O-P=TW4 Q=Status
         $headerStyle = [
             'font' => ['bold' => true, 'name' => 'Times New Roman', 'size' => 12, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
@@ -341,33 +341,30 @@ class PengukuranController extends Controller
             $sheet->getStyle("{$col}2:{$col}3")->applyFromArray($headerStyle);
         }
 
-        // TW group headers (merged 5 cols each)
-        $twCols = ['I' => 'TW1', 'N' => 'TW2', 'S' => 'TW3', 'X' => 'TW4'];
+        // TW group headers (merged 2 cols each)
+        $twCols = ['I' => 'TW1', 'K' => 'TW2', 'M' => 'TW3', 'O' => 'TW4'];
         $twColPairs = [
-            'TW1' => ['I', 'J', 'K', 'L', 'M'],
-            'TW2' => ['N', 'O', 'P', 'Q', 'R'],
-            'TW3' => ['S', 'T', 'U', 'V', 'W'],
-            'TW4' => ['X', 'Y', 'Z', 'AA', 'AB'],
+            'TW1' => ['I', 'J'],
+            'TW2' => ['K', 'L'],
+            'TW3' => ['M', 'N'],
+            'TW4' => ['O', 'P'],
         ];
         $twLabels = ['TW1' => 'Triwulan I', 'TW2' => 'Triwulan II', 'TW3' => 'Triwulan III', 'TW4' => 'Triwulan IV'];
         foreach ($twCols as $startCol => $tw) {
-            [$c1, $c2, $c3, $c4, $c5] = $twColPairs[$tw];
-            $sheet->mergeCells("{$c1}2:{$c5}2");
+            [$c1, $c2] = $twColPairs[$tw];
+            $sheet->mergeCells("{$c1}2:{$c2}2");
             $sheet->setCellValue("{$c1}2", $twLabels[$tw]);
-            $sheet->getStyle("{$c1}2:{$c5}2")->applyFromArray($headerStyle);
+            $sheet->getStyle("{$c1}2:{$c2}2")->applyFromArray($headerStyle);
             // Sub-headers
             $sheet->setCellValue("{$c1}3", 'Target');
             $sheet->setCellValue("{$c2}3", 'Realisasi');
-            $sheet->setCellValue("{$c3}3", 'Progress/Kegiatan');
-            $sheet->setCellValue("{$c4}3", 'Kendala/Permasalahan');
-            $sheet->setCellValue("{$c5}3", 'Strategi/Tindak Lanjut');
-            $sheet->getStyle("{$c1}3:{$c5}3")->applyFromArray($subHeaderStyle);
+            $sheet->getStyle("{$c1}3:{$c2}3")->applyFromArray($subHeaderStyle);
         }
 
         // Status column
-        $sheet->mergeCells('AC2:AC3');
-        $sheet->setCellValue('AC2', 'Status');
-        $sheet->getStyle('AC2:AC3')->applyFromArray($headerStyle);
+        $sheet->mergeCells('Q2:Q3');
+        $sheet->setCellValue('Q2', 'Status');
+        $sheet->getStyle('Q2:Q3')->applyFromArray($headerStyle);
 
         $sheet->getRowDimension(2)->setRowHeight(20);
         $sheet->getRowDimension(3)->setRowHeight(18);
@@ -376,11 +373,9 @@ class PengukuranController extends Controller
         $colWidths = [
             'A' => 5,  'B' => 35, 'C' => 10, 'D' => 50, 'E' => 10,
             'F' => 10, 'G' => 35, 'H' => 25,
-            'I' => 10, 'J' => 12, 'K' => 35, 'L' => 35, 'M' => 35,
-            'N' => 10, 'O' => 12, 'P' => 35, 'Q' => 35, 'R' => 35,
-            'S' => 10, 'T' => 12, 'U' => 35, 'V' => 35, 'W' => 35,
-            'X' => 10, 'Y' => 12, 'Z' => 35, 'AA' => 35, 'AB' => 35,
-            'AC' => 11,
+            'I' => 10, 'J' => 12, 'K' => 10, 'L' => 12,
+            'M' => 10, 'N' => 12, 'O' => 10, 'P' => 12,
+            'Q' => 11,
         ];
         foreach ($colWidths as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
@@ -449,34 +444,22 @@ class PengukuranController extends Controller
                 $sheet->getStyle("H{$currentRow}")->applyFromArray($centerCellStyle);
 
                 // TW columns
-                foreach ($twColPairs as $tw => [$targetCol, $realisasiCol, $progressCol, $kendalaCol, $strategiCol]) {
+                foreach ($twColPairs as $tw => [$targetCol, $realisasiCol]) {
                     $twInfo = $dr['tw'][$tw];
                     $targetV = $twInfo['target'] ?? '-';
                     $realV = $twInfo['realisasi'] ?? '-';
-                    $progressV = $twInfo['progress_kegiatan'] ?? '-';
-                    $kendalaV = $twInfo['kendala'] ?? '-';
-                    $strategiV = $twInfo['strategi_tindak_lanjut'] ?? '-';
 
                     $sheet->setCellValue("{$targetCol}{$currentRow}", $targetV);
                     $sheet->getStyle("{$targetCol}{$currentRow}")->applyFromArray($centerCellStyle);
 
                     $sheet->setCellValue("{$realisasiCol}{$currentRow}", $realV);
                     $sheet->getStyle("{$realisasiCol}{$currentRow}")->applyFromArray($centerCellStyle);
-
-                    $sheet->setCellValue("{$progressCol}{$currentRow}", $progressV);
-                    $sheet->getStyle("{$progressCol}{$currentRow}")->applyFromArray($dataCellStyle);
-
-                    $sheet->setCellValue("{$kendalaCol}{$currentRow}", $kendalaV);
-                    $sheet->getStyle("{$kendalaCol}{$currentRow}")->applyFromArray($dataCellStyle);
-
-                    $sheet->setCellValue("{$strategiCol}{$currentRow}", $strategiV);
-                    $sheet->getStyle("{$strategiCol}{$currentRow}")->applyFromArray($dataCellStyle);
                 }
 
                 // Status
                 $hasAnyReal = collect($dr['tw'])->contains(fn ($t) => $t['realisasi'] !== null && $t['realisasi'] !== '');
-                $sheet->setCellValue("AC{$currentRow}", $hasAnyReal ? 'Ada Isian' : 'Kosong');
-                $sheet->getStyle("AC{$currentRow}")->applyFromArray($centerCellStyle);
+                $sheet->setCellValue("Q{$currentRow}", $hasAnyReal ? 'Ada Isian' : 'Kosong');
+                $sheet->getStyle("Q{$currentRow}")->applyFromArray($centerCellStyle);
 
                 $currentRow++;
             }
@@ -670,6 +653,85 @@ class PengukuranController extends Controller
             }
 
             $shTw->freezePane('A3');
+        }
+
+        // ── Sheet Detail Pengukuran per Triwulan ──────────────────────────────
+        $detailSheetNames = ['TW1' => 'Detail TW I', 'TW2' => 'Detail TW II', 'TW3' => 'Detail TW III', 'TW4' => 'Detail TW IV'];
+        $detailSheetTitles = [
+            'TW1' => 'Detail Pengukuran Triwulan I',
+            'TW2' => 'Detail Pengukuran Triwulan II',
+            'TW3' => 'Detail Pengukuran Triwulan III',
+            'TW4' => 'Detail Pengukuran Triwulan IV',
+        ];
+
+        foreach (['TW1', 'TW2', 'TW3', 'TW4'] as $tw) {
+            if (empty($dataRows)) {
+                continue;
+            }
+
+            $detailSheet = $spreadsheet->createSheet();
+            $detailSheet->setTitle($detailSheetNames[$tw]);
+            $detailSheet->mergeCells('A1:J1');
+            $detailSheet->setCellValue('A1', $detailSheetTitles[$tw]." — {$tahun->label}");
+            $detailSheet->getStyle('A1:J1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            ]);
+            $detailSheet->getRowDimension(1)->setRowHeight(30);
+
+            $detailHeaders = [
+                'A' => 'No',
+                'B' => 'Sasaran',
+                'C' => 'Kode IKU',
+                'D' => 'Indikator Kinerja',
+                'E' => 'PIC Tim Kerja',
+                'F' => 'Target',
+                'G' => 'Realisasi',
+                'H' => 'Progress/Kegiatan',
+                'I' => 'Kendala/Permasalahan',
+                'J' => 'Strategi/Tindak Lanjut',
+            ];
+            foreach ($detailHeaders as $col => $label) {
+                $detailSheet->setCellValue("{$col}2", $label);
+                $detailSheet->getStyle("{$col}2")->applyFromArray($headerStyle);
+            }
+            $detailSheet->getRowDimension(2)->setRowHeight(28);
+
+            foreach (['A' => 5, 'B' => 35, 'C' => 12, 'D' => 52, 'E' => 35, 'F' => 10, 'G' => 12, 'H' => 45, 'I' => 45, 'J' => 45] as $col => $width) {
+                $detailSheet->getColumnDimension($col)->setWidth($width);
+            }
+
+            $detailRow = 3;
+            $detailNo = 1;
+            foreach ($dataRows as $dr) {
+                $twInfo = $dr['tw'][$tw];
+
+                $detailSheet->setCellValue("A{$detailRow}", $detailNo++);
+                $detailSheet->setCellValue("B{$detailRow}", "{$dr['sasaran_kode']} — {$dr['sasaran_nama']}");
+                $detailSheet->setCellValue("C{$detailRow}", $dr['iku_kode']);
+                $detailSheet->setCellValue("D{$detailRow}", $dr['iku_nama']);
+                $detailSheet->setCellValue("E{$detailRow}", $dr['pic_namas']);
+                $detailSheet->setCellValue("F{$detailRow}", $twInfo['target'] ?? '-');
+                $detailSheet->setCellValue("G{$detailRow}", $twInfo['realisasi'] ?? '-');
+                $detailSheet->setCellValue("H{$detailRow}", $twInfo['progress_kegiatan'] ?? '-');
+                $detailSheet->setCellValue("I{$detailRow}", $twInfo['kendala'] ?? '-');
+                $detailSheet->setCellValue("J{$detailRow}", $twInfo['strategi_tindak_lanjut'] ?? '-');
+
+                $detailSheet->getStyle("A{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("B{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("C{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("D{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("E{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("F{$detailRow}:G{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("H{$detailRow}:J{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getRowDimension($detailRow)->setRowHeight(-1);
+
+                $detailRow++;
+            }
+
+            $detailSheet->freezePane('A3');
         }
 
         // Reset ke sheet pertama (Capaian Kinerja)

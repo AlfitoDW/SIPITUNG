@@ -181,15 +181,19 @@ test('export xlsx capaian kinerja memuat isian progress kendala dan strategi tin
     $tmpPath = tempnam(sys_get_temp_dir(), 'pengukuran-export-').'.xlsx';
     file_put_contents($tmpPath, $response->streamedContent());
 
-    $sheet = IOFactory::load($tmpPath)->getSheetByName('Capaian Kinerja');
+    $workbook = IOFactory::load($tmpPath);
     unlink($tmpPath);
 
-    $values = collect($sheet->toArray())->flatten()->filter()->values();
+    $mainValues = collect($workbook->getSheetByName('Capaian Kinerja')->toArray())->flatten()->filter()->values();
+    $detailValues = collect($workbook->getSheetByName('Detail TW I')->toArray())->flatten()->filter()->values();
 
-    expect($values)->toContain('Progress/Kegiatan')
-        ->and($values)->toContain('Kendala/Permasalahan')
-        ->and($values)->toContain('Strategi/Tindak Lanjut')
-        ->and($values)->toContain('Progress kegiatan TW1 sudah berjalan')
-        ->and($values)->toContain('Kendala koordinasi lintas unit')
-        ->and($values)->toContain('Strategi tindak lanjut rapat mingguan');
+    expect($mainValues)->not->toContain('Progress/Kegiatan')
+        ->and($mainValues)->not->toContain('Kendala/Permasalahan')
+        ->and($mainValues)->not->toContain('Strategi/Tindak Lanjut')
+        ->and($detailValues)->toContain('Progress/Kegiatan')
+        ->and($detailValues)->toContain('Kendala/Permasalahan')
+        ->and($detailValues)->toContain('Strategi/Tindak Lanjut')
+        ->and($detailValues)->toContain('Progress kegiatan TW1 sudah berjalan')
+        ->and($detailValues)->toContain('Kendala koordinasi lintas unit')
+        ->and($detailValues)->toContain('Strategi tindak lanjut rapat mingguan');
 });
