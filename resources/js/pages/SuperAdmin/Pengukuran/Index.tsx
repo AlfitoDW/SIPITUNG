@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,8 +60,20 @@ function PeriodeDialog({ open, onClose, triwulan, existing }: {
         tanggal_selesai: toDatetimeLocal(existing?.tanggal_selesai ?? null),
     });
 
+    useEffect(() => {
+        if (!open) return;
+
+        form.setData({
+            triwulan,
+            tanggal_mulai: existing?.tanggal_mulai ?? '',
+            tanggal_selesai: toDatetimeLocal(existing?.tanggal_selesai ?? null),
+        });
+        form.clearErrors();
+    }, [open, triwulan, existing?.tanggal_mulai, existing?.tanggal_selesai]);
+
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
+        form.transform(data => ({ ...data, triwulan }));
         form.post('/super-admin/pengukuran/periode', { onSuccess: onClose });
     }
 

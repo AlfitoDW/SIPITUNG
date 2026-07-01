@@ -96,7 +96,16 @@ class PengukuranController extends Controller
 
     public function periodeToggle(PeriodePengukuran $periode): RedirectResponse
     {
-        $periode->update(['is_active' => ! $periode->is_active]);
+        if ($periode->is_active) {
+            $periode->update(['is_active' => false]);
+        } else {
+            PeriodePengukuran::where('tahun_anggaran_id', $periode->tahun_anggaran_id)
+                ->whereKeyNot($periode->id)
+                ->update(['is_active' => false]);
+
+            $periode->update(['is_active' => true]);
+        }
+
         $label = $periode->is_active ? 'dibuka' : 'ditutup';
 
         return back()->with('success', "Periode {$periode->triwulan} berhasil {$label}.");
