@@ -3,6 +3,7 @@
 use App\Models\PeriodePengukuran;
 use App\Models\TahunAnggaran;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 function superAdminUser(): User
 {
@@ -76,4 +77,41 @@ test('membuka satu periode menutup periode lain pada tahun yang sama', function 
 
     expect($tw1->fresh()->is_active)->toBeFalse()
         ->and($tw2->fresh()->is_active)->toBeTrue();
+});
+
+test('capaian kinerja tetap menampilkan periode yang sudah ditutup sebagai histori', function () {
+    $tahun = defaultTahunAnggaran();
+    $this->actingAs(superAdminUser());
+
+    $tw1 = PeriodePengukuran::create([
+        'tahun_anggaran_id' => $tahun->id,
+        'triwulan' => 'TW1',
+        'is_active' => false,
+    ]);
+
+    $tw2 = PeriodePengukuran::create([
+        'tahun_anggaran_id' => $tahun->id,
+        'triwulan' => 'TW2',
+        'is_active' => true,
+    ]);
+
+    $this->get(route('super-admin.pengukuran.realisasi'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Pengukuran/Realisasi')
+            ->has('periodes', 2)
+            ->where('periode.id', $tw2->id)
+            ->where('periodes.0.id', $tw1->id)
+            ->where('periodes.0.is_active', false)
+            ->where('periodes.1.id', $tw2->id)
+            ->where('periodes.1.is_active', true)
+        );
+
+    $this->get(route('super-admin.pengukuran.realisasi', ['periode_id' => $tw1->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Pengukuran/Realisasi')
+            ->where('periode.id', $tw1->id)
+            ->where('periode.is_active', false)
+        );
 });

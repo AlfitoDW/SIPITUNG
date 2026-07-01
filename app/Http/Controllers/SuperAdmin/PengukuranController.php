@@ -20,6 +20,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PengukuranController extends Controller
 {
+    private const TRIWULAN_ORDER_SQL = "CASE triwulan WHEN 'TW1' THEN 1 WHEN 'TW2' THEN 2 WHEN 'TW3' THEN 3 WHEN 'TW4' THEN 4 ELSE 5 END";
+
+    private const LAPORAN_STATUS_ORDER_SQL = "CASE status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'kabag_approved' THEN 3 ELSE 4 END";
+
     // ─── Kelola Periode (TW1–TW4) ───────────────────────────────────────────────
 
     public function index(): Response
@@ -27,7 +31,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         return Inertia::render('SuperAdmin/Pengukuran/Index', [
@@ -117,16 +121,16 @@ class PengukuranController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        // Hanya tampilkan periode yang aktif di dropdown
+        // Capaian Kinerja menampilkan histori semua periode yang sudah diatur.
+        // is_active hanya menentukan periode yang sedang dibuka untuk pengisian.
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->where('is_active', true)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         $periodeId = $request->integer('periode_id');
         $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
-            : $periodes->first();
+            : ($periodes->firstWhere('is_active', true) ?? $periodes->first());
 
         $matrix = [];
 
@@ -190,7 +194,7 @@ class PengukuranController extends Controller
         $laporans = LaporanPengukuran::with(['timKerja:id,nama,kode,nama_singkat', 'periode:id,triwulan'])
             ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
-            ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
+            ->orderByRaw(self::LAPORAN_STATUS_ORDER_SQL)
             ->orderBy('periode_pengukuran_id')
             ->orderBy('tim_kerja_id')
             ->get()
@@ -227,7 +231,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $allPeriodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get()
             ->keyBy('triwulan');
 
@@ -672,7 +676,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $allPeriodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get()
             ->keyBy('triwulan');
 
@@ -749,7 +753,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         $periodeId = $request->integer('periode_id');
