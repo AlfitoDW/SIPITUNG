@@ -209,15 +209,6 @@ class RefNamaSeeder extends Seeder
             ['nik' => '3175014204840007', 'username' => 'pic.yeni'],
             ['nik' => '1672015009860004', 'username' => 'pic.tantri'],
         ];
-        $picUsernames = array_column($picKeuanganList, 'username');
-
-        User::where('role', 'pic_keuangan')
-            ->whereNotIn('username', $picUsernames)
-            ->update(['is_active' => false]);
-
-        UserTahunAnggaran::where('role', 'pic_keuangan')
-            ->whereHas('user', fn ($query) => $query->whereNotIn('username', $picUsernames))
-            ->update(['is_active' => false]);
 
         foreach ($picKeuanganList as $pic) {
             $ref = RefNama::where('nik', $pic['nik'])->first();
