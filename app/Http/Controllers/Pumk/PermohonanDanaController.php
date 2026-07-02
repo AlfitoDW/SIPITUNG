@@ -18,6 +18,7 @@ use App\Models\PermohonanDanaItem;
 use App\Models\PermohonanDanaItemNominatif;
 use App\Models\RefNama;
 use App\Models\TahunAnggaran;
+use App\Models\TimKerja;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,8 +76,8 @@ class PermohonanDanaController extends Controller
                 'next_approver_name' => match ($pd->status) {
                     'submitted' => $pd->kapokja_name,
                     'katim_approved' => $pd->pic_keuangan_name,
-                    'pic_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    'pic_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
             ]));
@@ -141,15 +142,15 @@ class PermohonanDanaController extends Controller
         $tahun = TahunAnggaran::forSession();
         $nomor = PermohonanDana::generateNomor($tahun->id, $tahun->tahun);
 
-        $timKerja = \App\Models\TimKerja::find($request->user()->tim_kerja_id);
+        $timKerja = TimKerja::find($request->user()->tim_kerja_id);
 
         // Load DJA data untuk snapshot
-        $program = \App\Models\DjaProgram::find($validated['dja_program_id']);
-        $sasaran = \App\Models\DjaSasaran::find($validated['dja_sasaran_id']);
-        $kro = \App\Models\DjaKro::find($validated['dja_kro_id']);
-        $ro = \App\Models\DjaRo::find($validated['dja_ro_id']);
-        $komponen = \App\Models\DjaKomponen::find($validated['dja_komponen_id']);
-        $kegiatan = \App\Models\DjaKegiatan::find($validated['dja_kegiatan_id']);
+        $program = DjaProgram::find($validated['dja_program_id']);
+        $sasaran = DjaSasaran::find($validated['dja_sasaran_id']);
+        $kro = DjaKro::find($validated['dja_kro_id']);
+        $ro = DjaRo::find($validated['dja_ro_id']);
+        $komponen = DjaKomponen::find($validated['dja_komponen_id']);
+        $kegiatan = DjaKegiatan::find($validated['dja_kegiatan_id']);
 
         $pd = PermohonanDana::create(array_merge($validated, [
             'tahun_anggaran_id' => $tahun->id,
@@ -233,7 +234,7 @@ class PermohonanDanaController extends Controller
 
             foreach ($subKegiatans as $subKegiatan) {
                 $items = $subKegiatan->rincianBiayas->map(function ($item) use ($pd, $subKegiatan) {
-                    $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $item->id)
+                    $terpakai = PermohonanDanaItem::where('dja_rincian_biaya_id', $item->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
                             ->whereNotIn('status', ['draft', 'rejected'])
                             ->where('id', '!=', $pd->id))
@@ -578,7 +579,7 @@ class PermohonanDanaController extends Controller
                     $rincian = DjaRincianBiaya::with('subKegiatan')->lockForUpdate()->find($item['dja_rincian_biaya_id']);
                     $jumlah = (float) $item['jumlah_permintaan'];
 
-                    $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                    $terpakai = PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
                             ->whereNotIn('status', ['draft', 'rejected'])
                             ->where('id', '!=', $pd->id))
@@ -775,8 +776,8 @@ class PermohonanDanaController extends Controller
 
         // ── Validasi Nominatif ─────────────────────────────────────────────────
         // Item honor/perjadin yang volume > 0 WAJIB memiliki minimal 1 data nominatif.
-        $honorAkun = \App\Models\PermohonanDanaItem::HONOR_AKUN;
-        $perjadinAkun = \App\Models\PermohonanDanaItem::PERJADIN_AKUN;
+        $honorAkun = PermohonanDanaItem::HONOR_AKUN;
+        $perjadinAkun = PermohonanDanaItem::PERJADIN_AKUN;
 
         $itemsBelumNominatif = $pd->items()
             ->with('nominatif')
@@ -809,7 +810,7 @@ class PermohonanDanaController extends Controller
 
                     $rincian = DjaRincianBiaya::with('subKegiatan')->lockForUpdate()->find($rincian->id);
 
-                    $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
+                    $terpakai = PermohonanDanaItem::where('dja_rincian_biaya_id', $rincian->id)
                         ->whereHas('permohonanDana', fn ($q) => $q
                             ->whereNotIn('status', ['draft', 'rejected'])
                             ->where('id', '!=', $pd->id))

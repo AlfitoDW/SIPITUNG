@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { CalendarDays, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SkeletonPageHeader, SkeletonCard } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,8 +62,20 @@ function PeriodeDialog({ open, onClose, triwulan, existing }: {
         tanggal_selesai: toDatetimeLocal(existing?.tanggal_selesai ?? null),
     });
 
+    useEffect(() => {
+        if (!open) return;
+
+        form.setData({
+            triwulan,
+            tanggal_mulai: existing?.tanggal_mulai ?? '',
+            tanggal_selesai: toDatetimeLocal(existing?.tanggal_selesai ?? null),
+        });
+        form.clearErrors();
+    }, [open, triwulan, existing?.tanggal_mulai, existing?.tanggal_selesai]);
+
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
+        form.transform(data => ({ ...data, triwulan }));
         form.post('/super-admin/pengukuran/periode', { onSuccess: onClose });
     }
 
@@ -138,7 +150,7 @@ export default function PengukuranIndex({ tahun, periodes }: Props) {
 
                 <div className="flex justify-end">
                     <Button variant="outline" size="sm" asChild>
-                        <a href="/super-admin/pengukuran/realisasi">Lihat Realisasi Kinerja &rarr;</a>
+                        <a href="/super-admin/pengukuran/realisasi">Lihat Capaian Kinerja &rarr;</a>
                     </Button>
                 </div>
 

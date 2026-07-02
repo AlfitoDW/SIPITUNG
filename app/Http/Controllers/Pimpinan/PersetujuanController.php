@@ -8,6 +8,8 @@ use App\Models\LaporanPengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksi;
 use App\Models\TahunAnggaran;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -89,17 +91,23 @@ class PersetujuanController extends Controller
             ->orderBy('periode_pengukuran_id')
             ->orderBy('tim_kerja_id')
             ->get()
-            ->map(fn ($l) => [
-                'id' => $l->id,
-                'tim_kerja_nama' => $l->timKerja?->nama ?? '',
-                'tim_kerja_kode' => $l->timKerja?->kode ?? '',
-                'status' => $l->status,
-                'rekomendasi_kabag' => $l->rekomendasi_kabag,
-                'submitted_at' => $l->submitted_at?->format('d M Y H:i'),
-                'approved_at' => $l->approved_at?->format('d M Y H:i'),
-                'periode_triwulan' => $l->periode?->triwulan ?? '',
-                'periode_id' => $l->periode_pengukuran_id,
-            ]);
+            ->map(function ($l) use ($tahun) {
+                $ikus = $this->getIkuLabelsForLaporan($l->tim_kerja_id, $tahun->id, $l->peer_tim_kerja_id);
+
+                return [
+                    'id' => $l->id,
+                    'tim_kerja_nama' => $l->timKerja?->nama ?? '',
+                    'tim_kerja_kode' => $l->timKerja?->kode ?? '',
+                    'status' => $l->status,
+                    'rekomendasi_kabag' => $l->rekomendasi_kabag,
+                    'submitted_at' => $l->submitted_at?->format('d M Y H:i'),
+                    'approved_at' => $l->approved_at?->format('d M Y H:i'),
+                    'periode_triwulan' => $l->periode?->triwulan ?? '',
+                    'periode_id' => $l->periode_pengukuran_id,
+                    'iku_label' => $this->summarizeIkuLabels($ikus, $l->timKerja?->nama ?? ''),
+                    'ikus' => $ikus,
+                ];
+            });
 
         return Inertia::render('Pimpinan/Persetujuan/Index', [
             'tahun' => $tahun,
@@ -136,8 +144,8 @@ class PersetujuanController extends Controller
     private function buildMergedSasarans(int $tahunId, string $jenis): array
     {
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ])
             ->where('tahun_anggaran_id', $tahunId)
@@ -163,13 +171,11 @@ class PersetujuanController extends Controller
             }
         }
 
-        ksort($sasaranMap);
-
         // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
 
-    private function mapRa(RencanaAksi $ra, \Illuminate\Support\Collection $allRas, array $validIkuKodes = []): array
+    private function mapRa(RencanaAksi $ra, Collection $allRas, array $validIkuKodes = []): array
     {
         // Filter RAI orphan: buang yang kode-nya sudah tidak ada di PK Awal.
         $indikators = empty($validIkuKodes)
@@ -222,5 +228,69 @@ class PersetujuanController extends Controller
                     ])->values(),
             ])->values(),
         ];
+    }
+
+    private function getIkuLabelsForLaporan(int $timKerjaId, int $tahunId, ?int $peerTimKerjaId): array
+    {
+        $query = DB::table('indikator_kinerja_pic as p1')
+            ->join('indikator_kinerja as iku', 'iku.id', '=', 'p1.indikator_kinerja_id')
+            ->join('sasaran', 'sasaran.id', '=', 'iku.sasaran_id')
+            ->join('perjanjian_kinerja', 'perjanjian_kinerja.id', '=', 'sasaran.perjanjian_kinerja_id')
+            ->where('perjanjian_kinerja.tahun_anggaran_id', $tahunId)
+            ->where('perjanjian_kinerja.jenis', 'awal')
+            ->where('p1.tim_kerja_id', $timKerjaId)
+            ->orderBy('sasaran.urutan')
+            ->orderBy('iku.urutan')
+            ->select('iku.id', 'iku.kode', 'iku.nama');
+
+        if ($peerTimKerjaId === null) {
+            $query->whereNotExists(function ($sub) use ($timKerjaId) {
+                $sub->select(DB::raw(1))
+                    ->from('indikator_kinerja_pic as p2')
+                    ->whereColumn('p2.indikator_kinerja_id', 'p1.indikator_kinerja_id')
+                    ->where('p2.tim_kerja_id', '!=', $timKerjaId);
+            });
+        } else {
+            $query->whereExists(function ($sub) use ($peerTimKerjaId) {
+                $sub->select(DB::raw(1))
+                    ->from('indikator_kinerja_pic as p2')
+                    ->whereColumn('p2.indikator_kinerja_id', 'p1.indikator_kinerja_id')
+                    ->where('p2.tim_kerja_id', $peerTimKerjaId);
+            });
+        }
+
+        return $query->get()
+            ->unique('id')
+            ->map(fn ($iku) => [
+                'id' => $iku->id,
+                'kode' => $iku->kode,
+                'nama' => $iku->nama,
+                'label' => $this->formatIkuLabel($iku->kode, $iku->nama),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatIkuLabel(string $kode, string $nama): string
+    {
+        $kode = trim($kode);
+
+        if (! str_starts_with(strtoupper($kode), 'IKU')) {
+            $kode = 'IKU '.$kode;
+        }
+
+        return trim($kode.' '.$nama);
+    }
+
+    private function summarizeIkuLabels(array $ikus, string $fallback): string
+    {
+        if (count($ikus) === 0) {
+            return $fallback;
+        }
+
+        $first = $ikus[0]['label'];
+        $remaining = count($ikus) - 1;
+
+        return $remaining > 0 ? $first.' + '.$remaining.' IKU lainnya' : $first;
     }
 }

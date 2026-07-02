@@ -39,7 +39,7 @@ class NominatifController extends Controller
         // Build rincian biaya data grouped by kode_akun (same format as Wizard Step 4)
         $rincianBiaya = [];
         foreach ($pd->items as $item) {
-            $terpakai = \App\Models\PermohonanDanaItem::where('dja_rincian_biaya_id', $item->dja_rincian_biaya_id)
+            $terpakai = PermohonanDanaItem::where('dja_rincian_biaya_id', $item->dja_rincian_biaya_id)
                 ->whereHas('permohonanDana', fn ($q) => $q
                     ->whereNotIn('status', ['draft', 'rejected'])
                     ->where('id', '!=', $pd->id))

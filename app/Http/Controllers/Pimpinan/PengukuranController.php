@@ -20,15 +20,16 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
         $user = auth()->user();
 
+        // Kabag perlu membuka histori laporan dari Hub Persetujuan; is_active hanya
+        // menentukan periode yang sedang dibuka untuk pengisian.
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->where('is_active', true)
             ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
             ->get();
 
         $periodeId = $request->integer('periode_id');
         $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
-            : $periodes->first();
+            : ($periodes->firstWhere('is_active', true) ?? $periodes->first());
 
         $matrix = [];
         $laporans = [];
@@ -37,8 +38,8 @@ class PengukuranController extends Controller
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
@@ -78,6 +79,11 @@ class PengukuranController extends Controller
                         ];
                     }
                 }
+
+                // Sort global agar sasaran terurut meski berasal dari PK berbeda
+                $matrix = collect($matrix)->sort(
+                    fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+                )->values()->all();
             }
 
             $laporans = LaporanPengukuran::with([
@@ -112,7 +118,7 @@ class PengukuranController extends Controller
         ]);
     }
 
-    public function saveRekomendasi(Request $request): \Illuminate\Http\RedirectResponse
+    public function saveRekomendasi(Request $request): RedirectResponse
     {
         abort_unless(auth()->user()->pimpinan_type === 'kabag_umum', 403);
 
@@ -186,8 +192,8 @@ class PengukuranController extends Controller
         $twKey = strtolower($periode->triwulan);
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->where('periode_pengukuran_id', $periode->id),
@@ -225,6 +231,11 @@ class PengukuranController extends Controller
                     ];
                 }
             }
+
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $matrix = collect($matrix)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
         }
 
         $laporans = LaporanPengukuran::with('timKerja:id,nama,kode,nama_singkat')

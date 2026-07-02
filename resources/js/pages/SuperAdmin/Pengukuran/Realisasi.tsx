@@ -12,7 +12,7 @@ import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pengukuran', href: '/super-admin/pengukuran' },
-    { title: 'Realisasi Kinerja', href: '/super-admin/pengukuran/realisasi' },
+    { title: 'Capaian Kinerja', href: '/super-admin/pengukuran/realisasi' },
 ];
 
 type Periode  = { id: number; triwulan: string; is_active: boolean };
@@ -354,13 +354,13 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Realisasi Kinerja" />
+            <Head title="Capaian Kinerja" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
 
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Realisasi Kinerja</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Capaian Kinerja</h1>
                         <p className="text-muted-foreground text-sm">{tahun.label}</p>
                     </div>
                     {periode && (
@@ -387,7 +387,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                 {/* Tabs */}
                 <Tabs defaultValue="realisasi">
                     <TabsList>
-                        <TabsTrigger value="realisasi">Realisasi Kinerja</TabsTrigger>
+                        <TabsTrigger value="realisasi">Capaian Kinerja</TabsTrigger>
                         <TabsTrigger value="status" className="gap-1.5">
                             Status Laporan
                             {pendingCount > 0 && (
@@ -401,9 +401,9 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                     <TabsContent value="realisasi" className="mt-4 flex flex-col gap-4">
                         {/* Periode selector */}
                         <div className="flex items-center gap-3 flex-wrap">
-                            <span className="text-sm text-muted-foreground">Periode Aktif:</span>
+                            <span className="text-sm text-muted-foreground">Periode:</span>
                             {periodes.length === 0 ? (
-                                <span className="text-sm text-amber-600">Belum ada periode yang aktif.</span>
+                                <span className="text-sm text-amber-600">Belum ada periode yang diatur.</span>
                             ) : (
                                 <Select value={periode?.id?.toString() ?? ''} onValueChange={changePeriode}>
                                     <SelectTrigger className="w-48 h-8">
@@ -413,14 +413,18 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                                         {periodes.map(p => (
                                             <SelectItem key={p.id} value={p.id.toString()}>
                                                 {TW_LABELS[p.triwulan] ?? p.triwulan}
+                                                {p.is_active ? ' (Aktif)' : ' (Histori)'}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             )}
                             {periode && (
-                                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-400">
-                                    Aktif
+                                <Badge variant="outline" className={periode.is_active
+                                    ? 'bg-green-100 text-green-800 border-green-400'
+                                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                                }>
+                                    {periode.is_active ? 'Aktif — Dapat Diisi' : 'Ditutup — Histori'}
                                 </Badge>
                             )}
                             {matrix.length > 0 && (
@@ -431,7 +435,7 @@ export default function Realisasi({ tahun, periodes, periode, matrix, laporans }
                         </div>
 
                         {!periode ? (
-                            <p className="text-muted-foreground">Belum ada periode yang aktif. Aktifkan periode di halaman Kelola Periode.</p>
+                            <p className="text-muted-foreground">Belum ada periode yang diatur. Atur periode di halaman Kelola Periode.</p>
                         ) : matrix.length === 0 ? (
                             <p className="text-muted-foreground">Belum ada data IKU.</p>
                         ) : (

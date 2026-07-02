@@ -13,6 +13,7 @@ use App\Models\DjaSasaran;
 use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
+use App\Services\DjaImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -632,7 +633,7 @@ class DjaController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         try {
-            $service = new \App\Services\DjaImportService;
+            $service = new DjaImportService;
             $preview = $service->preview($request->file('file')->getRealPath(), $tahun);
 
             $importKey = 'import_preview_'.$request->user()->id.'_'.$tahun->id;
@@ -664,7 +665,7 @@ class DjaController extends Controller
 
         try {
             $previewData['catatan'] = $request->input('catatan');
-            $service = new \App\Services\DjaImportService;
+            $service = new DjaImportService;
             $revisi = $service->commit($previewData, $request->user()->id, $tahun);
 
             cache()->forget($request->import_key);

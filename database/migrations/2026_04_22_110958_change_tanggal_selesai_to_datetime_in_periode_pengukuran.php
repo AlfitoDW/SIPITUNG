@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -12,12 +13,12 @@ return new class extends Migration
     public function up(): void
     {
         // Migrate existing date-only values to end-of-day before changing column type
-        \Illuminate\Support\Facades\DB::table('periode_pengukuran')
+        DB::table('periode_pengukuran')
             ->whereNotNull('tanggal_selesai')
             ->get()
             ->each(function ($row) {
                 if (strlen((string) $row->tanggal_selesai) <= 10) {
-                    \Illuminate\Support\Facades\DB::table('periode_pengukuran')
+                    DB::table('periode_pengukuran')
                         ->where('id', $row->id)
                         ->update(['tanggal_selesai' => $row->tanggal_selesai.' 23:59:59']);
                 }

@@ -1,8 +1,8 @@
 interface AppLogoProps {
-    isCollapsed: boolean;
+    isCollapsed?: boolean;
 }
 
-export default function AppLogo({ isCollapsed }: AppLogoProps) {
+export default function AppLogo({ isCollapsed = false }: AppLogoProps) {
     const logoSrc = isCollapsed ? "/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg" : "/Logo-LLDikti-Wilayah-III-08.png"; // Placeholder for expanded logo
 
     return (

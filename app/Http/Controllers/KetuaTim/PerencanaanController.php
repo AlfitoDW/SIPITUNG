@@ -13,6 +13,7 @@ use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -247,7 +248,7 @@ class PerencanaanController extends Controller
         foreach ($collabGroups as $group) {
             $raInds = RencanaAksiIndikator::with(['sasaran', 'kegiatans'])
                 ->whereIn('id', $group['ra_ind_ids'])
-                ->orderBy('kode')
+                ->orderBy('urutan')
                 ->get();
 
             $sasaranMap = [];
@@ -280,7 +281,6 @@ class PerencanaanController extends Controller
                     ])->values()->all(),
                 ];
             }
-            ksort($sasaranMap);
 
             $groupsData[] = array_merge(
                 $group,
@@ -614,6 +614,21 @@ class PerencanaanController extends Controller
                     ->delete();
             }
 
+            // Force-sync data RAI yang sudah ada dari PK terbaru
+            // agar perubahan target di PK langsung terrefleksikan di Rencana Aksi.
+            foreach ($ikuIds as $ikuId) {
+                $pkIku = IndikatorKinerja::find($ikuId);
+                if ($pkIku) {
+                    RencanaAksiIndikator::where('kode', $pkIku->kode)
+                        ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId))
+                        ->update([
+                            'nama' => $pkIku->nama,
+                            'satuan' => $pkIku->satuan,
+                            'target' => $pkIku->target,
+                        ]);
+                }
+            }
+
             // Auto-populasi RAI dari PK Awal jika belum ada untuk group ini
             $existingRaiCount = RencanaAksiIndikator::whereIn('sasaran_id', $relevantSasaranIds)
                 ->whereIn('kode', $groupIkuKodes)
@@ -719,7 +734,7 @@ class PerencanaanController extends Controller
      * Gabungkan sasaran + IKU dari SEMUA PK dalam koleksi (flat merge by sasaran kode).
      * Digunakan agar semua ketua tim bisa view meski data tersebar di beberapa PK.
      *
-     * @param  \Illuminate\Support\Collection<int, PerjanjianKinerja>  $pks
+     * @param  Collection<int, PerjanjianKinerja>  $pks
      */
     private function buildMergedPkSasarans($pks): array
     {
@@ -727,8 +742,8 @@ class PerencanaanController extends Controller
 
         foreach ($pks as $pk) {
             $pk->load([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
             ]);
 
@@ -759,8 +774,6 @@ class PerencanaanController extends Controller
             }
         }
 
-        ksort($sasaranMap);
-
         // Buang sasaran orphan (tanpa indikator) agar tidak tampil sebagai baris kosong
         return array_values(array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0));
     }
@@ -771,8 +784,8 @@ class PerencanaanController extends Controller
     private function buildPkSasarans(PerjanjianKinerja $pk): array
     {
         $pk->load([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
         ]);
 

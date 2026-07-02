@@ -3,11 +3,12 @@
 use App\Http\Controllers\Bendahara\DashboardController;
 use App\Http\Controllers\Bendahara\PermohonanDanaController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::prefix('bendahara')->middleware('role:bendahara')->name('bendahara.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/laporan', fn () => \Inertia\Inertia::render('Bendahara/Laporan'))->name('laporan');
+    Route::get('/laporan', fn () => Inertia::render('Bendahara/Laporan'))->name('laporan');
     Route::get('/verifikasi-lpj', [DashboardController::class, 'verifikasiLpj'])->name('verifikasi-lpj');
 
     // ─── Permohonan Dana — Pencairan (step 5) ────────────────────────────────────

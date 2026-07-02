@@ -146,6 +146,7 @@ export default function Notifikasi({
 
     // State untuk broadcast
     const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
+    const [, setShowSettingsDialog] = useState(false);
     const [broadcastJudul, setBroadcastJudul] = useState('');
     const [broadcastPesan, setBroadcastPesan] = useState('');
     const [broadcastRole, setBroadcastRole] = useState('');

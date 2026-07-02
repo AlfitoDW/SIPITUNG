@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TimKerja extends Model
@@ -52,7 +53,7 @@ class TimKerja extends Model
         return $this->hasMany(PermohonanDana::class, 'tim_kerja_id');
     }
 
-    public function tahunAnggaran(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function tahunAnggaran(): BelongsTo
     {
         return $this->belongsTo(TahunAnggaran::class, 'tahun_anggaran_id');
     }

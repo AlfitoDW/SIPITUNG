@@ -31,7 +31,7 @@ class RencanaAksiIndikator extends Model
 
     public function sasaran(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Sasaran::class, 'sasaran_id');
+        return $this->belongsTo(Sasaran::class, 'sasaran_id');
     }
 
     public function kegiatans(): HasMany

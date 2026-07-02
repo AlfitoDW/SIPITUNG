@@ -5,8 +5,10 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
+use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
+use App\Models\User;
 use App\Services\PermohonanDanaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,8 +47,8 @@ class KeuanganController extends Controller
                 'next_approver_name' => match ($pd->status) {
                     'submitted' => $pd->kapokja_name,
                     'katim_approved' => $pd->pic_keuangan_name,
-                    'pic_approved' => \App\Models\User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
-                    'ppk_approved' => \App\Models\User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
+                    'pic_approved' => User::where('role', 'pimpinan')->where('pimpinan_type', 'ppk')->where('is_active', true)->value('nama_lengkap'),
+                    'ppk_approved' => User::where('role', 'bendahara')->where('is_active', true)->value('nama_lengkap'),
                     default => null,
                 },
                 'dibuka_kunci_by_name' => $pd->dibuka_kunci_by_name,
@@ -92,12 +94,12 @@ class KeuanganController extends Controller
             'dokumens', 'timKerja',
         ]);
 
-        $items = \App\Models\PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
+        $items = PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
             ->with(['djaRincianBiaya', 'nominatif'])
             ->get();
 
         $djaIds = $items->pluck('dja_rincian_biaya_id')->filter()->unique()->values();
-        $terpakaiMap = \App\Models\PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $djaIds)
+        $terpakaiMap = PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $djaIds)
             ->whereHas('permohonanDana', fn ($q) => $q
                 ->whereNotIn('status', ['draft', 'rejected'])
                 ->where('id', '!=', $pd->id))

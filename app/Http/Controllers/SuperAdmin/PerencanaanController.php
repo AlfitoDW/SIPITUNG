@@ -11,6 +11,7 @@ use App\Models\RencanaAksiIndikator;
 use App\Models\Sasaran;
 use App\Models\TahunAnggaran;
 use App\Models\TimKerja;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -80,8 +81,8 @@ class PerencanaanController extends Controller
     private function buildFlatPkData(int $tahunId, string $jenis): array
     {
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'timKerja',
         ])
@@ -111,8 +112,6 @@ class PerencanaanController extends Controller
                 }
             }
         }
-
-        ksort($sasaranMap);
 
         // Master sasaran sebagai sumber tunggal untuk dropdown Tambah IKU
         $masterSasarans = MasterSasaran::where('tahun_anggaran_id', $tahunId)
@@ -229,7 +228,6 @@ class PerencanaanController extends Controller
 
         // Buang sasaran orphan (tanpa indikator)
         $sasaranMap = array_filter($sasaranMap, fn ($s) => count($s['indikators']) > 0);
-        ksort($sasaranMap);
 
         return Inertia::render('SuperAdmin/Perencanaan/RencanaAksi/Penyusunan', [
             'tahun' => $tahun,
@@ -340,11 +338,6 @@ class PerencanaanController extends Controller
                 }
             }
         }
-        uksort($sasaranMap, 'strnatcmp');
-        foreach ($sasaranMap as &$s) {
-            uksort($s['indikators'], 'strnatcmp');
-        }
-        unset($s);
 
         // Flatten rows
         $dataRows = [];
@@ -638,7 +631,7 @@ class PerencanaanController extends Controller
             } elseif (substr_count($raw, ':') === 1) {
                 $raw .= ':00';
             }
-            $data['batas_pengisian_ra'] = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
+            $data['batas_pengisian_ra'] = Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
                 ->setTimezone('UTC')
                 ->format('Y-m-d H:i:s');
         }
@@ -789,6 +782,20 @@ class PerencanaanController extends Controller
                 'rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId)
             )->where('kode', $oldKode)->update(['kode' => $newKode]);
         }
+
+        // Sinkronisasi data indikator (target, nama, satuan, target TW) ke semua RAI
+        // pada tahun yang sama, agar Rencana Aksi selalu merefleksikan PK terbaru.
+        RencanaAksiIndikator::whereHas(
+            'rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahunId)
+        )->where('kode', $newKode)->update([
+            'nama' => $data['nama'],
+            'satuan' => $data['satuan'],
+            'target' => $data['target'],
+            'target_tw1' => $data['target_tw1'] ?? null,
+            'target_tw2' => $data['target_tw2'] ?? null,
+            'target_tw3' => $data['target_tw3'] ?? null,
+            'target_tw4' => $data['target_tw4'] ?? null,
+        ]);
 
         return back()->with('success', 'Indikator berhasil diperbarui.');
     }

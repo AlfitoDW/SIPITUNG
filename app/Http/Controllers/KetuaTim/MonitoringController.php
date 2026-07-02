@@ -314,7 +314,6 @@ class MonitoringController extends Controller
                     'pics' => $iku->picTimKerjas->map(fn ($t) => $t->kode)->values()->toArray(),
                 ];
             }
-            ksort($sasaranMap);
 
             // IKU realisasi progress
             $totalIku = RealisasiKinerja::where('periode_pengukuran_id', $periode->id)->count();

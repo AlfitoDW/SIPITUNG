@@ -1,6 +1,12 @@
 <?php
 
+use App\Models\DjaKegiatan;
+use App\Models\DjaKomponen;
+use App\Models\DjaKro;
+use App\Models\DjaProgram;
 use App\Models\DjaRincianBiaya;
+use App\Models\DjaRo;
+use App\Models\DjaSasaran;
 use App\Models\DjaSubKegiatan;
 use App\Models\PermohonanDana;
 use App\Models\PermohonanDanaItemNominatif;
@@ -29,12 +35,12 @@ beforeEach(function () {
 describe('rincian biaya step 4', function () {
     it('blocks removing item that already has nominatif', function () {
         // ── Setup: buat hierarchy DJA & 2 rincian biaya ─────────────────────────
-        $kegiatan = \App\Models\DjaKegiatan::factory()->create([
-            'komponen_id' => \App\Models\DjaKomponen::factory()->create([
-                'ro_id' => \App\Models\DjaRo::factory()->create([
-                    'kro_id' => \App\Models\DjaKro::factory()->create([
-                        'sasaran_id' => \App\Models\DjaSasaran::factory()->create([
-                            'program_id' => \App\Models\DjaProgram::factory()->create()->id,
+        $kegiatan = DjaKegiatan::factory()->create([
+            'komponen_id' => DjaKomponen::factory()->create([
+                'ro_id' => DjaRo::factory()->create([
+                    'kro_id' => DjaKro::factory()->create([
+                        'sasaran_id' => DjaSasaran::factory()->create([
+                            'program_id' => DjaProgram::factory()->create()->id,
                         ])->id,
                     ])->id,
                 ])->id,
@@ -150,12 +156,12 @@ describe('rincian biaya step 4', function () {
     });
 
     it('recalculates total_anggaran from database after upsert', function () {
-        $kegiatan = \App\Models\DjaKegiatan::factory()->create([
-            'komponen_id' => \App\Models\DjaKomponen::factory()->create([
-                'ro_id' => \App\Models\DjaRo::factory()->create([
-                    'kro_id' => \App\Models\DjaKro::factory()->create([
-                        'sasaran_id' => \App\Models\DjaSasaran::factory()->create([
-                            'program_id' => \App\Models\DjaProgram::factory()->create()->id,
+        $kegiatan = DjaKegiatan::factory()->create([
+            'komponen_id' => DjaKomponen::factory()->create([
+                'ro_id' => DjaRo::factory()->create([
+                    'kro_id' => DjaKro::factory()->create([
+                        'sasaran_id' => DjaSasaran::factory()->create([
+                            'program_id' => DjaProgram::factory()->create()->id,
                         ])->id,
                     ])->id,
                 ])->id,

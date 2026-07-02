@@ -51,6 +51,7 @@ type LaporanItem = {
     status: string; rekomendasi_kabag: string | null;
     submitted_at: string | null; approved_at: string | null;
     periode_triwulan: string; periode_id: number;
+    iku_label: string; ikus: { id: number; kode: string; nama: string; label: string }[];
 };
 
 type SelectedPk     = { type: 'pk_awal' | 'pk_revisi'; item: PkItem };
@@ -125,6 +126,37 @@ function pendingCount(items: { status: string }[], role: Role): number {
 
 function isPkSelected(s: Selected): s is SelectedPk {
     return s.type === 'pk_awal' || s.type === 'pk_revisi';
+}
+
+function formatIkuLabel(kode: string, nama: string): string {
+    const trimmedKode = kode.trim();
+    const normalizedKode = trimmedKode.toUpperCase().startsWith('IKU') ? trimmedKode : `IKU ${trimmedKode}`;
+
+    return `${normalizedKode} ${nama}`.trim();
+}
+
+function summarizeIkuLabels(labels: string[], fallback: string): string {
+    if (labels.length === 0) return fallback;
+
+    const [first] = labels;
+    const remaining = labels.length - 1;
+
+    return remaining > 0 ? `${first} + ${remaining} IKU lainnya` : first;
+}
+
+function getPkIkuLabels(item: PkItem): string[] {
+    return item.sasarans.flatMap(sasaran => sasaran.indikators.map(iku => formatIkuLabel(iku.kode, iku.nama)));
+}
+
+function getRaIkuLabels(item: RaItem): string[] {
+    return item.indikators.map(iku => formatIkuLabel(iku.kode, iku.nama));
+}
+
+function getItemTitle(item: AnyItem, type: TabType): string {
+    if (type === 'laporan') return (item as LaporanItem).iku_label;
+    if (type === 'ra') return summarizeIkuLabels(getRaIkuLabels(item as RaItem), item.tim_kerja_nama);
+
+    return summarizeIkuLabels(getPkIkuLabels(item as PkItem), item.tim_kerja_nama);
 }
 
 // ── Small components ──────────────────────────────────────────────────────────
@@ -533,7 +565,7 @@ function ItemsTable<T extends AnyItem>({
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-semibold">{item.tim_kerja_nama}</span>
+                                        <span className="text-sm font-semibold">{getItemTitle(item, type)}</span>
                                         {('tim_kerja_kode' in item) && (
                                             <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono">
                                                 {(item as unknown as RaItem).tim_kerja_kode}
@@ -545,6 +577,16 @@ function ItemsTable<T extends AnyItem>({
                                             </span>
                                         )}
                                     </div>
+                                    {type !== 'laporan' && getItemTitle(item, type) !== item.tim_kerja_nama && (
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            Tim Kerja: {item.tim_kerja_nama}
+                                        </p>
+                                    )}
+                                    {type === 'laporan' && (
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            Tim Kerja: {item.tim_kerja_nama}
+                                        </p>
+                                    )}
                                     {isRejected && catatan && (
                                         <p className="text-[11px] text-red-700 dark:text-red-400 mt-1 italic bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded inline-block">
                                             💬 {catatan}
@@ -751,7 +793,7 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                                     <DialogTitle className="flex flex-wrap items-center gap-2">
                                         <span>{typeLabel[type]}</span>
                                         <span className="text-muted-foreground font-normal">—</span>
-                                        <span>{item.tim_kerja_nama}</span>
+                                        <span>{getItemTitle(item, type)}</span>
                                         <StatusBadge status={item.status} />
                                     </DialogTitle>
                                 </DialogHeader>
@@ -784,6 +826,12 @@ export default function Index({ tahun, pks_awal, pks_revisi, ras, laporans, role
                                         {type === 'laporan' ? (
                                             <div className="space-y-3 text-sm">
                                                 <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg border p-3">
+                                                    <div className="col-span-2">
+                                                        <span className="font-medium">IKU:</span>{' '}
+                                                        {(item as LaporanItem).ikus.length > 0
+                                                            ? (item as LaporanItem).ikus.map(iku => iku.label).join(', ')
+                                                            : (item as LaporanItem).iku_label}
+                                                    </div>
                                                     <div><span className="font-medium">Tim Kerja:</span> {item.tim_kerja_nama}</div>
                                                     <div><span className="font-medium">Periode:</span> {(item as LaporanItem).periode_triwulan}</div>
                                                     {(item as LaporanItem).submitted_at && (

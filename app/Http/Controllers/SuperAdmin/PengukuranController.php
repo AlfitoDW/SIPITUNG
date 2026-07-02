@@ -8,6 +8,7 @@ use App\Models\PeriodePengukuran;
 use App\Models\PerjanjianKinerja;
 use App\Models\RencanaAksiIndikator;
 use App\Models\TahunAnggaran;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,6 +21,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PengukuranController extends Controller
 {
+    private const TRIWULAN_ORDER_SQL = "CASE triwulan WHEN 'TW1' THEN 1 WHEN 'TW2' THEN 2 WHEN 'TW3' THEN 3 WHEN 'TW4' THEN 4 ELSE 5 END";
+
+    private const LAPORAN_STATUS_ORDER_SQL = "CASE status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'kabag_approved' THEN 3 ELSE 4 END";
+
     // ─── Kelola Periode (TW1–TW4) ───────────────────────────────────────────────
 
     public function index(): Response
@@ -27,7 +32,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         return Inertia::render('SuperAdmin/Pengukuran/Index', [
@@ -77,7 +82,7 @@ class PengukuranController extends Controller
             } elseif (substr_count($raw, ':') === 1) {
                 $raw .= ':00';
             }
-            $data['tanggal_selesai'] = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
+            $data['tanggal_selesai'] = Carbon::createFromFormat('Y-m-d H:i:s', $raw, 'Asia/Jakarta')
                 ->setTimezone('UTC')
                 ->format('Y-m-d H:i:s');
         }
@@ -96,7 +101,16 @@ class PengukuranController extends Controller
 
     public function periodeToggle(PeriodePengukuran $periode): RedirectResponse
     {
-        $periode->update(['is_active' => ! $periode->is_active]);
+        if ($periode->is_active) {
+            $periode->update(['is_active' => false]);
+        } else {
+            PeriodePengukuran::where('tahun_anggaran_id', $periode->tahun_anggaran_id)
+                ->whereKeyNot($periode->id)
+                ->update(['is_active' => false]);
+
+            $periode->update(['is_active' => true]);
+        }
+
         $label = $periode->is_active ? 'dibuka' : 'ditutup';
 
         return back()->with('success', "Periode {$periode->triwulan} berhasil {$label}.");
@@ -108,16 +122,16 @@ class PengukuranController extends Controller
     {
         $tahun = TahunAnggaran::forSession();
 
-        // Hanya tampilkan periode yang aktif di dropdown
+        // Capaian Kinerja menampilkan histori semua periode yang sudah diatur.
+        // is_active hanya menentukan periode yang sedang dibuka untuk pengisian.
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->where('is_active', true)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         $periodeId = $request->integer('periode_id');
         $periode = $periodeId
             ? $periodes->firstWhere('id', $periodeId)
-            : $periodes->first();
+            : ($periodes->firstWhere('is_active', true) ?? $periodes->first());
 
         $matrix = [];
 
@@ -125,8 +139,8 @@ class PengukuranController extends Controller
             $twKey = strtolower($periode->triwulan);
 
             $pks = PerjanjianKinerja::with([
-                'sasarans' => fn ($q) => $q->orderBy('kode'),
-                'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+                'sasarans' => fn ($q) => $q->orderBy('urutan'),
+                'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                     ->where('periode_pengukuran_id', $periode->id),
@@ -170,13 +184,18 @@ class PengukuranController extends Controller
                     }
                 }
             }
+
+            // Sort global agar sasaran terurut meski berasal dari PK berbeda
+            $matrix = collect($matrix)->sort(
+                fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+            )->values()->all();
         }
 
         // Daftar laporan non-draft untuk panel status
         $laporans = LaporanPengukuran::with(['timKerja:id,nama,kode,nama_singkat', 'periode:id,triwulan'])
             ->whereHas('periode', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
             ->whereIn('status', ['submitted', 'kabag_approved', 'rejected'])
-            ->orderByRaw("FIELD(status,'submitted','rejected','kabag_approved')")
+            ->orderByRaw(self::LAPORAN_STATUS_ORDER_SQL)
             ->orderBy('periode_pengukuran_id')
             ->orderBy('tim_kerja_id')
             ->get()
@@ -213,15 +232,15 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $allPeriodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get()
             ->keyBy('triwulan');
 
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -254,6 +273,9 @@ class PengukuranController extends Controller
                         $twData[$tw] = [
                             'target' => $xlsRaInd?->{"target_{$twKey2}"} ?? $iku->{'target_'.$twKey2},
                             'realisasi' => $r?->realisasi,
+                            'progress_kegiatan' => $r?->progress_kegiatan,
+                            'kendala' => $r?->kendala,
+                            'strategi_tindak_lanjut' => $r?->strategi_tindak_lanjut,
                         ];
                     }
 
@@ -272,15 +294,20 @@ class PengukuranController extends Controller
             }
         }
 
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $dataRows = collect($dataRows)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
+
         // ── Build spreadsheet ──────────────────────────────────────────────────
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(12);
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Realisasi Kinerja');
+        $sheet->setTitle('Capaian Kinerja');
 
         // ── Title row ─────────────────────────────────────────────────────────
         $sheet->mergeCells('A1:Q1');
-        $sheet->setCellValue('A1', "Realisasi Kinerja — {$tahun->label}");
+        $sheet->setCellValue('A1', "Capaian Kinerja — {$tahun->label}");
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
@@ -467,7 +494,7 @@ class PengukuranController extends Controller
             ->get();
 
         // Index semua RAI (dengan kegiatan) by kode IKU
-        $raiByKode = \App\Models\RencanaAksiIndikator::with([
+        $raiByKode = RencanaAksiIndikator::with([
             'kegiatans' => fn ($q) => $q->orderBy('triwulan')->orderBy('urutan'),
         ])
             ->whereHas('rencanaAksi', fn ($q) => $q->where('tahun_anggaran_id', $tahun->id))
@@ -512,14 +539,6 @@ class PengukuranController extends Controller
                 }
             }
         }
-        // Sort sasaran by kode (natural sort agar "1.10" tidak mendahului "1.2")
-        uksort($sasaranMap, 'strnatcmp');
-
-        // Sort indikator dalam tiap sasaran by kode (natural sort)
-        foreach ($sasaranMap as &$s) {
-            uksort($s['indikators'], 'strnatcmp');
-        }
-        unset($s);
 
         // Flatten ke $allKgRows
         $allKgRows = [];
@@ -536,7 +555,7 @@ class PengukuranController extends Controller
             }
         }
 
-        // Shared styles untuk sheet TW — selaras dengan sheet Realisasi Kinerja
+        // Shared styles untuk sheet TW — selaras dengan sheet Capaian Kinerja
         $kgWrapStyle = [
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true, 'indent' => 1],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
@@ -637,11 +656,90 @@ class PengukuranController extends Controller
             $shTw->freezePane('A3');
         }
 
-        // Reset ke sheet pertama (Realisasi Kinerja)
+        // ── Sheet Detail Pengukuran per Triwulan ──────────────────────────────
+        $detailSheetNames = ['TW1' => 'Detail TW I', 'TW2' => 'Detail TW II', 'TW3' => 'Detail TW III', 'TW4' => 'Detail TW IV'];
+        $detailSheetTitles = [
+            'TW1' => 'Detail Pengukuran Triwulan I',
+            'TW2' => 'Detail Pengukuran Triwulan II',
+            'TW3' => 'Detail Pengukuran Triwulan III',
+            'TW4' => 'Detail Pengukuran Triwulan IV',
+        ];
+
+        foreach (['TW1', 'TW2', 'TW3', 'TW4'] as $tw) {
+            if (empty($dataRows)) {
+                continue;
+            }
+
+            $detailSheet = $spreadsheet->createSheet();
+            $detailSheet->setTitle($detailSheetNames[$tw]);
+            $detailSheet->mergeCells('A1:J1');
+            $detailSheet->setCellValue('A1', $detailSheetTitles[$tw]." — {$tahun->label}");
+            $detailSheet->getStyle('A1:J1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 13, 'name' => 'Times New Roman', 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '003580']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            ]);
+            $detailSheet->getRowDimension(1)->setRowHeight(30);
+
+            $detailHeaders = [
+                'A' => 'No',
+                'B' => 'Sasaran',
+                'C' => 'Kode IKU',
+                'D' => 'Indikator Kinerja',
+                'E' => 'PIC Tim Kerja',
+                'F' => 'Target',
+                'G' => 'Realisasi',
+                'H' => 'Progress/Kegiatan',
+                'I' => 'Kendala/Permasalahan',
+                'J' => 'Strategi/Tindak Lanjut',
+            ];
+            foreach ($detailHeaders as $col => $label) {
+                $detailSheet->setCellValue("{$col}2", $label);
+                $detailSheet->getStyle("{$col}2")->applyFromArray($headerStyle);
+            }
+            $detailSheet->getRowDimension(2)->setRowHeight(28);
+
+            foreach (['A' => 5, 'B' => 35, 'C' => 12, 'D' => 52, 'E' => 35, 'F' => 10, 'G' => 12, 'H' => 45, 'I' => 45, 'J' => 45] as $col => $width) {
+                $detailSheet->getColumnDimension($col)->setWidth($width);
+            }
+
+            $detailRow = 3;
+            $detailNo = 1;
+            foreach ($dataRows as $dr) {
+                $twInfo = $dr['tw'][$tw];
+
+                $detailSheet->setCellValue("A{$detailRow}", $detailNo++);
+                $detailSheet->setCellValue("B{$detailRow}", "{$dr['sasaran_kode']} — {$dr['sasaran_nama']}");
+                $detailSheet->setCellValue("C{$detailRow}", $dr['iku_kode']);
+                $detailSheet->setCellValue("D{$detailRow}", $dr['iku_nama']);
+                $detailSheet->setCellValue("E{$detailRow}", $dr['pic_namas']);
+                $detailSheet->setCellValue("F{$detailRow}", $twInfo['target'] ?? '-');
+                $detailSheet->setCellValue("G{$detailRow}", $twInfo['realisasi'] ?? '-');
+                $detailSheet->setCellValue("H{$detailRow}", $twInfo['progress_kegiatan'] ?? '-');
+                $detailSheet->setCellValue("I{$detailRow}", $twInfo['kendala'] ?? '-');
+                $detailSheet->setCellValue("J{$detailRow}", $twInfo['strategi_tindak_lanjut'] ?? '-');
+
+                $detailSheet->getStyle("A{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("B{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("C{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("D{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("E{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getStyle("F{$detailRow}:G{$detailRow}")->applyFromArray($centerCellStyle);
+                $detailSheet->getStyle("H{$detailRow}:J{$detailRow}")->applyFromArray($dataCellStyle);
+                $detailSheet->getRowDimension($detailRow)->setRowHeight(-1);
+
+                $detailRow++;
+            }
+
+            $detailSheet->freezePane('A3');
+        }
+
+        // Reset ke sheet pertama (Capaian Kinerja)
         $spreadsheet->setActiveSheetIndex(0);
 
         // ── Output ────────────────────────────────────────────────────────────
-        $filename = "Realisasi_Kinerja_{$tahun->tahun}.xlsx";
+        $filename = "Capaian_Kinerja_{$tahun->tahun}.xlsx";
 
         $writer = new Xlsx($spreadsheet);
 
@@ -661,15 +759,15 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $allPeriodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get()
             ->keyBy('triwulan');
 
         $periodeIds = $allPeriodes->pluck('id')->all();
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->whereIn('periode_pengukuran_id', $periodeIds),
@@ -720,6 +818,11 @@ class PengukuranController extends Controller
             }
         }
 
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $matrix = collect($matrix)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
+
         return Inertia::render('SuperAdmin/Pengukuran/ExportPdf', [
             'tahun' => $tahun,
             'matrix' => $matrix,
@@ -733,7 +836,7 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
 
         $periodes = PeriodePengukuran::where('tahun_anggaran_id', $tahun->id)
-            ->orderByRaw("FIELD(triwulan, 'TW1','TW2','TW3','TW4')")
+            ->orderByRaw(self::TRIWULAN_ORDER_SQL)
             ->get();
 
         $periodeId = $request->integer('periode_id');
@@ -746,8 +849,8 @@ class PengukuranController extends Controller
         $twKey = strtolower($periode->triwulan);
 
         $pks = PerjanjianKinerja::with([
-            'sasarans' => fn ($q) => $q->orderBy('kode'),
-            'sasarans.indikators' => fn ($q) => $q->orderBy('kode'),
+            'sasarans' => fn ($q) => $q->orderBy('urutan'),
+            'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
                 ->where('periode_pengukuran_id', $periode->id),
@@ -786,6 +889,11 @@ class PengukuranController extends Controller
                 }
             }
         }
+
+        // Sort global agar sasaran terurut meski berasal dari PK berbeda
+        $matrix = collect($matrix)->sort(
+            fn ($a, $b) => strnatcmp($a['sasaran_kode'], $b['sasaran_kode']) ?: strnatcmp($a['iku_kode'], $b['iku_kode'])
+        )->values()->all();
 
         $laporans = LaporanPengukuran::with('timKerja:id,nama,kode')
             ->where('periode_pengukuran_id', $periode->id)

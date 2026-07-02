@@ -6,6 +6,7 @@ use App\Exports\NominatifExport;
 use App\Exports\PermohonanDanaExport;
 use App\Http\Controllers\Controller;
 use App\Models\PermohonanDana;
+use App\Models\PermohonanDanaItem;
 use App\Models\TahunAnggaran;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -95,12 +96,12 @@ class PermohonanDanaController extends Controller
             'dokumens', 'timKerja',
         ]);
 
-        $items = \App\Models\PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
+        $items = PermohonanDanaItem::where('permohonan_dana_id', $pd->id)
             ->with(['djaRincianBiaya', 'nominatif'])
             ->get();
 
         $djaIds = $items->pluck('dja_rincian_biaya_id')->filter()->unique()->values();
-        $terpakaiMap = \App\Models\PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $djaIds)
+        $terpakaiMap = PermohonanDanaItem::whereIn('dja_rincian_biaya_id', $djaIds)
             ->whereHas('permohonanDana', fn ($q) => $q
                 ->whereNotIn('status', ['draft', 'rejected'])
                 ->where('id', '!=', $pd->id))

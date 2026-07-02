@@ -103,6 +103,7 @@ export default function EditPegawaiDialog({
     };
 
     const handleSubmit = async () => {
+        if (!pegawai) return;
         setErrors({});
         if (bankSelect === 'Lainnya' && !bankCustom.trim()) {
             setErrors({ nama_bank: 'Nama bank wajib diisi' });
@@ -159,6 +160,7 @@ export default function EditPegawaiDialog({
     };
 
     const handleToggleStatus = async () => {
+        if (!pegawai) return;
         const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
         const csrf = meta?.content;
         if (!csrf) return;
@@ -203,6 +205,8 @@ export default function EditPegawaiDialog({
             hour: '2-digit', minute: '2-digit',
         })
         : null;
+
+    if (!pegawai) return null;
 
     return (
         <>

@@ -4,7 +4,13 @@ namespace App\Exports;
 
 use App\Models\PermohonanDana;
 use App\Models\User;
+use Illuminate\Http\Response;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class PermohonanDanaExport
@@ -34,7 +40,7 @@ class PermohonanDanaExport
         ]);
     }
 
-    public function download(): \Illuminate\Http\Response
+    public function download(): Response
     {
         $templatePath = storage_path('app/templates/permohonan_dana_template.xlsx');
         if (! file_exists($templatePath)) {
@@ -263,8 +269,8 @@ class PermohonanDanaExport
         $sheet->getStyle('B2')->applyFromArray([
             'font' => ['bold' => true, 'size' => 11],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ]);
 
@@ -274,8 +280,8 @@ class PermohonanDanaExport
             $sheet->getStyle('B3')->applyFromArray([
                 'font' => ['size' => 11],
                 'alignment' => [
-                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
                 ],
             ]);
         }
@@ -351,11 +357,11 @@ class PermohonanDanaExport
                 'color' => ['rgb' => '000000'], // black text
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'D9D9D9'], // gray background
             ],
         ]);
@@ -365,13 +371,13 @@ class PermohonanDanaExport
 
     private function clearSheetTwoContent(Worksheet $sheet): void
     {
-        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        $highestColumnIndex = Coordinate::columnIndexFromString($sheet->getHighestColumn());
         $lastColumnIndex = max($highestColumnIndex, 13);
 
         // Clear rows 2-3 only (row 1 will have header)
         for ($row = 2; $row <= 3; $row++) {
             for ($colIndex = 1; $colIndex <= $lastColumnIndex; $colIndex++) {
-                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $col = Coordinate::stringFromColumnIndex($colIndex);
                 $sheet->setCellValue("{$col}{$row}", '');
             }
         }
@@ -382,7 +388,7 @@ class PermohonanDanaExport
             [$start, $end] = explode(':', $range);
             $startRow = (int) filter_var($start, FILTER_SANITIZE_NUMBER_INT);
             $startCol = preg_replace('/\d+/', '', $start);
-            $startColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($startCol);
+            $startColIndex = Coordinate::columnIndexFromString($startCol);
 
             if ($startRow >= 4 || $startColIndex > 13) {
                 $sheet->unmergeCells($range);
@@ -395,16 +401,16 @@ class PermohonanDanaExport
             $firstColIndex = $row >= 4 ? 1 : 14;
 
             for ($colIndex = $firstColIndex; $colIndex <= $lastColumnIndex; $colIndex++) {
-                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $col = Coordinate::stringFromColumnIndex($colIndex);
                 $sheet->setCellValue("{$col}{$row}", '');
                 $style = $sheet->getStyle("{$col}{$row}");
                 $style->getBorders()->getAllBorders()->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE
+                    Border::BORDER_NONE
                 );
-                $style->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE);
+                $style->getFill()->setFillType(Fill::FILL_NONE);
                 $style->getFont()->setBold(false)->setItalic(false)->setUnderline(false);
-                $style->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_GENERAL);
-                $style->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_BOTTOM);
+                $style->getAlignment()->setHorizontal(Alignment::HORIZONTAL_GENERAL);
+                $style->getAlignment()->setVertical(Alignment::VERTICAL_BOTTOM);
             }
         }
     }
@@ -426,7 +432,7 @@ class PermohonanDanaExport
             'Vol', 'Satuan', 'Biaya Satuan', 'Total'];
 
         foreach ($headers as $colIdx => $h) {
-            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx + 1);
+            $col = Coordinate::stringFromColumnIndex($colIdx + 1);
             $cell = $sheet->getCell("{$col}{$headerRow}");
             $cell->setValue($h);
             $cell->getStyle()->getFont()->setBold(true)->setSize(10);
@@ -434,7 +440,7 @@ class PermohonanDanaExport
 
             // Add gray background to header cells
             $cell->getStyle()->getFill()
-                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('D9D9D9');
 
             $this->thinBorder($sheet, "{$col}{$headerRow}");
@@ -512,7 +518,7 @@ class PermohonanDanaExport
 
             // Add gray background to header cells
             $cell->getStyle()->getFill()
-                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('D9D9D9');
 
             $this->thinBorder($sheet, "{$col}{$headerRow}");
@@ -526,7 +532,7 @@ class PermohonanDanaExport
 
         // Apply gray background to merged middle columns header
         $sheet->getStyle("C{$headerRow}:I{$headerRow}")->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setRGB('D9D9D9');
         $sheet->getRowDimension($headerRow)->setRowHeight(24);
 
@@ -581,7 +587,7 @@ class PermohonanDanaExport
 
             // Add gray background to header cells
             $cell->getStyle()->getFill()
-                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('D9D9D9');
 
             $this->thinBorder($sheet, "{$col}{$headerRow}");
@@ -653,7 +659,7 @@ class PermohonanDanaExport
     {
         $val = $value ?? '';
         if ($val !== '' && $val !== null && $val !== '-') {
-            $sheet->setCellValueExplicit($cell, (string) $val, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit($cell, (string) $val, DataType::TYPE_STRING);
         } else {
             $sheet->setCellValue($cell, $val ?: '-');
         }
@@ -662,7 +668,7 @@ class PermohonanDanaExport
     private function thinBorder(Worksheet $sheet, string $cell): void
     {
         $sheet->getStyle($cell)->getBorders()->getAllBorders()->setBorderStyle(
-            \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+            Border::BORDER_THIN
         );
     }
 

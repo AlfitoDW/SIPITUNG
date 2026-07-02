@@ -73,7 +73,7 @@ export default function ExportPdf({ tahun, matrix }: Props) {
 
     return (
         <>
-            <Head title={`Export Realisasi Kinerja ${tahun.tahun}`} />
+            <Head title={`Export Capaian Kinerja ${tahun.tahun}`} />
             {isLoading ? (
                 <div className="p-4">
                     <SkeletonPageHeader />
@@ -108,7 +108,7 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                                     fontSize: '12pt',
                                     letterSpacing: '0.02em',
                                 }}>
-                                    Realisasi Kinerja — {tahun.label}
+                                    Capaian Kinerja — {tahun.label}
                                 </td>
                             </tr>
                         </tbody>

@@ -1,11 +1,11 @@
-import type { LucideProps } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 
 interface StatisticCardProps {
     title: string;
     value: string;
-    icon: React.ComponentType<LucideProps>;
+    icon: LucideIcon;
     change?: string;
     changeType?: 'increase' | 'decrease';
 }

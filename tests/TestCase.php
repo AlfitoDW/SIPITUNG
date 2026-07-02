@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -21,7 +22,7 @@ abstract class TestCase extends BaseTestCase
             $app->loadEnvironmentFrom('.env.testing');
         }
 
-        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+        $app->make(Kernel::class)->bootstrap();
 
         return $app;
     }

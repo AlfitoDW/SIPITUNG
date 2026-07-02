@@ -3,7 +3,10 @@
 namespace App\Exports;
 
 use App\Models\PermohonanDana;
+use App\Models\RefNama;
 use App\Models\User;
+use Illuminate\Http\Response;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -185,7 +188,7 @@ class NominatifExport
             : now()->locale('id')->isoFormat('D MMMM YYYY');
     }
 
-    public function download(): \Illuminate\Http\Response
+    public function download(): Response
     {
         $templatePath = storage_path('app/templates/nominatif_template_clean.xlsx');
         if (! file_exists($templatePath)) {
@@ -584,7 +587,7 @@ class NominatifExport
     private function setCellValue(Worksheet $sheet, string $cell, $value, bool $isText = false): void
     {
         if ($isText) {
-            $sheet->setCellValueExplicit($cell, $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
         } else {
             $sheet->setCellValue($cell, $value);
         }
@@ -643,7 +646,7 @@ class NominatifExport
             return null;
         }
         $clean = trim(rtrim($nama, '.'));
-        $ref = \App\Models\RefNama::where('nama', $clean)
+        $ref = RefNama::where('nama', $clean)
             ->orWhere('nama', $nama)
             ->orWhere('nama', 'LIKE', $clean.'%')
             ->whereNotNull('nip')
