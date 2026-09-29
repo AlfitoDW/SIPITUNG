@@ -143,6 +143,13 @@ function getJabatanOptions(kodeAkun: string): string[] {
     return [];
 }
 
+function getNominatifVolumeLabel(kodeAkun: string): string {
+    if (kodeAkun === '522151') return 'Jml Jam';
+    if (kodeAkun === '521115' || kodeAkun === '521213') return 'Jml Keg';
+    if (['524111', '524113', '524114', '524119'].includes(kodeAkun)) return 'Jml Hari';
+    return 'Vol';
+}
+
 function makeEmptyHonorRow(itemId: number, satuan: string, hargaDefault: number, kodeAkun: string, rowIndex: number = 0): NominatifRow {
     const jabatanOptions = getJabatanOptions(kodeAkun);
     let defaultJabatan = '';
@@ -176,17 +183,6 @@ function makeEmptyPerjadinRow(itemId: number, satuan: string, hargaSatuan: numbe
 }
 
 function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): NominatifRow {
-    const perjadinTotal =
-        (parseFloat(String(nom.transport)) || 0) +
-        ((parseFloat(String(nom.uang_harian_vol)) || 0) * (parseFloat(String(nom.uang_harian_satuan)) || 0)) +
-        ((parseFloat(String(nom.fullboard_vol)) || 0) * (parseFloat(String(nom.fullboard_satuan)) || 0)) +
-        ((parseFloat(String(nom.fullday_vol)) || 0) * (parseFloat(String(nom.fullday_satuan)) || 0)) +
-        (parseFloat(String(nom.representasi)) || 0) +
-        (parseFloat(String(nom.taksi_pp)) || 0) +
-        (parseFloat(String(nom.tiket_pesawat)) || 0) +
-        (parseFloat(String(nom.hotel)) || 0);
-    const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
-    const genericTotal = (parseFloat(String(nom.volume)) || 1) * (parseFloat(String(nom.harga_satuan)) || 0);
     return {
         dja_rincian_biaya_id: itemId, ref_nama_id: nom.ref_nama_id,
         nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
@@ -195,9 +191,9 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         nama_bank: nom.nama_bank ?? '', email: nom.email ?? '',
         pph21_persen: nom.pph21_persen,
         jabatan: nom.jabatan ?? '',
-        volume: '1',
+        volume: nom.volume,
         satuan: '',
-        harga_satuan: isGeneric ? String(genericTotal) : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
+        harga_satuan: nom.harga_satuan,
         transport: nom.transport, uang_harian_vol: nom.uang_harian_vol,
         uang_harian_satuan: nom.uang_harian_satuan,
         fullboard_vol: nom.fullboard_vol, fullboard_satuan: nom.fullboard_satuan,
@@ -799,13 +795,15 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
 
     const nomJumlah = (item: RincianItem) => {
         const rows = activeNominatifRows(item);
-        return rows.reduce((s, r) => s + (parseFloat(r.harga_satuan) || 0), 0);
+        return rows.reduce((s, r) => s + ((parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0)), 0);
     };
 
     const isNominatifItem = (item: RincianItem) => item.tipe_nominatif === 'honor' || item.tipe_nominatif === 'perjadin';
 
     const jumlah    = (item: RincianItem) => isNominatifItem(item) ? nomJumlah(item) : getVol(item) * getHarga(item);
-    const volumeDisplay = (item: RincianItem) => isNominatifItem(item) ? nomVol(item) : getVol(item);
+    const volumeDisplay = (item: RincianItem) => isNominatifItem(item)
+        ? (nominatifRows[item.id] ?? []).reduce((s, r) => s + (parseFloat(r.volume) || 0), 0)
+        : getVol(item);
     const sisaDinamis = (item: RincianItem) => item.sisa_anggaran - jumlah(item);
 
     const totalAkun  = (group: RincianItem[]) => group.reduce((s, item) => s + jumlah(item), 0);
@@ -835,7 +833,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                 const vol = nomVol(item);
                 const jml = nomJumlah(item);
                 if (jml <= 0) continue;
-                result.push({ dja_rincian_biaya_id: item.id, volume: vol, harga_satuan: item.harga_satuan, jumlah_permintaan: jml });
+                result.push({ dja_rincian_biaya_id: item.id, volume: rows.reduce((s, r) => s + (parseFloat(r.volume) || 0), 0), harga_satuan: item.harga_satuan, jumlah_permintaan: jml });
             } else {
                 const vol = getVol(item);
                 if (vol <= 0) continue;
@@ -851,7 +849,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
             if (!isNominatifItem(item)) continue;
             const rows = activeNominatifRows(item);
             for (const row of rows) {
-                result.push({ ...row, volume: '1', satuan: item.satuan, dja_rincian_biaya_id: item.id });
+                result.push({ ...row, satuan: item.satuan, dja_rincian_biaya_id: item.id });
             }
         }
         return result;
@@ -990,7 +988,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                                             <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
                                                                             <span className="font-medium text-sm">{item.nama_item}</span>
                                                                             <span className="text-xs text-muted-foreground">
-                                                                                · {rows.length} peserta · Vol {fmt(vol)} · Maks SBM Rp {fmt(item.harga_satuan)} · Rp {fmt(req)}
+                                                                                 · {rows.length} peserta · {getNominatifVolumeLabel(item.kode_akun)} {fmt(vol)} · Maks SBM Rp {fmt(item.harga_satuan)} · Rp {fmt(req)}
                                                                             </span>
                                                                         </button>
                                                                     {item.tipe_nominatif === 'honor' ? (
@@ -1023,7 +1021,7 @@ function Step4({ pd, rincianBiaya, refNama, onPrev, readonly = false, onOpenAddD
                                                                     )}
                                                                     {isOverbudget && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-semibold">Overbudget</span>}
                                                                     {isHabis && <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded font-semibold">Habis</span>}
-                                                                    {isNom && <span className="text-[10px] text-muted-foreground">· {rows.length} peserta · Vol {fmt(vol)} · Maks SBM {fmt(item.harga_satuan)}</span>}
+                                                                     {isNom && <span className="text-[10px] text-muted-foreground">· {rows.length} peserta · {getNominatifVolumeLabel(item.kode_akun)} {fmt(vol)} · Maks SBM {fmt(item.harga_satuan)}</span>}
                                                                 </div>
                                                             )}
                                                         </td>
@@ -1211,7 +1209,7 @@ function HonorNominatifTable({
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
-    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.harga_satuan) || 0) : 0), 0);
+    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0) : 0), 0);
     const jabatanOptions = getJabatanOptions(item.kode_akun);
     const clampHarga = (value: string) => String(Math.min(Number(value) || 0, Number(item.harga_satuan) || 0));
 
@@ -1223,6 +1221,7 @@ function HonorNominatifTable({
                         <tr className="border-b bg-orange-100 text-[10px] font-semibold text-amber-800 uppercase tracking-wider">
                             <th className="text-left px-2 py-1.5 w-48 border-r border-orange-200/60">Nama</th>
                             <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60">Jabatan</th>
+                            <th className="text-right px-2 py-1.5 w-20 border-r border-orange-200/60">{getNominatifVolumeLabel(item.kode_akun)}</th>
                             <th className="text-right px-2 py-1.5 w-32 border-r border-orange-200/60">Nominal</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
@@ -1231,7 +1230,7 @@ function HonorNominatifTable({
                     <tbody>
                         {rows.map((row, idx) => {
                             const harga = parseFloat(row.harga_satuan) || 0;
-                            const jumlah = row.nama.trim() ? harga : 0;
+                            const jumlah = row.nama.trim() ? (parseFloat(row.volume) || 0) * harga : 0;
                             return (
                                 <tr key={idx} className="border-b last:border-0 even:bg-orange-50/30 hover:bg-amber-50/60">
                                     <td className="px-2 py-1.5 border-r border-slate-100">
@@ -1247,6 +1246,9 @@ function HonorNominatifTable({
                                                 <SelectContent>{jabatanOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                                             </Select>
                                         ) : <span className="text-xs text-muted-foreground">-</span>}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" step="0.5" value={row.volume} onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
                                     </td>
                                     <td className="px-2 py-1.5 border-r border-slate-100">
                                         <Input type="number" min="0" max={item.harga_satuan} value={row.harga_satuan || String(item.harga_satuan_aktual)}
@@ -1265,7 +1267,7 @@ function HonorNominatifTable({
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-t-orange-200 bg-orange-50/60">
-                            <td colSpan={3} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td colSpan={4} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-orange-700">{fmt(totalNom)}</td>
                             <td></td>
                         </tr>
@@ -1294,7 +1296,7 @@ function PerjadinNominatifTable({
     onOpenAddDialog: (prefill: string, onSelect?: (peg: RefNama) => void) => void;
     onOpenEditDialog: (pegawai: RefNama) => void;
 }) {
-    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.harga_satuan) || 0) : 0), 0);
+    const totalNom = rows.reduce((s, r) => s + (r.nama.trim() ? (parseFloat(r.volume) || 0) * (parseFloat(r.harga_satuan) || 0) : 0), 0);
     const clampHarga = (value: string) => String(Math.min(Number(value) || 0, Number(item.harga_satuan) || 0));
 
     return (
@@ -1304,6 +1306,7 @@ function PerjadinNominatifTable({
                     <thead>
                         <tr className="border-b bg-blue-100 text-[10px] font-semibold text-blue-800 uppercase tracking-wider">
                             <th className="text-left px-2 py-1.5 w-48 border-r border-blue-200/60">Nama</th>
+                            <th className="text-right px-2 py-1.5 w-20 border-r border-blue-200/60">Jml Hari</th>
                             <th className="text-right px-2 py-1.5 w-32 border-r border-blue-200/60">Nominal</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60">Jumlah</th>
                             <th className="text-center px-2 py-1.5 w-10">Aksi</th>
@@ -1312,7 +1315,7 @@ function PerjadinNominatifTable({
                     <tbody>
                         {rows.map((row, idx) => {
                             const harga = parseFloat(row.harga_satuan) || 0;
-                            const jumlah = row.nama.trim() ? harga : 0;
+                            const jumlah = row.nama.trim() ? (parseFloat(row.volume) || 0) * harga : 0;
                             return (
                                 <tr key={idx} className="border-b last:border-0 even:bg-blue-50/30 hover:bg-sky-50/60">
                                     <td className="px-2 py-1.5 border-r border-slate-100">
@@ -1320,6 +1323,9 @@ function PerjadinNominatifTable({
                                             onChange={(nama, peg) => fillFromPegawai(idx, nama, peg)}
                                             onOpenAddDialog={(prefill) => onOpenAddDialog(prefill, (peg) => fillFromPegawai(idx, peg.nama, peg))}
                                             onOpenEditDialog={onOpenEditDialog} />
+                                    </td>
+                                    <td className="px-2 py-1.5 border-r border-slate-100">
+                                        <Input type="number" min="0" step="0.5" value={row.volume} onChange={e => onChange(idx, 'volume', e.target.value)} className="h-7 text-xs text-right" />
                                     </td>
                                     <td className="px-2 py-1.5 border-r border-slate-100">
                                         <Input type="number" min="0" max={item.harga_satuan} value={row.harga_satuan}
@@ -1338,7 +1344,7 @@ function PerjadinNominatifTable({
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-t-blue-200 bg-blue-50/60">
-                            <td colSpan={2} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
+                            <td colSpan={3} className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-600">Total:</td>
                             <td className="px-2 py-1.5 text-right font-bold tabular-nums text-blue-700">{fmt(totalNom)}</td>
                             <td></td>
                         </tr>

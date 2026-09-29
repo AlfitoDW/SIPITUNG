@@ -155,6 +155,13 @@ function getJabatanOptions(kodeAkun: string): string[] {
     return [];
 }
 
+function getNominatifVolumeLabel(kodeAkun: string): string {
+    if (kodeAkun === '522151') return 'Jml Jam';
+    if (kodeAkun === '521115' || kodeAkun === '521213') return 'Jml Keg';
+    if (['524111', '524113', '524114', '524119'].includes(kodeAkun)) return 'Jml Hari';
+    return 'Vol';
+}
+
 const GOL_PNS = ['II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'];
 
 // ── Empty Row Factories ─────────────────────────────────────────────────────────
@@ -192,19 +199,6 @@ function makeEmptyPerjadinRow(itemId: number, satuan: string, hargaSatuan: numbe
 }
 
 function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): NominatifRow {
-    // For perjadin items with component data, compute generic total
-    const perjadinTotal =
-        (parseFloat(String(nom.transport)) || 0) +
-        ((parseFloat(String(nom.uang_harian_vol)) || 0) * (parseFloat(String(nom.uang_harian_satuan)) || 0)) +
-        ((parseFloat(String(nom.fullboard_vol)) || 0) * (parseFloat(String(nom.fullboard_satuan)) || 0)) +
-        ((parseFloat(String(nom.fullday_vol)) || 0) * (parseFloat(String(nom.fullday_satuan)) || 0)) +
-        (parseFloat(String(nom.representasi)) || 0) +
-        (parseFloat(String(nom.taksi_pp)) || 0) +
-        (parseFloat(String(nom.tiket_pesawat)) || 0) +
-        (parseFloat(String(nom.hotel)) || 0);
-
-    const isGeneric = perjadinTotal === 0 && (parseFloat(String(nom.harga_satuan)) || 0) > 0;
-
     return {
         item_id: itemId, ref_nama_id: nom.ref_nama_id,
         nama: nom.nama, nip: nom.nip ?? '', nik: nom.nik ?? '',
@@ -213,9 +207,9 @@ function rowFromExisting(nom: RincianItem['nominatif'][0], itemId: number): Nomi
         nama_bank: nom.nama_bank ?? '', email: nom.email ?? '',
         pph21_persen: nom.pph21_persen,
         jabatan: nom.jabatan ?? '',
-        volume: isGeneric ? nom.volume : (perjadinTotal > 0 ? '1' : nom.volume),
+        volume: nom.volume,
         satuan: '',
-        harga_satuan: isGeneric ? nom.harga_satuan : (perjadinTotal > 0 ? String(perjadinTotal) : nom.harga_satuan),
+        harga_satuan: nom.harga_satuan,
         transport: nom.transport, uang_harian_vol: nom.uang_harian_vol,
         uang_harian_satuan: nom.uang_harian_satuan,
         fullboard_vol: nom.fullboard_vol, fullboard_satuan: nom.fullboard_satuan,
@@ -663,7 +657,7 @@ function HonorNominatifTable({
                             <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60 last:border-r-0">Jabatan</th>
                             <th className="text-left px-2 py-1.5 w-40 border-r border-orange-200/60 last:border-r-0">Detail Identitas</th>
                             <th className="text-left px-2 py-1.5 w-36 border-r border-orange-200/60 last:border-r-0">Rekening</th>
-                            <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">Vol</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">{getNominatifVolumeLabel(kodeAkun)}</th>
                             <th className="text-center px-2 py-1.5 w-16 border-r border-orange-200/60 last:border-r-0">Sat</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60 last:border-r-0">Harga Satuan</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-orange-200/60 last:border-r-0">Jumlah</th>
@@ -851,7 +845,7 @@ function PerjadinNominatifTable({
                             <th className="text-left px-2 py-1.5 w-48 border-r border-blue-200/60 last:border-r-0">Nama</th>
                             <th className="text-left px-2 py-1.5 w-40 border-r border-blue-200/60 last:border-r-0">Detail Identitas</th>
                             <th className="text-left px-2 py-1.5 w-36 border-r border-blue-200/60 last:border-r-0">Rekening</th>
-                            <th className="text-right px-2 py-1.5 w-16 border-r border-blue-200/60 last:border-r-0">Vol</th>
+                            <th className="text-right px-2 py-1.5 w-16 border-r border-blue-200/60 last:border-r-0">Jml Hari</th>
                             <th className="text-center px-2 py-1.5 w-16 border-r border-blue-200/60 last:border-r-0">Sat</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60 last:border-r-0">Harga Satuan</th>
                             <th className="text-right px-2 py-1.5 w-28 border-r border-blue-200/60 last:border-r-0">Jumlah</th>
@@ -1287,7 +1281,7 @@ export default function Nominatif({ permohonan, rincian_biaya, ref_nama: initial
                                                     <tr className="border-b bg-slate-100 text-[10px] font-semibold text-slate-600 uppercase tracking-wider shadow-sm">
                                                         <th className="text-left px-3 py-2 border-r border-slate-200 last:border-r-0">Uraian</th>
                                                         <th className="text-right px-2 py-2 w-28 border-r border-slate-200 last:border-r-0">Pagu Anggaran</th>
-                                                        <th className="text-center px-2 py-2 w-16 border-r border-slate-200 last:border-r-0">Vol</th>
+                                                        <th className="text-center px-2 py-2 w-16 border-r border-slate-200 last:border-r-0">Volume</th>
                                                         <th className="text-center px-2 py-2 w-14 border-r border-slate-200 last:border-r-0">Sat.</th>
                                                         <th className="text-right px-2 py-2 w-32 border-r border-slate-200 last:border-r-0">Harga Satuan</th>
                                                         <th className="text-right px-2 py-2 w-28 text-orange-600 border-r border-slate-200 last:border-r-0">Terpakai</th>

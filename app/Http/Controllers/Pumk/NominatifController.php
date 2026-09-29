@@ -122,7 +122,7 @@ class NominatifController extends Controller
                 $totalNominatif = 0;
 
                 foreach ($itemRows as $row) {
-                    $vol = (float) ($row['volume'] ?? 1);
+                    $vol = (float) ($row['volume'] ?? 0);
                     $harga = (float) ($row['harga_satuan'] ?? 0);
                     $totalNominatif += round($vol * $harga, 2);
                 }
@@ -152,7 +152,7 @@ class NominatifController extends Controller
                 $pph21 = (float) ($row['pph21_persen'] ?? 0);
 
                 // ─── Honor ───────────────────────────────────────────────────────
-                $volume = (float) ($row['volume'] ?? 1);
+                $volume = (float) ($row['volume'] ?? 0);
                 $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
                 $jumlahBruto = round($volume * $hargaSatuan, 2);
                 $jumlahPajak = round($jumlahBruto * ($pph21 / 100), 2);
@@ -163,7 +163,7 @@ class NominatifController extends Controller
                 $uraian = strtolower($item?->uraian ?? '');
 
                 // Generic per-rincian mapping based on item.uraian regex
-                $vol = (float) ($row['volume'] ?? 1);
+                $vol = (float) ($row['volume'] ?? 0);
                 $hs = (float) ($row['harga_satuan'] ?? 0);
                 $jml = round($vol * $hs, 2);
 

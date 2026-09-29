@@ -1,8 +1,8 @@
-import { chromium } from 'playwright';
-import pptxgen from 'pptxgenjs';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { chromium } from 'playwright';
+import pptxgen from 'pptxgenjs';
 
 const baseUrl = 'http://127.0.0.1:8000';
 const outDir = 'tmp/user-guide-keuangan/screenshots-revisi';

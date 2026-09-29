@@ -124,10 +124,10 @@ class PengukuranController extends Controller
             'indikator_kinerja_id' => ['required', 'integer', 'exists:indikator_kinerja,id'],
             'periode_pengukuran_id' => ['required', 'integer', 'exists:periode_pengukuran,id'],
             'realisasi' => ['nullable', 'string', 'max:100'],
-            'progress_kegiatan' => ['nullable', 'string', 'max:2000'],
-            'kendala' => ['nullable', 'string', 'max:2000'],
-            'strategi_tindak_lanjut' => ['nullable', 'string', 'max:2000'],
-            'catatan' => ['nullable', 'string', 'max:1000'],
+            'progress_kegiatan' => ['nullable', 'string'],
+            'kendala' => ['nullable', 'string'],
+            'strategi_tindak_lanjut' => ['nullable', 'string'],
+            'catatan' => ['nullable', 'string'],
         ]);
 
         // Pastikan tim ini adalah PIC (primary atau co-PIC) untuk IKU ini

@@ -648,7 +648,7 @@ class PermohonanDanaController extends Controller
 
                     $refNamaId = $row['ref_nama_id'] ?? null;
                     $pph21 = (float) ($row['pph21_persen'] ?? 0);
-                    $volume = (float) ($row['volume'] ?? 1);
+                    $volume = (float) ($row['volume'] ?? 0);
                     $hargaSatuan = (float) ($row['harga_satuan'] ?? 0);
                     $jumlahBruto = round($volume * $hargaSatuan, 2);
                     $jumlahPajak = round($jumlahBruto * ($pph21 / 100), 2);

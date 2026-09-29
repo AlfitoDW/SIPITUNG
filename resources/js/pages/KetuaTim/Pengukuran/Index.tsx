@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Pencil, Users, Send, CheckCircle2, Circle, Lock } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { DeadlineCountdown } from '@/components/deadline-countdown';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +91,7 @@ function getColor(kode: string) { return sasaranColors[kode] ?? sasaranColors['S
 function RealisasiDialog({ iku, periode, onClose }: {
     iku: IKUItem; periode: Periode; onClose: () => void;
 }) {
+    const submitLocked = useRef(false);
     const form = useForm({
         indikator_kinerja_id:    iku.iku_id,
         periode_pengukuran_id:   periode.id,
@@ -102,9 +104,22 @@ function RealisasiDialog({ iku, periode, onClose }: {
 
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
+        if (submitLocked.current || form.processing) return;
+
+        submitLocked.current = true;
         // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
         form.transform(data => ({ ...data, realisasi: data.realisasi.replace(',', '.') }));
-        form.post('/ketua-tim/pengukuran/store', { onSuccess: onClose });
+        form.post('/ketua-tim/pengukuran/store', {
+            onSuccess: onClose,
+            onError: errors => {
+                const message = Object.values(errors)[0] ?? 'Data gagal disimpan. Periksa kembali isian form.';
+                toast.error(message.startsWith('[') ? message : `[422] ${message}`);
+            },
+            onFinish: () => {
+                // Keep the entered values after failure, but allow one manual retry.
+                submitLocked.current = false;
+            },
+        });
     }
 
     const isEdit   = !!iku.realisasi_id;
@@ -147,6 +162,9 @@ function RealisasiDialog({ iku, periode, onClose }: {
                     {form.errors.realisasi && (
                         <p className="text-sm text-destructive">{form.errors.realisasi}</p>
                     )}
+                    {(form.errors as Record<string, string>)._form && (
+                        <p className="text-sm text-destructive">{(form.errors as Record<string, string>)._form}</p>
+                    )}
 
                     <div className="grid gap-1.5">
                         <Label>Realisasi ({iku.iku_satuan})</Label>
@@ -165,18 +183,27 @@ function RealisasiDialog({ iku, periode, onClose }: {
                         <Textarea rows={3} placeholder="Kegiatan yang sudah dilakukan..."
                             value={form.data.progress_kegiatan}
                             onChange={e => form.setData('progress_kegiatan', e.target.value)} />
+                        {form.errors.progress_kegiatan && (
+                            <p className="text-xs text-destructive">{form.errors.progress_kegiatan}</p>
+                        )}
                     </div>
                     <div className="grid gap-1.5">
                         <Label>Kendala / Permasalahan</Label>
                         <Textarea rows={3} placeholder="Kendala yang dihadapi..."
                             value={form.data.kendala}
                             onChange={e => form.setData('kendala', e.target.value)} />
+                        {form.errors.kendala && (
+                            <p className="text-xs text-destructive">{form.errors.kendala}</p>
+                        )}
                     </div>
                     <div className="grid gap-1.5">
                         <Label>Strategi / Tindak Lanjut</Label>
                         <Textarea rows={3} placeholder="Rencana tindak lanjut..."
                             value={form.data.strategi_tindak_lanjut}
                             onChange={e => form.setData('strategi_tindak_lanjut', e.target.value)} />
+                        {form.errors.strategi_tindak_lanjut && (
+                            <p className="text-xs text-destructive">{form.errors.strategi_tindak_lanjut}</p>
+                        )}
                     </div>
                     {isShared && (
                         <div className="grid gap-1.5">
@@ -188,12 +215,17 @@ function RealisasiDialog({ iku, periode, onClose }: {
                                 placeholder="Misal: Data dikonfirmasi bersama Tim P&K..."
                                 value={form.data.catatan}
                                 onChange={e => form.setData('catatan', e.target.value)} />
+                            {form.errors.catatan && (
+                                <p className="text-xs text-destructive">{form.errors.catatan}</p>
+                            )}
                         </div>
                     )}
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-                        <Button type="submit" loading={form.processing}>Simpan</Button>
+                        <Button type="submit" loading={form.processing} disabled={submitLocked.current}>
+                            {form.processing ? 'Menyimpan...' : 'Simpan'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

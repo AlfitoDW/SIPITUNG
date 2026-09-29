@@ -5,9 +5,9 @@ import {
     Loader2, Shield, Wallet, FileWarning,
 } from 'lucide-react';
 import { SkeletonDashboard } from '@/components/skeletons';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 import AppLayout from '@/layouts/app-layout';
 
