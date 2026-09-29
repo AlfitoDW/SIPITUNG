@@ -102,6 +102,20 @@ function RealisasiDialog({ iku, periode, onClose }: {
         catatan:                 iku.catatan ?? '',
     });
 
+    function closeDialog(force = false) {
+        const hasErrors = Object.keys(form.errors).length > 0;
+
+        if (!force && (form.isDirty || hasErrors)) {
+            const confirmed = window.confirm(
+                'Data belum berhasil disimpan. Jika dialog ditutup, perubahan akan hilang. Yakin ingin menutup?'
+            );
+
+            if (!confirmed) return;
+        }
+
+        onClose();
+    }
+
     function submit(e: React.SyntheticEvent) {
         e.preventDefault();
         if (submitLocked.current || form.processing) return;
@@ -110,7 +124,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
         // Normalisasi: ganti koma dengan titik agar backend bisa parseFloat
         form.transform(data => ({ ...data, realisasi: data.realisasi.replace(',', '.') }));
         form.post('/ketua-tim/pengukuran/store', {
-            onSuccess: onClose,
+            onSuccess: () => closeDialog(true),
             onError: errors => {
                 const message = Object.values(errors)[0] ?? 'Data gagal disimpan. Periksa kembali isian form.';
                 toast.error(message.startsWith('[') ? message : `[422] ${message}`);
@@ -126,7 +140,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
     const isShared = iku.pic_tim_kerjas.length > 1;
 
     return (
-        <Dialog open onOpenChange={(v) => !v && onClose()}>
+        <Dialog open onOpenChange={(v) => !v && closeDialog()}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
@@ -222,7 +236,7 @@ function RealisasiDialog({ iku, periode, onClose }: {
                     )}
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+                        <Button type="button" variant="outline" onClick={() => closeDialog()}>Batal</Button>
                         <Button type="submit" loading={form.processing} disabled={submitLocked.current}>
                             {form.processing ? 'Menyimpan...' : 'Simpan'}
                         </Button>
