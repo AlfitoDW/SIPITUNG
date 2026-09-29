@@ -143,7 +143,9 @@ class PengukuranController extends Controller
                 'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
-                    ->where('periode_pengukuran_id', $periode->id),
+                    ->where('periode_pengukuran_id', $periode->id)
+                    ->whereNotNull('realisasi')
+                    ->whereRaw("TRIM(realisasi) <> ''"),
             ])
                 ->where('tahun_anggaran_id', $tahun->id)
                 ->where('jenis', 'awal')
@@ -243,7 +245,9 @@ class PengukuranController extends Controller
             'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
-                ->whereIn('periode_pengukuran_id', $periodeIds),
+                ->whereIn('periode_pengukuran_id', $periodeIds)
+                ->whereNotNull('realisasi')
+                ->whereRaw("TRIM(realisasi) <> ''"),
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
@@ -770,7 +774,9 @@ class PengukuranController extends Controller
             'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
-                ->whereIn('periode_pengukuran_id', $periodeIds),
+                ->whereIn('periode_pengukuran_id', $periodeIds)
+                ->whereNotNull('realisasi')
+                ->whereRaw("TRIM(realisasi) <> ''"),
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')
@@ -853,7 +859,9 @@ class PengukuranController extends Controller
             'sasarans.indikators' => fn ($q) => $q->orderBy('urutan'),
             'sasarans.indikators.picTimKerjas',
             'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
-                ->where('periode_pengukuran_id', $periode->id),
+                ->where('periode_pengukuran_id', $periode->id)
+                ->whereNotNull('realisasi')
+                ->whereRaw("TRIM(realisasi) <> ''"),
         ])
             ->where('tahun_anggaran_id', $tahun->id)
             ->where('jenis', 'awal')

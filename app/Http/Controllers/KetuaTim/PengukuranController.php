@@ -46,7 +46,9 @@ class PengukuranController extends Controller
                 )->orderBy('urutan'),
                 'sasarans.indikators.picTimKerjas',
                 'sasarans.indikators.realisasis' => fn ($q) => $q->with('inputByTimKerja')
-                    ->where('periode_pengukuran_id', $periode->id),
+                    ->where('periode_pengukuran_id', $periode->id)
+                    ->whereNotNull('realisasi')
+                    ->whereRaw("TRIM(realisasi) <> ''"),
             ])
                 ->where('tahun_anggaran_id', $tahun->id)
                 ->where('jenis', 'awal')
@@ -120,10 +122,15 @@ class PengukuranController extends Controller
         $tahun = TahunAnggaran::forSession();
         $timKerjaId = $request->user()->tim_kerja_id;
 
+        // Jangan izinkan whitespace dianggap sebagai realisasi kosong yang tersimpan.
+        $request->merge([
+            'realisasi' => trim((string) $request->input('realisasi', '')),
+        ]);
+
         $data = $request->validate([
             'indikator_kinerja_id' => ['required', 'integer', 'exists:indikator_kinerja,id'],
             'periode_pengukuran_id' => ['required', 'integer', 'exists:periode_pengukuran,id'],
-            'realisasi' => ['nullable', 'string', 'max:100'],
+            'realisasi' => ['required', 'string', 'max:100'],
             'progress_kegiatan' => ['nullable', 'string'],
             'kendala' => ['nullable', 'string'],
             'strategi_tindak_lanjut' => ['nullable', 'string'],
@@ -212,6 +219,8 @@ class PengukuranController extends Controller
         // Cek realisasi sudah ada untuk semua IKU kelompok ini
         $hasRealisasi = RealisasiKinerja::whereIn('indikator_kinerja_id', $ikuIds)
             ->where('periode_pengukuran_id', $periode->id)
+            ->whereNotNull('realisasi')
+            ->whereRaw("TRIM(realisasi) <> ''")
             ->exists();
 
         abort_if(! $hasRealisasi, 422, 'Belum ada realisasi yang diisi untuk kelompok IKU ini.');
@@ -353,6 +362,8 @@ class PengukuranController extends Controller
         $allIkuIds = collect($ikuList)->pluck('iku_id')->all();
         $filledIkuIds = RealisasiKinerja::where('periode_pengukuran_id', $periodeId)
             ->whereIn('indikator_kinerja_id', $allIkuIds)
+            ->whereNotNull('realisasi')
+            ->whereRaw("TRIM(realisasi) <> ''")
             ->pluck('indikator_kinerja_id')
             ->flip();
 
