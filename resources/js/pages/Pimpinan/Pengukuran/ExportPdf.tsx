@@ -240,7 +240,6 @@ export default function ExportPdf({
 
                         {/* ── Kalimat pengantar ──────────────────────────────── */}
                         <p
-                            className="pdf-section-title pdf-analysis-title"
                             style={{
                                 ...docFont,
                                 textAlign: 'justify',
@@ -256,6 +255,7 @@ export default function ExportPdf({
                     A. Progress Capaian Kinerja
                 ══════════════════════════════════════════════════════ */}
                         <p
+                            className="pdf-section-title pdf-analysis-title"
                             style={{
                                 ...docFont,
                                 fontWeight: 'bold',
@@ -266,7 +266,7 @@ export default function ExportPdf({
                         </p>
 
                         <table
-                            className="pdf-table"
+                            className="pdf-table pdf-progress-table"
                             style={{
                                 width: '100%',
                                 borderCollapse: 'collapse',
@@ -746,9 +746,42 @@ export default function ExportPdf({
                          widows: 3;
                      }
                      .pdf-analysis-title {
-                         break-before: page;
-                         page-break-before: always;
+                         break-before: auto;
+                         page-break-before: auto;
                      }
+                     .pdf-table th:first-child,
+                     .pdf-table td:first-child {
+                         width: 34px !important;
+                         min-width: 34px !important;
+                         white-space: nowrap;
+                         word-break: keep-all;
+                     }
+                     .pdf-table th {
+                         word-break: keep-all;
+                     }
+                     .pdf-progress-table th,
+                     .pdf-progress-table td {
+                         padding: 4px 5px !important;
+                         font-size: 9pt !important;
+                     }
+                     .pdf-progress-table th {
+                         font-size: 8.5pt !important;
+                         white-space: nowrap;
+                     }
+                     .pdf-progress-table th:nth-child(1),
+                     .pdf-progress-table td:nth-child(1) { width: 5%; }
+                     .pdf-progress-table th:nth-child(2),
+                     .pdf-progress-table td:nth-child(2) { width: 36%; }
+                     .pdf-progress-table th:nth-child(3),
+                     .pdf-progress-table td:nth-child(3) { width: 9%; }
+                     .pdf-progress-table th:nth-child(4),
+                     .pdf-progress-table td:nth-child(4) { width: 8%; }
+                     .pdf-progress-table th:nth-child(5),
+                     .pdf-progress-table td:nth-child(5),
+                     .pdf-progress-table th:nth-child(6),
+                     .pdf-progress-table td:nth-child(6) { width: 14%; }
+                     .pdf-progress-table th:nth-child(7),
+                     .pdf-progress-table td:nth-child(7) { width: 14%; }
                      .pdf-analysis-group,
                      .pdf-analysis-item,
                      .pdf-recommendation {

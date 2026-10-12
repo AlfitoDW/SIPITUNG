@@ -431,6 +431,25 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                          overflow-wrap: anywhere;
                          word-break: normal;
                      }
+                     .pdf-table th:first-child,
+                     .pdf-table td:first-child {
+                         width: 34px !important;
+                         min-width: 34px !important;
+                         white-space: nowrap;
+                         word-break: keep-all;
+                     }
+                     .pdf-table th {
+                         word-break: keep-all;
+                     }
+                     .pdf-table-wide th,
+                     .pdf-table-wide td {
+                         padding: 4px 4px !important;
+                         font-size: 8.5pt !important;
+                     }
+                     .pdf-table-wide th {
+                         font-size: 8pt !important;
+                         white-space: nowrap;
+                     }
                      .print\\:hidden { display: none !important; }
                 }
             `}</style>
