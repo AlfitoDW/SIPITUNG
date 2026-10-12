@@ -240,6 +240,7 @@ export default function ExportPdf({
 
                         {/* ── Kalimat pengantar ──────────────────────────────── */}
                         <p
+                            className="pdf-section-title pdf-analysis-title"
                             style={{
                                 ...docFont,
                                 textAlign: 'justify',
@@ -422,10 +423,12 @@ export default function ExportPdf({
                         {groups.map((group) => (
                             <div
                                 key={group.kode}
+                                className="pdf-analysis-group"
                                 style={{ marginBottom: '8px' }}
                             >
                                 {/* ── Sasaran heading ── */}
                                 <p
+                                    className="pdf-subsection-title"
                                     style={{
                                         ...docFont,
                                         fontWeight: 'bold',
@@ -438,6 +441,7 @@ export default function ExportPdf({
                                 {group.rows.map((row) => (
                                     <div
                                         key={row.iku_kode}
+                                        className="pdf-analysis-item"
                                         style={{
                                             marginBottom: '16px',
                                             paddingLeft: '12px',
@@ -557,8 +561,12 @@ export default function ExportPdf({
                         {/* ══════════════════════════════════════════════════════
                     C. Rekomendasi Pimpinan
                 ══════════════════════════════════════════════════════ */}
-                        <div style={{ marginTop: '24px' }}>
+                        <div
+                            className="pdf-recommendation"
+                            style={{ marginTop: '24px' }}
+                        >
                             <p
+                                className="pdf-section-title"
                                 style={{
                                     ...docFont,
                                     fontWeight: 'bold',
@@ -689,7 +697,7 @@ export default function ExportPdf({
                 @media print {
                      @page {
                          size: A4 portrait;
-                         margin: 15mm;
+                         margin: 18mm;
                      }
                      html, body {
                          margin: 0 !important;
@@ -717,6 +725,10 @@ export default function ExportPdf({
                          break-inside: avoid;
                          page-break-inside: avoid;
                      }
+                     .pdf-table thead tr {
+                         break-inside: avoid;
+                         page-break-inside: avoid;
+                     }
                      .pdf-table th,
                      .pdf-table td {
                          overflow-wrap: anywhere;
@@ -725,6 +737,26 @@ export default function ExportPdf({
                      .pdf-signature {
                          break-inside: avoid;
                          page-break-inside: avoid;
+                     }
+                     .pdf-section-title,
+                     .pdf-subsection-title {
+                         break-after: avoid;
+                         page-break-after: avoid;
+                         orphans: 3;
+                         widows: 3;
+                     }
+                     .pdf-analysis-title {
+                         break-before: page;
+                         page-break-before: always;
+                     }
+                     .pdf-analysis-group,
+                     .pdf-analysis-item,
+                     .pdf-recommendation {
+                         break-inside: avoid;
+                         page-break-inside: avoid;
+                     }
+                     .pdf-analysis-item {
+                         margin-bottom: 12px !important;
                      }
                     .print\\:hidden { display: none !important; }
                     .hidden.print\\:block { display: block !important; }

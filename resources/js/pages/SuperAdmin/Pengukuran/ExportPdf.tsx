@@ -99,17 +99,25 @@ export default function ExportPdf({ tahun, matrix }: Props) {
             ) : (
                 <div className="pdf-screen-shell">
                     <div className="mb-4 flex justify-end print:hidden">
-                        <Button
-                            onClick={() => {
-                                const prev = document.title;
-                                document.title = '';
-                                window.print();
-                                document.title = prev;
-                            }}
-                            className="gap-2"
-                        >
-                            <Printer className="h-4 w-4" /> Cetak / Simpan PDF
-                        </Button>
+                        <div className="flex flex-col items-end gap-2">
+                            <Button
+                                onClick={() => {
+                                    const prev = document.title;
+                                    document.title = '';
+                                    window.print();
+                                    document.title = prev;
+                                }}
+                                className="gap-2"
+                            >
+                                <Printer className="h-4 w-4" /> Cetak / Simpan
+                                PDF
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                                Agar URL tidak ikut tercetak, matikan opsi{' '}
+                                <strong>Headers and footers</strong> di dialog
+                                cetak.
+                            </p>
+                        </div>
                     </div>
 
                     <div
@@ -381,7 +389,7 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                 @media print {
                      @page {
                          size: A3 landscape;
-                         margin: 12mm;
+                         margin: 16mm;
                      }
                     body {
                         -webkit-print-color-adjust: exact;
@@ -401,6 +409,7 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                          max-width: none !important;
                          margin: 0 !important;
                          padding: 0 !important;
+                         box-sizing: border-box;
                      }
                      .pdf-table {
                          width: 100% !important;
@@ -410,6 +419,10 @@ export default function ExportPdf({ tahun, matrix }: Props) {
                          display: table-header-group;
                      }
                      .pdf-table tr {
+                         break-inside: avoid;
+                         page-break-inside: avoid;
+                     }
+                     .pdf-table thead tr {
                          break-inside: avoid;
                          page-break-inside: avoid;
                      }
