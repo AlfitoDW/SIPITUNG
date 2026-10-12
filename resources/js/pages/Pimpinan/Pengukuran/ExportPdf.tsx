@@ -5,11 +5,15 @@ import { SkeletonPageHeader, SkeletonTable } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { useNavigationLoading } from '@/hooks/use-navigation-loading';
 
-type TimKerja  = { id: number; nama: string };
+type TimKerja = { id: number; nama: string };
 type MatrixRow = {
-    sasaran_kode: string; sasaran_nama: string;
-    iku_kode: string; iku_nama: string;
-    iku_satuan: string; iku_target: string; iku_target_tw: string | null;
+    sasaran_kode: string;
+    sasaran_nama: string;
+    iku_kode: string;
+    iku_nama: string;
+    iku_satuan: string;
+    iku_target: string;
+    iku_target_tw: string | null;
     pic_tim_kerjas: TimKerja[];
     input_by_tim_kerja: TimKerja | null;
     realisasi: string | null;
@@ -24,8 +28,8 @@ type LaporanItem = {
     approved_at: string | null;
 };
 type Periode = { id: number; triwulan: string };
-type Tahun   = { id: number; tahun: number; label: string };
-type Props   = {
+type Tahun = { id: number; tahun: number; label: string };
+type Props = {
     tahun: Tahun;
     periode: Periode;
     matrix: MatrixRow[];
@@ -34,7 +38,10 @@ type Props   = {
 };
 
 const TW_LABELS: Record<string, string> = {
-    TW1: 'Triwulan I', TW2: 'Triwulan II', TW3: 'Triwulan III', TW4: 'Triwulan IV',
+    TW1: 'Triwulan I',
+    TW2: 'Triwulan II',
+    TW3: 'Triwulan III',
+    TW4: 'Triwulan IV',
 };
 
 type SasaranGroup = { kode: string; nama: string; rows: MatrixRow[] };
@@ -46,7 +53,11 @@ function groupBySasaran(rows: MatrixRow[]): SasaranGroup[] {
         if (last && last.kode === row.sasaran_kode) {
             last.rows.push(row);
         } else {
-            groups.push({ kode: row.sasaran_kode, nama: row.sasaran_nama, rows: [row] });
+            groups.push({
+                kode: row.sasaran_kode,
+                nama: row.sasaran_nama,
+                rows: [row],
+            });
         }
     }
     return groups;
@@ -54,7 +65,10 @@ function groupBySasaran(rows: MatrixRow[]): SasaranGroup[] {
 
 // ─── Inline styles ────────────────────────────────────────────────────────────
 
-const docFont: React.CSSProperties = { fontFamily: '"Times New Roman", Times, serif', fontSize: '11pt' };
+const docFont: React.CSSProperties = {
+    fontFamily: '"Times New Roman", Times, serif',
+    fontSize: '11pt',
+};
 
 const tdBase: React.CSSProperties = {
     ...docFont,
@@ -62,7 +76,11 @@ const tdBase: React.CSSProperties = {
     padding: '5px 7px',
     verticalAlign: 'top',
 };
-const tdCenter: React.CSSProperties = { ...tdBase, textAlign: 'center', verticalAlign: 'middle' };
+const tdCenter: React.CSSProperties = {
+    ...tdBase,
+    textAlign: 'center',
+    verticalAlign: 'middle',
+};
 const thBase: React.CSSProperties = {
     ...docFont,
     border: '1px solid #000',
@@ -82,7 +100,8 @@ function PicNumbered({ pics }: { pics: TimKerja[] }) {
         <span style={{ ...docFont, fontSize: '9.5pt' }}>
             {pics.map((t, i) => (
                 <Fragment key={t.id}>
-                    {i + 1}. {t.nama}{i < pics.length - 1 ? <br /> : null}
+                    {i + 1}. {t.nama}
+                    {i < pics.length - 1 ? <br /> : null}
                 </Fragment>
             ))}
         </span>
@@ -91,9 +110,14 @@ function PicNumbered({ pics }: { pics: TimKerja[] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function ExportPdf({ tahun, periode, matrix, rekomendasi_pimpinan }: Props) {
-    const groups   = groupBySasaran(matrix);
-    const twLabel  = TW_LABELS[periode.triwulan] ?? periode.triwulan;
+export default function ExportPdf({
+    tahun,
+    periode,
+    matrix,
+    rekomendasi_pimpinan,
+}: Props) {
+    const groups = groupBySasaran(matrix);
+    const twLabel = TW_LABELS[periode.triwulan] ?? periode.triwulan;
     let no = 1;
     const isLoading = useNavigationLoading();
 
@@ -107,238 +131,606 @@ export default function ExportPdf({ tahun, periode, matrix, rekomendasi_pimpinan
                 </div>
             ) : (
                 <>
-            {/* ─── Screen toolbar ───────────────────────────────────── */}
-            <div className="flex flex-col items-end gap-2 p-4 print:hidden">
-                <Button
-                    onClick={() => {
-                        const prev = document.title;
-                        document.title = '';
-                        window.print();
-                        document.title = prev;
-                    }}
-                    className="gap-2"
-                >
-                    <Printer className="h-4 w-4" /> Cetak / Simpan PDF
-                </Button>
-                <p className="text-muted-foreground text-xs">
-                    Jika masih muncul URL di header/footer, nonaktifkan opsi <strong>Headers and footers</strong> di dialog cetak browser.
-                </p>
-            </div>
+                    {/* ─── Screen toolbar ───────────────────────────────────── */}
+                    <div className="flex flex-col items-end gap-2 p-4 print:hidden">
+                        <Button
+                            onClick={() => {
+                                const prev = document.title;
+                                document.title = '';
+                                window.print();
+                                document.title = prev;
+                            }}
+                            className="gap-2"
+                        >
+                            <Printer className="h-4 w-4" /> Cetak / Simpan PDF
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                            Jika masih muncul URL di header/footer, nonaktifkan
+                            opsi <strong>Headers and footers</strong> di dialog
+                            cetak browser.
+                        </p>
+                    </div>
 
-            {/* ─── Document ─────────────────────────────────────────── */}
-            <div id="print-wrapper" style={{ ...docFont, maxWidth: '794px', margin: '0 auto', padding: '24px 32px', backgroundColor: '#fff' }}>
+                    {/* ─── Document ─────────────────────────────────────────── */}
+                    <div
+                        id="print-wrapper"
+                        className="pdf-document pdf-document-a4"
+                        style={{ ...docFont, backgroundColor: '#fff' }}
+                    >
+                        {/* ── Kop Surat ──────────────────────────────────────── */}
+                        <div
+                            style={{
+                                textAlign: 'center',
+                                marginBottom: '16px',
+                                paddingBottom: '12px',
+                                borderBottom: '3px solid #000',
+                            }}
+                        >
+                            <img
+                                src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
+                                alt="Logo Kemendikti"
+                                style={{
+                                    width: '90px',
+                                    height: '90px',
+                                    objectFit: 'contain',
+                                    display: 'block',
+                                    margin: '0 auto 8px',
+                                }}
+                            />
+                            <p
+                                style={{
+                                    margin: 0,
+                                    fontSize: '11pt',
+                                    fontWeight: 'bold',
+                                }}
+                            >
+                                Kementerian Pendidikan Tinggi, Sains, dan
+                                Teknologi
+                            </p>
+                            <p
+                                style={{
+                                    margin: '2px 0 0',
+                                    fontSize: '11pt',
+                                    fontWeight: 'bold',
+                                }}
+                            >
+                                Lembaga Layanan Pendidikan Tinggi Wilayah III
+                                DKI Jakarta
+                            </p>
+                        </div>
 
-                {/* ── Kop Surat ──────────────────────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '3px solid #000' }}>
-                    <img
-                        src="/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg"
-                        alt="Logo Kemendikti"
-                        style={{ width: '90px', height: '90px', objectFit: 'contain', display: 'block', margin: '0 auto 8px' }}
-                    />
-                    <p style={{ margin: 0, fontSize: '11pt', fontWeight: 'bold' }}>Kementerian Pendidikan Tinggi, Sains, dan Teknologi</p>
-                    <p style={{ margin: '2px 0 0', fontSize: '11pt', fontWeight: 'bold' }}>Lembaga Layanan Pendidikan Tinggi Wilayah III DKI Jakarta</p>
-                </div>
+                        {/* ── Judul ──────────────────────────────────────────── */}
+                        <div
+                            style={{
+                                textAlign: 'center',
+                                marginBottom: '16px',
+                            }}
+                        >
+                            <p
+                                style={{
+                                    ...docFont,
+                                    fontWeight: 'bold',
+                                    fontSize: '12pt',
+                                    margin: 0,
+                                }}
+                            >
+                                Laporan Kinerja {twLabel}
+                            </p>
+                            <p
+                                style={{
+                                    ...docFont,
+                                    fontWeight: 'bold',
+                                    fontSize: '12pt',
+                                    margin: '2px 0 0',
+                                }}
+                            >
+                                Lembaga Layanan Pendidikan Tinggi Wilayah III
+                                DKI Jakarta
+                            </p>
+                            <p
+                                style={{
+                                    ...docFont,
+                                    fontSize: '12pt',
+                                    margin: '2px 0 0',
+                                }}
+                            >
+                                Tahun {tahun.tahun}
+                            </p>
+                        </div>
 
-                {/* ── Judul ──────────────────────────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    <p style={{ ...docFont, fontWeight: 'bold', fontSize: '12pt', margin: 0 }}>
-                        Laporan Kinerja {twLabel}
-                    </p>
-                    <p style={{ ...docFont, fontWeight: 'bold', fontSize: '12pt', margin: '2px 0 0' }}>
-                        Lembaga Layanan Pendidikan Tinggi Wilayah III DKI Jakarta
-                    </p>
-                    <p style={{ ...docFont, fontSize: '12pt', margin: '2px 0 0' }}>Tahun {tahun.tahun}</p>
-                </div>
-
-                {/* ── Kalimat pengantar ──────────────────────────────── */}
-                <p style={{ ...docFont, textAlign: 'justify', marginBottom: '16px' }}>
-                    Berikut ini kami sampaikan hasil capaian kinerja pada Lembaga Layanan Pendidikan Tinggi
-                    Wilayah III DKI Jakarta selama {twLabel} tahun {tahun.tahun}.
-                </p>
-
-                {/* ══════════════════════════════════════════════════════
-                    A. Progress Capaian Kinerja
-                ══════════════════════════════════════════════════════ */}
-                <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '6px' }}>A. Progress Capaian Kinerja</p>
-
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-                    <thead>
-                        <tr>
-                            <th rowSpan={2} style={{ ...thBase, width: '26px' }}>No</th>
-                            <th rowSpan={2} style={{ ...thBase, textAlign: 'left' }}>Sasaran / Indikator Kinerja</th>
-                            <th rowSpan={2} style={{ ...thBase, width: '55px' }}>Target PK</th>
-                            <th rowSpan={2} style={{ ...thBase, width: '48px' }}>Satuan</th>
-                            <th colSpan={2} style={{ ...thBase }}>{twLabel}</th>
-                            <th rowSpan={2} style={{ ...thBase, width: '90px' }}>PIC Tim Kerja</th>
-                        </tr>
-                        <tr>
-                            <th style={{ ...thBase, width: '52px', fontSize: '9.5pt' }}>Target</th>
-                            <th style={{ ...thBase, width: '52px', fontSize: '9.5pt' }}>Realisasi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {groups.map(group => (
-                            <Fragment key={group.kode}>
-                                {/* ─ Sasaran header row ─ */}
-                                <tr>
-                                    <td colSpan={7} style={{
-                                        ...tdBase,
-                                        fontWeight: 'bold',
-                                        backgroundColor: '#fff',
-                                    }}>
-                                        [{group.kode}] {group.nama}
-                                    </td>
-                                </tr>
-                                {/* ─ IKU rows ─ */}
-                                {group.rows.map(row => {
-                                    const currentNo = no++;
-                                    return (
-                                        <tr key={row.iku_kode}>
-                                            <td style={tdCenter}>{currentNo}</td>
-                                            <td style={{ ...tdBase, paddingLeft: '16px' }}>
-                                                [{row.iku_kode}] {row.iku_nama}
-                                            </td>
-                                            <td style={tdCenter}>{row.iku_target}</td>
-                                            <td style={tdCenter}>{row.iku_satuan}</td>
-                                            <td style={tdCenter}>{row.iku_target_tw ?? '—'}</td>
-                                            <td style={{
-                                                ...tdCenter,
-                                                fontWeight: row.realisasi ? 'bold' : 'normal',
-                                                color: row.realisasi ? '#000' : '#6b7280',
-                                            }}>
-                                                {row.realisasi ?? '—'}
-                                            </td>
-                                            <td style={{ ...tdBase, fontSize: '9.5pt' }}>
-                                                <PicNumbered pics={row.pic_tim_kerjas} />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </Fragment>
-                        ))}
-                    </tbody>
-                </table>
-
-                {/* ══════════════════════════════════════════════════════
-                    B. Analisis Hasil Capaian Kinerja
-                ══════════════════════════════════════════════════════ */}
-                <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '10px' }}>B. Analisis Hasil Capaian Kinerja</p>
-
-                {groups.map(group => (
-                    <div key={group.kode} style={{ marginBottom: '8px' }}>
-                        {/* ── Sasaran heading ── */}
-                        <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '4px' }}>
-                            [{group.kode}] {group.nama}
+                        {/* ── Kalimat pengantar ──────────────────────────────── */}
+                        <p
+                            style={{
+                                ...docFont,
+                                textAlign: 'justify',
+                                marginBottom: '16px',
+                            }}
+                        >
+                            Berikut ini kami sampaikan hasil capaian kinerja
+                            pada Lembaga Layanan Pendidikan Tinggi Wilayah III
+                            DKI Jakarta selama {twLabel} tahun {tahun.tahun}.
                         </p>
 
-                        {group.rows.map(row => (
-                            <div key={row.iku_kode} style={{ marginBottom: '16px', paddingLeft: '12px' }}>
-                                {/* IKU heading */}
-                                <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '8px' }}>
-                                    [{row.iku_kode}] {row.iku_nama}
+                        {/* ══════════════════════════════════════════════════════
+                    A. Progress Capaian Kinerja
+                ══════════════════════════════════════════════════════ */}
+                        <p
+                            style={{
+                                ...docFont,
+                                fontWeight: 'bold',
+                                marginBottom: '6px',
+                            }}
+                        >
+                            A. Progress Capaian Kinerja
+                        </p>
+
+                        <table
+                            className="pdf-table"
+                            style={{
+                                width: '100%',
+                                borderCollapse: 'collapse',
+                                marginBottom: '20px',
+                            }}
+                        >
+                            <thead>
+                                <tr>
+                                    <th
+                                        rowSpan={2}
+                                        style={{ ...thBase, width: '26px' }}
+                                    >
+                                        No
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        style={{ ...thBase, textAlign: 'left' }}
+                                    >
+                                        Sasaran / Indikator Kinerja
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        style={{ ...thBase, width: '55px' }}
+                                    >
+                                        Target PK
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        style={{ ...thBase, width: '48px' }}
+                                    >
+                                        Satuan
+                                    </th>
+                                    <th colSpan={2} style={{ ...thBase }}>
+                                        {twLabel}
+                                    </th>
+                                    <th
+                                        rowSpan={2}
+                                        style={{ ...thBase, width: '90px' }}
+                                    >
+                                        PIC Tim Kerja
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th
+                                        style={{
+                                            ...thBase,
+                                            width: '52px',
+                                            fontSize: '9.5pt',
+                                        }}
+                                    >
+                                        Target
+                                    </th>
+                                    <th
+                                        style={{
+                                            ...thBase,
+                                            width: '52px',
+                                            fontSize: '9.5pt',
+                                        }}
+                                    >
+                                        Realisasi
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {groups.map((group) => (
+                                    <Fragment key={group.kode}>
+                                        {/* ─ Sasaran header row ─ */}
+                                        <tr>
+                                            <td
+                                                colSpan={7}
+                                                style={{
+                                                    ...tdBase,
+                                                    fontWeight: 'bold',
+                                                    backgroundColor: '#fff',
+                                                }}
+                                            >
+                                                [{group.kode}] {group.nama}
+                                            </td>
+                                        </tr>
+                                        {/* ─ IKU rows ─ */}
+                                        {group.rows.map((row) => {
+                                            const currentNo = no++;
+                                            return (
+                                                <tr key={row.iku_kode}>
+                                                    <td style={tdCenter}>
+                                                        {currentNo}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            ...tdBase,
+                                                            paddingLeft: '16px',
+                                                        }}
+                                                    >
+                                                        [{row.iku_kode}]{' '}
+                                                        {row.iku_nama}
+                                                    </td>
+                                                    <td style={tdCenter}>
+                                                        {row.iku_target}
+                                                    </td>
+                                                    <td style={tdCenter}>
+                                                        {row.iku_satuan}
+                                                    </td>
+                                                    <td style={tdCenter}>
+                                                        {row.iku_target_tw ??
+                                                            '—'}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            ...tdCenter,
+                                                            fontWeight:
+                                                                row.realisasi
+                                                                    ? 'bold'
+                                                                    : 'normal',
+                                                            color: row.realisasi
+                                                                ? '#000'
+                                                                : '#6b7280',
+                                                        }}
+                                                    >
+                                                        {row.realisasi ?? '—'}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            ...tdBase,
+                                                            fontSize: '9.5pt',
+                                                        }}
+                                                    >
+                                                        <PicNumbered
+                                                            pics={
+                                                                row.pic_tim_kerjas
+                                                            }
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {/* ══════════════════════════════════════════════════════
+                    B. Analisis Hasil Capaian Kinerja
+                ══════════════════════════════════════════════════════ */}
+                        <p
+                            style={{
+                                ...docFont,
+                                fontWeight: 'bold',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            B. Analisis Hasil Capaian Kinerja
+                        </p>
+
+                        {groups.map((group) => (
+                            <div
+                                key={group.kode}
+                                style={{ marginBottom: '8px' }}
+                            >
+                                {/* ── Sasaran heading ── */}
+                                <p
+                                    style={{
+                                        ...docFont,
+                                        fontWeight: 'bold',
+                                        marginBottom: '4px',
+                                    }}
+                                >
+                                    [{group.kode}] {group.nama}
                                 </p>
 
-                                {/* Progress/Kegiatan */}
-                                <p style={{ ...docFont, fontWeight: 'bold', margin: '0 0 2px' }}>Progress/Kegiatan</p>
-                                <p style={{ ...docFont, textAlign: 'justify', marginBottom: '8px', paddingLeft: '8px' }}>
-                                    {row.progress_kegiatan
-                                        ? row.progress_kegiatan
-                                        : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>—</span>
-                                    }
-                                </p>
+                                {group.rows.map((row) => (
+                                    <div
+                                        key={row.iku_kode}
+                                        style={{
+                                            marginBottom: '16px',
+                                            paddingLeft: '12px',
+                                        }}
+                                    >
+                                        {/* IKU heading */}
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                fontWeight: 'bold',
+                                                marginBottom: '8px',
+                                            }}
+                                        >
+                                            [{row.iku_kode}] {row.iku_nama}
+                                        </p>
 
-                                {/* Kendala/Permasalahan */}
-                                <p style={{ ...docFont, fontWeight: 'bold', margin: '0 0 2px' }}>Kendala/Permasalahan</p>
-                                <p style={{ ...docFont, textAlign: 'justify', marginBottom: '8px', paddingLeft: '8px' }}>
-                                    {row.kendala
-                                        ? row.kendala
-                                        : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>—</span>
-                                    }
-                                </p>
+                                        {/* Progress/Kegiatan */}
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                fontWeight: 'bold',
+                                                margin: '0 0 2px',
+                                            }}
+                                        >
+                                            Progress/Kegiatan
+                                        </p>
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                textAlign: 'justify',
+                                                marginBottom: '8px',
+                                                paddingLeft: '8px',
+                                            }}
+                                        >
+                                            {row.progress_kegiatan ? (
+                                                row.progress_kegiatan
+                                            ) : (
+                                                <span
+                                                    style={{
+                                                        color: '#9ca3af',
+                                                        fontStyle: 'italic',
+                                                    }}
+                                                >
+                                                    —
+                                                </span>
+                                            )}
+                                        </p>
 
-                                {/* Strategi/Tindak Lanjut */}
-                                <p style={{ ...docFont, fontWeight: 'bold', margin: '0 0 2px' }}>Strategi/Tindak Lanjut</p>
-                                <p style={{ ...docFont, textAlign: 'justify', marginBottom: '0', paddingLeft: '8px' }}>
-                                    {row.strategi_tindak_lanjut
-                                        ? row.strategi_tindak_lanjut
-                                        : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>—</span>
-                                    }
-                                </p>
+                                        {/* Kendala/Permasalahan */}
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                fontWeight: 'bold',
+                                                margin: '0 0 2px',
+                                            }}
+                                        >
+                                            Kendala/Permasalahan
+                                        </p>
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                textAlign: 'justify',
+                                                marginBottom: '8px',
+                                                paddingLeft: '8px',
+                                            }}
+                                        >
+                                            {row.kendala ? (
+                                                row.kendala
+                                            ) : (
+                                                <span
+                                                    style={{
+                                                        color: '#9ca3af',
+                                                        fontStyle: 'italic',
+                                                    }}
+                                                >
+                                                    —
+                                                </span>
+                                            )}
+                                        </p>
+
+                                        {/* Strategi/Tindak Lanjut */}
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                fontWeight: 'bold',
+                                                margin: '0 0 2px',
+                                            }}
+                                        >
+                                            Strategi/Tindak Lanjut
+                                        </p>
+                                        <p
+                                            style={{
+                                                ...docFont,
+                                                textAlign: 'justify',
+                                                marginBottom: '0',
+                                                paddingLeft: '8px',
+                                            }}
+                                        >
+                                            {row.strategi_tindak_lanjut ? (
+                                                row.strategi_tindak_lanjut
+                                            ) : (
+                                                <span
+                                                    style={{
+                                                        color: '#9ca3af',
+                                                        fontStyle: 'italic',
+                                                    }}
+                                                >
+                                                    —
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         ))}
-                    </div>
-                ))}
 
-                {/* ══════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════
                     C. Rekomendasi Pimpinan
                 ══════════════════════════════════════════════════════ */}
-                <div style={{ marginTop: '24px' }}>
-                    <p style={{ ...docFont, fontWeight: 'bold', marginBottom: '8px' }}>C. Rekomendasi Pimpinan</p>
+                        <div style={{ marginTop: '24px' }}>
+                            <p
+                                style={{
+                                    ...docFont,
+                                    fontWeight: 'bold',
+                                    marginBottom: '8px',
+                                }}
+                            >
+                                C. Rekomendasi Pimpinan
+                            </p>
 
-                    {/* Display rekomendasi from server */}
-                    <div style={{ ...docFont, paddingLeft: '8px', minHeight: '80px' }}>
-                        {rekomendasi_pimpinan
-                            ? rekomendasi_pimpinan.split('\n').map((line, i) => (
-                                <p key={i} style={{ margin: '0 0 4px' }}>{line || <br />}</p>
-                            ))
-                            : (
-                                // When not yet filled: show placeholder on screen, dotted lines for print
-                                <>
-                                    <p style={{ color: '#9ca3af', fontStyle: 'italic' }} className="print:hidden">
-                                        (belum diisi — isi di halaman Pengukuran Kinerja)
-                                    </p>
-                                    <div className="hidden print:block">
-                                        {[1, 2, 3, 4, 5].map(i => (
-                                            <p key={i} style={{ margin: '0 0 14px', borderBottom: '1px dotted #999', width: '100%' }}>&nbsp;</p>
-                                        ))}
-                                    </div>
-                                </>
-                            )
-                        }
-                    </div>
-                </div>
+                            {/* Display rekomendasi from server */}
+                            <div
+                                style={{
+                                    ...docFont,
+                                    paddingLeft: '8px',
+                                    minHeight: '80px',
+                                }}
+                            >
+                                {rekomendasi_pimpinan ? (
+                                    rekomendasi_pimpinan
+                                        .split('\n')
+                                        .map((line, i) => (
+                                            <p
+                                                key={i}
+                                                style={{ margin: '0 0 4px' }}
+                                            >
+                                                {line || <br />}
+                                            </p>
+                                        ))
+                                ) : (
+                                    // When not yet filled: show placeholder on screen, dotted lines for print
+                                    <>
+                                        <p
+                                            style={{
+                                                color: '#9ca3af',
+                                                fontStyle: 'italic',
+                                            }}
+                                            className="print:hidden"
+                                        >
+                                            (belum diisi — isi di halaman
+                                            Pengukuran Kinerja)
+                                        </p>
+                                        <div className="hidden print:block">
+                                            {[1, 2, 3, 4, 5].map((i) => (
+                                                <p
+                                                    key={i}
+                                                    style={{
+                                                        margin: '0 0 14px',
+                                                        borderBottom:
+                                                            '1px dotted #999',
+                                                        width: '100%',
+                                                    }}
+                                                >
+                                                    &nbsp;
+                                                </p>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
 
-                {/* ══════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════
                     Tanda Tangan
                 ══════════════════════════════════════════════════════ */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '40px' }}>
-                    <tbody>
-                        <tr>
-                            <td style={{ ...docFont, width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '4px' }}>
-                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Kepala LLDIKTI Wilayah III</p>
-                                <div style={{ height: '64px' }}></div>
-                                <p style={{ margin: 0 }}>(__________________________)</p>
-                            </td>
-                            <td style={{ ...docFont, width: '50%', textAlign: 'center', verticalAlign: 'top', padding: '4px' }}>
-                                <p style={{ margin: 0 }}>Jakarta, ___________________</p>
-                                <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>Mengetahui</p>
-                                <div style={{ height: '64px' }}></div>
-                                <p style={{ margin: 0 }}>(__________________________)</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                        <table
+                            className="pdf-signature"
+                            style={{
+                                width: '100%',
+                                borderCollapse: 'collapse',
+                                marginTop: '40px',
+                            }}
+                        >
+                            <tbody>
+                                <tr>
+                                    <td
+                                        style={{
+                                            ...docFont,
+                                            width: '50%',
+                                            textAlign: 'center',
+                                            verticalAlign: 'top',
+                                            padding: '4px',
+                                        }}
+                                    >
+                                        <p
+                                            style={{
+                                                margin: '2px 0 0',
+                                                fontWeight: 'bold',
+                                            }}
+                                        >
+                                            Kepala LLDIKTI Wilayah III
+                                        </p>
+                                        <div style={{ height: '64px' }}></div>
+                                        <p style={{ margin: 0 }}>
+                                            (__________________________)
+                                        </p>
+                                    </td>
+                                    <td
+                                        style={{
+                                            ...docFont,
+                                            width: '50%',
+                                            textAlign: 'center',
+                                            verticalAlign: 'top',
+                                            padding: '4px',
+                                        }}
+                                    >
+                                        <p style={{ margin: 0 }}>
+                                            Jakarta, ___________________
+                                        </p>
+                                        <p
+                                            style={{
+                                                margin: '2px 0 0',
+                                                fontWeight: 'bold',
+                                            }}
+                                        >
+                                            Mengetahui
+                                        </p>
+                                        <div style={{ height: '64px' }}></div>
+                                        <p style={{ margin: 0 }}>
+                                            (__________________________)
+                                        </p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-            <style>{`
+                    <style>{`
                 @media print {
-                    @page {
-                        size: A4 portrait;
-                        margin: 0;
-                    }
-                    body {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    /* Beri padding pada konten agar tidak mepet tepi */
-                    #print-wrapper {
-                        padding: 1.5cm 1.8cm;
-                    }
+                     @page {
+                         size: A4 portrait;
+                         margin: 15mm;
+                     }
+                     html, body {
+                         margin: 0 !important;
+                         padding: 0 !important;
+                         background: #fff !important;
+                     }
+                     body {
+                         -webkit-print-color-adjust: exact;
+                         print-color-adjust: exact;
+                     }
+                     #print-wrapper {
+                         width: auto !important;
+                         max-width: none !important;
+                         margin: 0 !important;
+                         padding: 0 !important;
+                     }
+                     .pdf-table {
+                         width: 100% !important;
+                         table-layout: fixed;
+                     }
+                     .pdf-table thead {
+                         display: table-header-group;
+                     }
+                     .pdf-table tr {
+                         break-inside: avoid;
+                         page-break-inside: avoid;
+                     }
+                     .pdf-table th,
+                     .pdf-table td {
+                         overflow-wrap: anywhere;
+                         word-break: normal;
+                     }
+                     .pdf-signature {
+                         break-inside: avoid;
+                         page-break-inside: avoid;
+                     }
                     .print\\:hidden { display: none !important; }
                     .hidden.print\\:block { display: block !important; }
                 }
             `}</style>
-            </>
+                </>
             )}
         </>
     );
