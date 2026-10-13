@@ -130,7 +130,12 @@ class PengukuranController extends Controller
         $data = $request->validate([
             'indikator_kinerja_id' => ['required', 'integer', 'exists:indikator_kinerja,id'],
             'periode_pengukuran_id' => ['required', 'integer', 'exists:periode_pengukuran,id'],
-            'realisasi' => ['required', 'string', 'max:100'],
+            'realisasi' => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^\d+(\.\d+)?$/',
+            ],
             'progress_kegiatan' => ['nullable', 'string'],
             'kendala' => ['nullable', 'string'],
             'strategi_tindak_lanjut' => ['nullable', 'string'],

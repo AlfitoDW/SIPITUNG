@@ -783,13 +783,18 @@ export default function ExportPdf({
                      .pdf-progress-table th:nth-child(7),
                      .pdf-progress-table td:nth-child(7) { width: 14%; }
                      .pdf-analysis-group,
-                     .pdf-analysis-item,
                      .pdf-recommendation {
-                         break-inside: avoid;
-                         page-break-inside: avoid;
+                         break-inside: auto;
+                         page-break-inside: auto;
                      }
                      .pdf-analysis-item {
+                         break-inside: auto;
+                         page-break-inside: auto;
                          margin-bottom: 12px !important;
+                     }
+                     .pdf-analysis-item > p {
+                         orphans: 3;
+                         widows: 3;
                      }
                     .print\\:hidden { display: none !important; }
                     .hidden.print\\:block { display: block !important; }
