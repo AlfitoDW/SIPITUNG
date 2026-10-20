@@ -274,7 +274,7 @@ function RealisasiDialog({
                         <Label>Realisasi ({iku.iku_satuan})</Label>
                         <Input
                             inputMode="decimal"
-                            pattern="[0-9]+(\\.[0-9]+)?"
+                            pattern="[0-9]+(\.[0-9]+)?"
                             placeholder={
                                 (iku.iku_target_tw ?? iku.iku_target)
                                     ? `Contoh: ${toCommaDisplay(iku.iku_target_tw ?? iku.iku_target)}`
